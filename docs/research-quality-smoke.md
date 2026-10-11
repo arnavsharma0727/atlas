@@ -16,6 +16,8 @@ Production follow-up: 2026-10-11 09:54 UTC, commit `84fdd4d`. The 25-check produ
 
 Stocktwits access review: 2026-10-11. The operator's developer page says new API registrations are not being accepted during its API review, and its current terms prohibit automated extraction except through written authorization or an approved API/developer offering. Atlas does not scrape the site or use an unapproved endpoint. This rules out adding Stocktwits under the present no-signup/no-cost scope; it does not establish that the platform has no relevant discussion.
 
+YouTube Data API policy screen: 2026-10-11. Google's official docs describe a default 100 `search.list` calls/day quota and policies requiring YouTube data to be clearly distinguished from other platform data; policies also restrict compiling/aggregating API data except in limited cases. Because Atlas's product value is the cross-source comparison and combined evidence summary, this is not a drop-in permitted source absent a policy/compliance determination. No API key or Cloud project was created. References: [quota](https://developers.google.com/youtube/v3/getting-started), [developer policy guide](https://developers.google.com/youtube/terms/developer-policies-guide).
+
 Settled production recheck: 2026-10-11, after commit `3bd978f` deployed. The production verifier passed 25/25 checks. OpenAlex returned HTTP 200 with a valid empty result set; Crossref returned 12 metadata records and arXiv returned 10. This follow-up does not erase the preceding transient OpenAlex 503 or certify stable provider availability, query recall, summary accuracy, or representativeness.
 
 ## Live public API sample
