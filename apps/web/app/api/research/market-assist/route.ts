@@ -14,7 +14,7 @@ const WINDOW_MS = 60_000;
 // three complete searches per minute without leaving the second search broken.
 const MAX_PER_WINDOW = 6;
 
-/** Optional Groq Free-tier bridge. No model request is made unless explicitly enabled server-side and consented in the browser. */
+/** Groq bridge for user-submitted searches. Server-side enablement and private credentials are still required. */
 export async function POST(request: NextRequest) {
   if (process.env.GROQ_FREE_TIER_ENABLED !== "true" || !process.env.GROQ_API_KEY) {
     return json({ mode: "unavailable" }, 503);
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return json({ error: "Invalid request" }, 400);
     body = parsed as Record<string, unknown>;
   } catch { return json({ error: "Invalid JSON" }, 400); }
-  if (body.aiConsent !== true) return json({ error: "Explicit AI-data consent is required" }, 403);
+  if (body.aiEnabled !== true) return json({ error: "AI must be requested by a search action" }, 403);
   const topic = typeof body.topic === "string" ? body.topic.trim() : "";
   if (topic.length < 2 || topic.length > 100) return json({ error: "Topic must be 2–100 characters" }, 400);
   let country;

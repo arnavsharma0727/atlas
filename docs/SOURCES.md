@@ -15,7 +15,7 @@ The form compares an English-language baseline with one selected country/languag
 
 Hacker News is retired from visitor search while content display/reuse review is unresolved. Stack Exchange, Wikimedia talk pages, and scheduled feeds shown in operational health are not automatically included in this search.
 
-AI translation and summaries are off by default and require explicit visitor opt-in plus server configuration. The code does not verify an account's Groq billing status; operators must independently confirm free-tier eligibility and must not enable paid billing for Atlas. If no confirmed free access is available, leave AI disabled. Only the topic and up to 16 short excerpts are sent, without source URLs or author handles. Groq's [data handling](https://console.groq.com/docs/your-data) and [billing FAQ](https://console.groq.com/docs/billing-faqs) apply; see Atlas's [privacy notice](https://signal-scout-xi-ruby.vercel.app/privacy).
+AI translation and summaries are attempted automatically when a visitor submits a search; the search page discloses that the topic and up to 16 short excerpts are sent to Groq, without source URLs or author handles. Server configuration (`GROQ_FREE_TIER_ENABLED=true` and a private key) is still required. The code does not verify an account's Groq billing status; operators must independently confirm free-tier eligibility and must not enable paid billing for Atlas. Groq's free availability and rate limits are not guaranteed by Atlas. Groq's [data handling](https://console.groq.com/docs/your-data) and [billing FAQ](https://console.groq.com/docs/billing-faqs) apply; see Atlas's [privacy notice](https://signal-scout-xi-ruby.vercel.app/privacy).
 
 ## Operational ingestion is separate
 

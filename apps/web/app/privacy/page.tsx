@@ -32,11 +32,11 @@ export default function Privacy() {
               practices. Atlas does not control their retention.
             </p>
             <p>
-              Only when a visitor checks the optional AI box, Atlas sends the
-              topic and up to 16 short public-source excerpts (without source
-              URLs or author handles) to Groq for translation and summary.
-              This feature requires a server-side Groq API key and a server
-              configuration explicitly marked free-tier; Atlas does not
+              When a visitor submits a search, Atlas automatically attempts
+              AI translation and a summary by sending the topic and up to 16
+              short public-source excerpts (without source URLs or author
+              handles) to Groq. This feature requires a server-side Groq API
+              key and a server configuration explicitly marked free-tier; Atlas does not
               upgrade an account or add billing details. The free-tier status
               must be confirmed by the project operator in Groq settings.
               Groq says prompts are not retained by default for inference, but

@@ -21,17 +21,17 @@ describe("free-tier market assist", () => {
   it("does not call an AI provider unless explicitly enabled server-side", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
-    const response = await POST(makeRequest({ action: "summarize", topic: "semiconductors", country: "KR", aiConsent: true, evidence: { us: [], local: [] } }));
+    const response = await POST(makeRequest({ action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true, evidence: { us: [], local: [] } }));
     expect(response.status).toBe(503);
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("requires explicit visitor consent before sending data to Groq", async () => {
+  it("requires an explicit AI request from the search workflow", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
-    const response = await POST(makeRequest({ action: "prepare", topic: "semiconductors", country: "KR", aiConsent: false }));
+    const response = await POST(makeRequest({ action: "prepare", topic: "semiconductors", country: "KR", aiEnabled: false }));
     expect(response.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -51,7 +51,7 @@ describe("free-tier market assist", () => {
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
-      action: "summarize", topic: "semiconductors", country: "KR", aiConsent: true,
+      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
       evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "Export comments", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
@@ -66,7 +66,7 @@ describe("free-tier market assist", () => {
       comparison: "No comparison.", comparisonCitations: [], limitations: [],
     }) } }] }), { status: 200 })));
     const response = await POST(makeRequest({
-      action: "summarize", topic: "semiconductors", country: "KR", aiConsent: true,
+      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
       evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Text", language: "en" }], local: [] },
     }));
     expect(response.status).toBe(503);

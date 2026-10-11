@@ -23,7 +23,6 @@ export default function ResearchSweep({
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [aiConsent, setAiConsent] = useState(false);
   const citationIds = buildCitationIds(results);
   const country = marketCountry(countryCode);
 
@@ -31,31 +30,14 @@ export default function ResearchSweep({
     if (initialTopic) setQuery(initialTopic);
   }, [initialTopic]);
 
-  useEffect(() => {
-    try {
-      setAiConsent(window.sessionStorage.getItem("atlas-ai-summary-opt-in-v1") === "true");
-    } catch {
-      // Keep AI summaries opt-in when browser storage is unavailable.
-    }
-  }, []);
-
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading) return;
     const topic = query.trim();
-    void search(topic, aiConsent);
+    void search(topic);
   }
 
-  function changeAiConsent(enabled: boolean) {
-    setAiConsent(enabled);
-    try {
-      window.sessionStorage.setItem("atlas-ai-summary-opt-in-v1", String(enabled));
-    } catch {
-      // The choice still applies to this page session.
-    }
-  }
-
-  async function search(topic: string, allowAi: boolean) {
+  async function search(topic: string) {
     setLoading(true);
     setSearched(true);
     setSummary(null);
@@ -64,9 +46,7 @@ export default function ResearchSweep({
     onSearchTopic(topic);
 
     try {
-      const preparation = allowAi
-        ? await requestMarketAssist({ action: "prepare", topic, country: countryCode, aiConsent: true })
-        : { query: topic, hashtags: [hashtagFromTopic(topic)], mode: "english-fallback", summary: null };
+      const preparation = await requestMarketAssist({ action: "prepare", topic, country: countryCode, aiEnabled: true });
       const localQuery = preparation.query || topic;
       const localHashtags = (preparation.hashtags.length ? preparation.hashtags : [hashtagFromTopic(localQuery)]).filter(Boolean);
       const allLemmy = LEMMY_INSTANCES.map(({ host }) => host);
@@ -122,15 +102,15 @@ export default function ResearchSweep({
         us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys),
         local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys),
       };
-      const generated = allowAi && (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
-        ? await requestMarketAssist({ action: "summarize", topic, country: countryCode, evidence: evidenceForAi, aiConsent: true })
+      const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
+        ? await requestMarketAssist({ action: "summarize", topic, country: countryCode, evidence: evidenceForAi, aiEnabled: true })
         : { mode: "unavailable", query: "", hashtags: [], summary: null };
       if (generated.mode === "ai" && generated.summary) {
         setSummary(countryCode === "US" ? sameCountrySummary(generated.summary) : generated.summary);
         setSummaryMode("ai");
       } else {
         setSummary(buildEvidenceSummary(evidenceForAi.us, evidenceForAi.local, country.name, countryCode === "US"));
-        setSummaryMode(allowAi ? "unavailable" : "evidence");
+        setSummaryMode("unavailable");
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The search could not be completed.");
@@ -167,11 +147,7 @@ export default function ResearchSweep({
 
       <p className="market-attribution">By: Arnav Sharma UVA30’</p>
       <div className="search-data-note">
-        <label className="search-ai-toggle">
-          <input type="checkbox" checked={aiConsent} onChange={(event) => changeAiConsent(event.target.checked)} />
-          <span>AI summary</span>
-        </label>
-        <span>{aiConsent ? "Topic goes to public search APIs. With AI on, the topic and up to 16 short excerpts also go to Groq for this session; source links and author handles are excluded. Enable only when the operator confirms free-tier access." : "Topic goes to public search APIs. AI is off; no search text or excerpts go to Groq. AI is session-only and should be enabled only when the operator confirms free-tier access."}</span>
+        <span>Search automatically creates an AI summary when available. The topic and up to 16 short public excerpts are sent to Groq; source links and author handles are excluded. AI may be unavailable if the operator has not enabled it or free usage limits are reached. <a href="/privacy">Privacy details</a>.</span>
         <nav className="search-policy-links" aria-label="Search and data policies">
           <a href="/sources">Sources</a><a href="/methodology">Methodology</a><a href="/privacy">Privacy</a>
         </nav>
@@ -235,7 +211,7 @@ export default function ResearchSweep({
   );
 }
 
-async function requestMarketAssist(input: { action: "prepare"; topic: string; country: string; aiConsent: true } | { action: "summarize"; topic: string; country: string; aiConsent: true; evidence: { us: ReturnType<typeof selectBalancedEvidence>; local: ReturnType<typeof selectBalancedEvidence> } }) {
+async function requestMarketAssist(input: { action: "prepare"; topic: string; country: string; aiEnabled: true } | { action: "summarize"; topic: string; country: string; aiEnabled: true; evidence: { us: ReturnType<typeof selectBalancedEvidence>; local: ReturnType<typeof selectBalancedEvidence> } }) {
   try {
     const response = await fetch("/api/research/market-assist", {
       method: "POST",
