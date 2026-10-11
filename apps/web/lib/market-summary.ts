@@ -467,12 +467,11 @@ export function normalizeMarketSummary(
       const numericTokens = extractNumericTokens(text);
       if (numericTokens.length && (!citedEvidence.length || numericTokens.some((token) =>
         !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return null;
-      const attributedText = /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(text)
-        ? text
-        : `The cited, unverified material says: ${text}`;
-      claims.push({ text: attributedText, citations });
+      claims.push({ text, citations });
     }
-    const text = claims.map(({ text: claimText }) => claimText).join(" ").slice(0, 900);
+    const claimText = claims.map(({ text: value }) => value).join(" ").slice(0, 900);
+    const allClaimsAttributed = claims.every(({ text: value }) => /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(value));
+    const text = allClaimsAttributed ? claimText : `The cited, unverified material says: ${claimText}`;
     const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))].slice(0, 8);
     return { text, citations };
   };
