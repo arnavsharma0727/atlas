@@ -238,7 +238,7 @@ export function normalizeMarketSummary(
 ): MarketSummary | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const passage = (key: string, allowed: Set<string>): SummaryPassage | null => {
+  const passage = (key: string, allowed: Set<string>, requireBothGroups = false): SummaryPassage | null => {
     const rawClaims = record[key];
     if (!Array.isArray(rawClaims) || rawClaims.length < 1 || rawClaims.length > 4) return null;
     const claims: Array<{ text: string; citations: string[] }> = [];
@@ -246,13 +246,14 @@ export function normalizeMarketSummary(
       if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return null;
       const claim = rawClaim as Record<string, unknown>;
       const text = typeof claim.text === "string" ? claim.text.trim().slice(0, 400) : "";
-      if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text)) return null;
+      if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text) || !isSingleSentence(text)) return null;
       const citations = Array.isArray(claim.citations)
         ? [...new Set(claim.citations.filter((id): id is string => typeof id === "string" && allowed.has(id)))].slice(0, 8)
         : [];
       // Reject the whole output if a factual claim is uncited or its cited IDs
       // do not resolve to evidence actually submitted for this summary.
       if (!citations.length) return null;
+      if (requireBothGroups && (!citations.some((id) => available.us.has(id)) || !citations.some((id) => available.local.has(id)))) return null;
       claims.push({ text, citations });
     }
     const text = claims.map(({ text: claimText }) => claimText).join(" ").slice(0, 900);
@@ -268,12 +269,16 @@ export function normalizeMarketSummary(
     ? passage("localClaims", available.local)
     : { text: "No text-bearing records were submitted for this selected language/community overview. Check source status below; this does not show that discussion is absent.", citations: [] };
   const comparison = available.us.size && available.local.size
-    ? passage("comparisonClaims", submittedIds)
+    ? passage("comparisonClaims", submittedIds, true)
     : { text: "A comparison is not available because one or both sides returned no text-bearing records. The available source results are not a like-for-like sample.", citations: [...submittedIds].slice(0, 4) };
   if (!usSummary || !localSummary || !comparison) return null;
 
-  const limitations = Array.isArray(record.limitations)
-    ? record.limitations.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0).slice(0, 4).map((entry) => entry.trim().slice(0, 220))
-    : [];
-  return { usSummary, localSummary, comparison, limitations };
+  // Model-generated limitations were uncited free text. The interface already
+  // renders deterministic, code-owned coverage caveats, so ignore this field.
+  return { usSummary, localSummary, comparison, limitations: [] };
+}
+
+function isSingleSentence(value: string): boolean {
+  const segments = new Intl.Segmenter(undefined, { granularity: "sentence" }).segment(value);
+  return [...segments].filter(({ segment }) => segment.trim().length > 0).length === 1;
 }

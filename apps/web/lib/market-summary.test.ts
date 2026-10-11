@@ -225,4 +225,32 @@ describe("market summary evidence contracts", () => {
     }, { us: new Set(["C1"]), local: new Set(["C2"]) });
     expect(summary).toBeNull();
   });
+
+  it("rejects multiple sentences hidden under one claim citation", () => {
+    const summary = normalizeMarketSummary({
+      usClaims: [{ text: "The sample mentions demand. It also alleges a supply shortage.", citations: ["C1"] }],
+      localClaims: [{ text: "Local evidence.", citations: ["C2"] }],
+      comparisonClaims: [{ text: "The samples differ.", citations: ["C1", "C2"] }],
+    }, { us: new Set(["C1"]), local: new Set(["C2"]) });
+    expect(summary).toBeNull();
+  });
+
+  it("requires each comparison claim to cite both submitted evidence groups", () => {
+    const summary = normalizeMarketSummary({
+      usClaims: [{ text: "Baseline evidence.", citations: ["C1"] }],
+      localClaims: [{ text: "Selected-lens evidence.", citations: ["C2"] }],
+      comparisonClaims: [{ text: "The samples diverge.", citations: ["C1"] }],
+    }, { us: new Set(["C1"]), local: new Set(["C2"]) });
+    expect(summary).toBeNull();
+  });
+
+  it("does not accept uncited model-authored limitations", () => {
+    const summary = normalizeMarketSummary({
+      usClaims: [{ text: "Baseline evidence.", citations: ["C1"] }],
+      localClaims: [{ text: "Selected-lens evidence.", citations: ["C2"] }],
+      comparisonClaims: [{ text: "The samples differ.", citations: ["C1", "C2"] }],
+      limitations: ["Unsupported claim about the data collection."],
+    }, { us: new Set(["C1"]), local: new Set(["C2"]) });
+    expect(summary?.limitations).toEqual([]);
+  });
 });
