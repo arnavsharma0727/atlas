@@ -270,16 +270,11 @@ describe("free-tier market assist", () => {
     expect(retryPrompt).not.toContain("C99");
   });
 
-  it("retries numeric social claims that are not explicitly attributed and labels the corrected figure unverified", async () => {
+  it("labels cited numeric social claims unverified when the model fails to attribute them", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
-    const fetch = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
         baselineClaims: [{ text: "Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"] }],
-        localClaims: [], comparisonClaims: [],
-      }) } }] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        baselineClaims: [{ text: "One unverified retrieved post claims a silicon wafer demand score of 65.6 in 2026-08.", citations: ["C1"] }],
         localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
@@ -289,11 +284,9 @@ describe("free-tier market assist", () => {
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: {
-      text: "One unverified retrieved post claims a silicon wafer demand score of 65.6 in 2026-08.", citations: ["C1"],
+      text: "One cited social post makes this unverified claim: Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"],
     } } });
-    expect(fetch).toHaveBeenCalledTimes(2);
-    const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
-    expect(retryPrompt).toContain("explicitly frame it as an unverified claim by the cited post/account");
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("rejects model passages with citations that were not included in the request", async () => {

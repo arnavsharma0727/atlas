@@ -413,7 +413,7 @@ describe("market summary evidence contracts", () => {
       us: new Set(["C1"]), local: new Set(),
       evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score 65.6."]]), local: new Map() },
     });
-    expect(unattributedNumber).toBeNull();
+    expect(unattributedNumber?.usSummary.text).toContain("One cited social post makes this unverified claim:");
 
     const unsupportedNumber = normalizeMarketSummary({
       baselineClaims: [{ text: "Silicon wafer demand score was 66.5 in 2026-08.", citations: ["C1"] }],

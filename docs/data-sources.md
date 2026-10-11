@@ -31,3 +31,7 @@ AI translation and summaries are attempted automatically when a visitor submits 
 ## Interpretation limits
 
 Neither the U.S./English baseline nor a selected country/language lens is a probability sample. Crossref and arXiv records are global literature context only and never count as U.S. or selected-country community views. Returned counts are not unique people, public sentiment, prevalence, attention, national opinion, investor positioning, or financial materiality. Platforms and communities differ in membership and ranking; federated instances may duplicate posts; hashtag search omits untagged posts; a translated search may alter meaning. Empty results do not establish absence. Use Atlas to discover and inspect original evidence, not as an investment recommendation.
+
+## Numeric claims in summaries
+
+Every number in a generated claim must occur in the excerpt(s) cited for that claim. If a number from a social post is present but the model does not clearly attribute it, Atlas deterministically labels it as an unverified claim from the cited post(s). This only checks that the figure appears in the submitted text; it does not verify units, definitions, provenance, accuracy, or truth. Inspect the original post and any linked primary source before relying on a figure.

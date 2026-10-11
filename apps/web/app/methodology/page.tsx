@@ -53,6 +53,14 @@ export default function Methodology() {
           ))}
         </div>
 
+        <p className="mt-5 max-w-4xl text-sm leading-6 text-muted">
+          Numbers in generated claims must appear in the cited excerpt. When a
+          social-post number is present but the model does not clearly attribute
+          it, Atlas labels it as an unverified claim from the cited post. This
+          checks textual consistency only; it does not verify the number, its
+          units, definition, provenance, or truth.
+        </p>
+
         <section className="mt-6 border-y border-line py-5">
           <h2 className="text-lg font-semibold">Coverage is incomplete by design</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-muted">

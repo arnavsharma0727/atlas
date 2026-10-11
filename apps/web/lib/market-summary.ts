@@ -483,7 +483,7 @@ export function normalizeMarketSummary(
     for (const rawClaim of rawClaims) {
       if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return null;
       const claim = rawClaim as Record<string, unknown>;
-      const text = typeof claim.text === "string" ? claim.text.trim().slice(0, 400) : "";
+      let text = typeof claim.text === "string" ? claim.text.trim().slice(0, 400) : "";
       if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text) || !isSingleSentence(text)) return null;
       const citations = Array.isArray(claim.citations)
         ? [...new Set(claim.citations.filter((id): id is string => typeof id === "string" && allowed.has(id)))].slice(0, 8)
@@ -505,13 +505,20 @@ export function normalizeMarketSummary(
       if (numericTokens.length && (!citedEvidence.length || numericTokens.some((token) =>
         !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return null;
       // A matching number proves only that the submitted post contained it,
-      // not that the number is accurate. Require the model to frame any
-      // numerical social-post assertion as an explicitly unverified claim.
-      if (numericTokens.length && !isExplicitlyAttributedNumericClaim(text)) return null;
+      // not that the number is accurate. If the model fails to attribute it,
+      // wrap it deterministically as an unverified social-post claim.
+      if (numericTokens.length && !isExplicitlyAttributedNumericClaim(text)) {
+        text = citations.length === 1
+          ? `One cited social post makes this unverified claim: ${text}`
+          : `The cited social posts make this unverified claim: ${text}`;
+      }
       claims.push({ text, citations });
     }
     const claimText = claims.map(({ text: value }) => ensureSentenceEnding(value)).join(" ").slice(0, 900);
-    const allClaimsAttributed = claims.every(({ text: value }) => /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(value));
+    const allClaimsAttributed = claims.every(({ text: value }) =>
+      /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(value) ||
+      /^\s*(?:one cited social post makes|the cited social posts make) this unverified claim:/iu.test(value),
+    );
     const text = allClaimsAttributed ? claimText : `The cited, unverified material says: ${claimText}`;
     const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))].slice(0, 8);
     return { text, citations };
