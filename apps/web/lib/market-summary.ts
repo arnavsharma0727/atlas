@@ -18,6 +18,19 @@ export type ModelEvidence = {
   linkSharing?: boolean;
 };
 
+export type EvidenceBreadth = { excerptCount: number; platformLabels: string[] };
+
+/** Count distinct source platforms in the exact excerpt set sent to the overview. */
+export function summarizeEvidenceBreadth(evidence: readonly Pick<ModelEvidence, "source">[]): EvidenceBreadth {
+  const labels = new Set<string>();
+  for (const { source } of evidence) {
+    const normalized = source.trim().replace(/\s+/gu, " ");
+    const knownNetwork = normalized.match(/^(Bluesky|Mastodon|Lemmy|Stack Exchange|Hacker News|Global Voices|The Conversation)\b/iu)?.[1];
+    labels.add(knownNetwork ? knownNetwork.replace(/\b\p{L}/u, (letter) => letter.toLocaleUpperCase()) : normalized.split(" · ", 1)[0]);
+  }
+  return { excerptCount: evidence.length, platformLabels: [...labels].filter(Boolean).sort((a, b) => a.localeCompare(b)) };
+}
+
 const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
   en: /\b(?:market|demand|supply|price|pricing|sales|revenue|margin|inventory|stock|share|invest(?:or|ing|ment)?|bullish|bearish|earnings|profit|loss|tariff|export|import|production|yield|harvest|commodity|futures|valuation|customer churn|market share|interest rates?|bond yields?|supply chain|order book|capital expenditure|guidance|cash flow|dividend|debt|equity)\b/iu,
   pt: /\b(?:mercado|demanda|oferta|preço|preços|vendas|receita|faturamento|margem|estoque|ações|investimento|investidor|lucro|prejuízo|tarifa|exportação|importação|produção|safra|commodit\w*|futuro|cotação|taxa de juros|câmbio|bolsa de valores|rendimento|dividendo|capitalização)\b/iu,

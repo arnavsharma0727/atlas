@@ -7,7 +7,7 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, selectBalancedEvidence, type MarketSummary, type ModelEvidence } from "../../lib/market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, selectBalancedEvidence, summarizeEvidenceBreadth, type EvidenceBreadth, type MarketSummary, type ModelEvidence } from "../../lib/market-summary";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
@@ -27,6 +27,7 @@ export default function ResearchSweep({
   const [localQueryMethod, setLocalQueryMethod] = useState<"researcher" | "translated" | "original" | "baseline">("baseline");
   const [results, setResults] = useState<ResearchSweepSourceResult[]>([]);
   const [summary, setSummary] = useState<MarketSummary | null>(null);
+  const [summaryBreadth, setSummaryBreadth] = useState<{ baseline: EvidenceBreadth; selected: EvidenceBreadth } | null>(null);
   const [screenedOutCounts, setScreenedOutCounts] = useState<{ baseline: number; selected: number } | null>(null);
   const [summaryMode, setSummaryMode] = useState<"ai" | "evidence" | "unavailable">("evidence");
   const [searched, setSearched] = useState(false);
@@ -56,6 +57,7 @@ export default function ResearchSweep({
     setSearchedQuery(topic);
     setSearchedCountryCode(activeCountryCode);
     setSummary(null);
+    setSummaryBreadth(null);
     setScreenedOutCounts(null);
     setResults([]);
     setError("");
@@ -136,6 +138,10 @@ export default function ResearchSweep({
         us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys, undefined, marketTopicEligibility(topic), () => baselineScreenedOut++),
         local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language, marketTopicEligibility(localQuery), () => selectedScreenedOut++),
       };
+      setSummaryBreadth({
+        baseline: summarizeEvidenceBreadth(candidateEvidence.us),
+        selected: summarizeEvidenceBreadth(candidateEvidence.local),
+      });
       const evidenceForAi = candidateEvidence;
       setScreenedOutCounts({
         baseline: baselineScreenedOut,
@@ -230,10 +236,12 @@ export default function ResearchSweep({
             <div className="market-summary-columns">
               <article>
                 <h4>Baseline search · language varies by provider</h4>
+                <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.baseline)}</p>
                 <p><SummaryPassageText passage={summary.usSummary} /></p>
               </article>
               <article>
                 <h4>{searchedCountry.name} selection · {searchedCountry.languageName} search lens</h4>
+                <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
                 <p><SummaryPassageText passage={summary.localSummary} /></p>
               </article>
             </div>
@@ -390,6 +398,14 @@ export function visibleSummaryEvidence(
   if (showAll) return evidence;
   const citedItems = evidence.filter((item) => summaryCitationIds.has(citationIds.get(citationKey(resultKey, item.id)) ?? ""));
   return [...new Map([...evidence.slice(0, 8), ...citedItems].map((item) => [item.id, item])).values()];
+}
+
+function formatEvidenceBreadth(breadth: EvidenceBreadth | undefined) {
+  if (!breadth) return "Evidence sample: coverage unavailable.";
+  if (!breadth.excerptCount) return "Evidence sample: no excerpts passed the overview filters.";
+  const platformCount = breadth.platformLabels.length;
+  const platforms = platformCount ? ` · ${platformCount} ${platformCount === 1 ? "platform" : "platforms"}: ${breadth.platformLabels.join(", ")}` : " · source platform not identified";
+  return `Evidence sample: ${breadth.excerptCount} ${breadth.excerptCount === 1 ? "excerpt" : "excerpts"}${platforms}.`;
 }
 
 function compactPreview(value: string) {

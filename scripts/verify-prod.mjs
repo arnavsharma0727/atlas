@@ -101,11 +101,13 @@ try {
   const response = await fetch(`${base}/methodology`, { signal: AbortSignal.timeout(15000) });
   const page = await response.text();
   if (
-    response.ok && page.includes("conservative market-language screen") &&
-      page.includes("server repeats this lexical gate") && page.includes("rejects empty or unscreened requests") &&
+    response.ok && page.includes("conservative query-term screen") &&
+      page.includes("The server repeats the topic and market-language gates") && page.includes("rejects empty or unscreened requests") &&
+      page.includes("Each one-sentence claim must cite exact submitted records") &&
       page.includes("each comparison claim must cite both sides") &&
-      page.includes("only records with an understood, matching provider language label") &&
-      page.includes("Citation validation does not establish") && page.includes("inspect the original record")
+      page.includes("Script detection identifies writing system, not nationality, residence, or community membership") &&
+      page.includes("this is a consistency check, not semantic entailment or truth verification") &&
+      page.includes("Inspect the original record and its provenance")
   ) {
     pass("summary market-screen and evidence policy", "methodology describes the lexical gate, its evidence citations, and limits");
   } else {

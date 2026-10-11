@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -285,6 +285,16 @@ describe("market summary evidence contracts", () => {
     expect(JSON.stringify(selected)).not.toContain("private-handle");
     expect(JSON.stringify(selected)).not.toContain("@member123");
     expect(JSON.stringify(selected)).not.toContain("analyst@private.example");
+  });
+
+  it("reports the exact excerpt count and distinct platforms used for each overview", () => {
+    expect(summarizeEvidenceBreadth([
+      { source: "Bluesky public AppView · search 1" },
+      { source: "Bluesky public AppView · search 2" },
+      { source: "Lemmy · lemmy.world / c/economics" },
+      { source: "Mastodon · mastodon.social via mastodon.social" },
+    ])).toEqual({ excerptCount: 4, platformLabels: ["Bluesky", "Lemmy", "Mastodon"] });
+    expect(summarizeEvidenceBreadth([])).toEqual({ excerptCount: 0, platformLabels: [] });
   });
 
   it("includes only matching or conservatively script-detected language records without hiding source results", () => {
