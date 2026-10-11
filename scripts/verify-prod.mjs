@@ -18,7 +18,7 @@ for (const route of ["/", "/explore", "/sources", "/privacy", "/methodology", "/
 try {
   const response = await fetch(`${base}/`, { signal: AbortSignal.timeout(15000) });
   const page = await response.text();
-  if (response.ok && !page.includes("The Engine for Global Markets") && page.includes("Search a market, company, or idea") && page.includes("By: Arnav Sharma UVA30") && page.includes("https://www.linkedin.com/in/arnavsharma0727/") && page.includes("Search automatically creates an AI summary")) {
+  if (response.ok && !page.includes("The Engine for Global Markets") && page.includes("Search a market, company, or idea") && page.includes("By: <a") && page.includes("Arnav Sharma UVA30") && page.includes("https://www.linkedin.com/in/arnavsharma0727/") && page.includes("Search automatically creates an AI summary")) {
     pass("focused Atlas search landing", "no project subtitle, modern search field, LinkedIn byline, and AI data disclosure are rendered");
   } else {
     fail("focused Atlas search landing", `HTTP ${response.status}; expected Atlas brand and search field were not found`);
