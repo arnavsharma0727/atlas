@@ -96,6 +96,28 @@ try {
   fail("summary market-screen and evidence policy", error instanceof Error ? error.message : "request failed");
 }
 
+try {
+  const response = await fetch(`${base}/api/research/market-assist`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      action: "summarize", topic: "coffee", country: "KR", aiEnabled: true,
+      evidence: {
+        us: [{ citationId: "C1", source: "Synthetic test", title: "Synthetic lifestyle mention", excerpt: "I enjoy coffee every morning.", language: "en" }],
+        local: [{ citationId: "C2", source: "Synthetic test", title: "Synthetic lifestyle mention", excerpt: "매일 아침 커피를 마신다.", language: "ko" }],
+      },
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (response.status === 400) {
+    pass("server-side market evidence gate", "synthetic lifestyle-only evidence was rejected before any AI-provider request");
+  } else {
+    fail("server-side market evidence gate", `expected HTTP 400 for synthetic lifestyle-only evidence, got HTTP ${response.status}`);
+  }
+} catch (error) {
+  fail("server-side market evidence gate", error instanceof Error ? error.message : "request failed");
+}
+
 for (const route of ["/about", "/briefs", "/candidates", "/companies", "/companies/NVDA", "/coverage", "/divergences/example", "/login", "/watchlists"]) {
   try {
     const response = await fetch(`${base}${route}`, { redirect: "manual", signal: AbortSignal.timeout(15000) });
