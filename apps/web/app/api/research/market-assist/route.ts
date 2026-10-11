@@ -63,6 +63,11 @@ export async function POST(request: NextRequest) {
       us: new Set(evidence.us.map(({ citationId }) => citationId)),
       local: new Set(evidence.local.map(({ citationId }) => citationId)),
     });
+    if (!result) console.warn("[market-assist] Groq returned no usable summary response");
+    else if (!summary) console.warn("[market-assist] Groq summary failed evidence/citation validation", {
+      hasUsEvidence: evidence.us.length > 0,
+      hasLocalEvidence: evidence.local.length > 0,
+    });
     return summary ? json({ mode: "ai", summary }) : json({ mode: "unavailable" }, 503);
   }
   return json({ error: "Unsupported action" }, 400);
@@ -86,11 +91,19 @@ async function groq<T>(prompt: string, systemPrompt?: string): Promise<T | null>
       signal: AbortSignal.timeout(15_000),
       cache: "no-store",
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn("[market-assist] Groq request failed", { status: response.status });
+      return null;
+    }
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content;
     return content ? JSON.parse(content) as T : null;
-  } catch { return null; }
+  } catch (error) {
+    console.warn("[market-assist] Groq request could not be completed", {
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+    return null;
+  }
 }
 
 function parseEvidence(value: unknown): EvidenceGroups | null {
