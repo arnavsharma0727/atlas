@@ -84,6 +84,17 @@ describe("searchPublicHashtag", () => {
     expect(results[0].language).toBe("pt");
   });
 
+  it("requests the instance-local subset only when explicitly asked", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([]));
+    await searchPublicHashtag("markets", fetchMock, Date.now(), "town.voyager.blue", true);
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.searchParams.get("local")).toBe("true");
+
+    const defaultFetch = vi.fn().mockResolvedValue(Response.json([]));
+    await searchPublicHashtag("markets", defaultFetch, Date.now(), "mastodon.social");
+    expect(new URL(defaultFetch.mock.calls[0][0]).searchParams.has("local")).toBe(false);
+  });
+
   it("does not try to authenticate when public access is disabled", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("", { status: 401 }));
     await expect(searchPublicHashtag("economics", fetchMock)).rejects.toThrow("No login or workaround");

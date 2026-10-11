@@ -428,8 +428,8 @@ describe("runResearchSweep", () => {
     ]);
   });
 
-  it("labels focused Mastodon servers as language/community views, never as verified national samples", async () => {
-    const fetcher = vi.fn(async () => new Response(JSON.stringify([{
+  it("queries local-only Mastodon records for focused servers without implying a national sample", async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL) => new Response(JSON.stringify([{
       id: "77", url: "https://town.voyager.blue/@reader/77", created_at: new Date(NOW - 60_000).toISOString(),
       visibility: "public", content: "<p>반도체 투자 전망 <a href=\"https://example.test/report\">기사</a></p>", language: "ko", account: {
         acct: "reader", url: "https://town.voyager.blue/@reader", bot: false,
@@ -440,8 +440,11 @@ describe("runResearchSweep", () => {
       mastodonQueries: [{ hashtag: "반도체", instance: "town.voyager.blue" }],
       mastodonLocalInstances: ["town.voyager.blue"], mastodonTermsAccepted: true,
     }, fetcher, NOW);
-    expect(result.label).toContain("language/community-focused server");
+    expect(result.label).toContain("local posts only");
+    expect(new URL(String(fetcher.mock.calls[0][0])).searchParams.get("local")).toBe("true");
+    expect(result.window).toContain("Locally hosted public hashtag posts only");
     expect(result.evidence[0].context).toContain("does not verify poster nationality or residence");
+    expect(result.evidence[0].context).toContain("restricted to statuses hosted on this server");
     expect(result.evidence[0].context).toContain("does not establish the author's independent view");
   });
 

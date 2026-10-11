@@ -526,9 +526,9 @@ export async function runResearchSweep(
     const sameServerQueryCount = mastodonQueriesPerInstance.get(instance) ?? 1;
     const resultKey = sameServerQueryCount === 1 ? `mastodon:${instance}` : `mastodon:${instance}:${hashtag.toLocaleLowerCase()}`;
     const localCommunity = mastodonLocalInstances.has(instance);
-    const communityLabel = localCommunity ? " · language/community-focused server" : "";
-    tasks.push(capture(resultKey, `Mastodon · ${server.label}${communityLabel} · #${hashtag}`, `#${hashtag}`, asOf, "Public hashtag posts from the last 30 days; up to 20 API items per tag", async () =>
-      (await searchPublicHashtag(hashtag, boundedFetch, now, server.host)).map((post) => ({
+    const communityLabel = localCommunity ? " · local posts only" : "";
+    tasks.push(capture(resultKey, `Mastodon · ${server.label}${communityLabel} · #${hashtag}`, `#${hashtag}`, asOf, `${localCommunity ? "Locally hosted public hashtag posts only" : "Public hashtag posts"} · last 30 days · up to 20 API items per tag`, async () =>
+      (await searchPublicHashtag(hashtag, boundedFetch, now, server.host, localCommunity)).map((post) => ({
         id: `mastodon:${post.url}`,
         title: `Public post by @${post.authorHandle}`,
         url: post.url,
@@ -540,7 +540,7 @@ export async function runResearchSweep(
         context: [
           post.contentWarning
             ? `Content warning: ${post.contentWarning.slice(0, 200)}; preview withheld, open the original post if appropriate`
-            : `Public hashtag #${hashtag} search; ${localCommunity ? "this server's language/community focus does not verify poster nationality or residence" : "server timeline is not a geographic market proxy"}`,
+          : `Public hashtag #${hashtag} search${localCommunity ? " restricted to statuses hosted on this server" : ""}; ${localCommunity ? "server language/community focus does not verify poster nationality or residence" : "server timeline is not a geographic market proxy"}`,
           post.accountMarkedAutomated
             ? "This account is marked automated by the instance; shown with its source link but omitted from AI discussion synthesis."
             : undefined,

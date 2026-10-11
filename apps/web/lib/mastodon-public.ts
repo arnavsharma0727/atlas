@@ -154,6 +154,7 @@ export async function searchPublicHashtag(
   fetcher: typeof fetch = fetch,
   now = Date.now(),
   instance: MastodonInstance = "mastodon.social",
+  localOnly = false,
 ): Promise<MastodonPublicPost[]> {
   const hashtag = input.trim().replace(/^#+/, "");
   if (!/^[\p{L}\p{N}_-]{1,50}$/u.test(hashtag)) {
@@ -163,8 +164,11 @@ export async function searchPublicHashtag(
     throw new Error("Choose a supported public Mastodon server.");
   }
 
+  const endpoint = new URL(`https://${instance}/api/v1/timelines/tag/${encodeURIComponent(hashtag)}`);
+  endpoint.searchParams.set("limit", "20");
+  if (localOnly) endpoint.searchParams.set("local", "true");
   const response = await fetcher(
-    `https://${instance}/api/v1/timelines/tag/${encodeURIComponent(hashtag)}?limit=20`,
+    endpoint,
     { headers: { accept: "application/json" } },
   );
   if (response.status === 401) {
