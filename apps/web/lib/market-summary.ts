@@ -122,6 +122,55 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
   });
 }
 
+export type DisplayEvidenceView = {
+  result: ResearchSweepSourceResult;
+  evidence: ResearchSweepSourceResult["evidence"];
+  returnedCount: number;
+  duplicateCount: number;
+};
+
+/** Collapse exact repeats within one provider/network for display, without changing raw results or citations. */
+export function collapseRepeatedEvidenceViews(results: ResearchSweepSourceResult[]): DisplayEvidenceView[] {
+  const canonical = new Map<string, { resultIndex: number; itemIndex: number }>();
+  const suppressed = new Set<string>();
+  const notes = new Map<string, Set<string>>();
+  const duplicateCounts = results.map(() => 0);
+  results.forEach((result, resultIndex) => {
+    result.evidence.forEach((item, itemIndex) => {
+      const operator = item.sourceOperatorKey ?? item.source;
+      const url = normalizeSourceUrl(item.url);
+      const normalizedText = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/gu, " ").trim().toLocaleLowerCase();
+      const keys = item.url.trim() ? [`${operator}\u0000url\u0000${url}`] : [];
+      if (normalizedText.length >= 80) keys.push(`${operator}\u0000text\u0000${normalizedText}`);
+      const prior = keys.map((key) => canonical.get(key)).find(Boolean);
+      if (!prior) {
+        const entry = { resultIndex, itemIndex };
+        keys.forEach((key) => canonical.set(key, entry));
+        return;
+      }
+      duplicateCounts[resultIndex]++;
+      suppressed.add(`${resultIndex}\u0000${itemIndex}`);
+      const canonicalResult = results[prior.resultIndex];
+      const relatedLabel = result.label === canonicalResult.label ? "another selected query view" : result.label;
+      const key = `${prior.resultIndex}\u0000${prior.itemIndex}`;
+      const labels = notes.get(key) ?? new Set<string>();
+      labels.add(relatedLabel);
+      notes.set(key, labels);
+    });
+  });
+  return results.map((result, resultIndex) => ({
+    result,
+    returnedCount: result.evidence.length,
+    duplicateCount: duplicateCounts[resultIndex],
+    evidence: result.evidence.flatMap((item, itemIndex) => {
+      if (suppressed.has(`${resultIndex}\u0000${itemIndex}`)) return [];
+      const labels = notes.get(`${resultIndex}\u0000${itemIndex}`);
+      if (!labels?.size) return [item];
+      return [{ ...item, context: [item.context, `Also returned in ${[...labels].join(", ")}; this is one original record, not independent corroboration.`].filter(Boolean).join(" ") }];
+    }),
+  }));
+}
+
 function addView(map: Map<string, Set<string>>, key: string, resultKey: string) {
   const views = map.get(key) ?? new Set<string>();
   views.add(resultKey);

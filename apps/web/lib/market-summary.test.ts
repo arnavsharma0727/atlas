@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flagRepeatedEvidenceViews, hasMarketSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -17,6 +17,36 @@ function evidence(id: string, source: string, excerpt: string, operator = source
 }
 
 describe("market summary evidence contracts", () => {
+  it("collapses exact same-network URL copies in display while preserving raw counts and cross-network provenance", () => {
+    const original = evidence("post-a", "Lemmy", "A public post about market prices.", "lemmy-federation");
+    const copy = { ...evidence("post-b", "Lemmy", "A public post about market prices.", "lemmy-federation"), url: `${original.url}?utm_source=instance` };
+    const raw = [result("lemmy:one", "Lemmy · instance one", [original]), result("lemmy:two", "Lemmy · instance two", [copy])];
+    const views = collapseRepeatedEvidenceViews(raw);
+    expect(raw.map((view) => view.evidence.length)).toEqual([1, 1]);
+    expect(views.map((view) => view.evidence.length)).toEqual([1, 0]);
+    expect(views.map((view) => [view.returnedCount, view.duplicateCount])).toEqual([[1, 0], [1, 1]]);
+    expect(views[0].evidence[0].context).toContain("Lemmy · instance two");
+    expect(views[1].result.evidence).toHaveLength(1);
+  });
+
+  it("does not collapse identical-looking links across different source operators", () => {
+    const sameUrl = "https://example.test/shared";
+    const rows = [
+      result("lemmy", "Lemmy", [{ ...evidence("a", "Lemmy", "A short post", "lemmy-federation"), url: sameUrl }]),
+      result("mastodon", "Mastodon", [{ ...evidence("b", "Mastodon", "A short post", "mastodon-network"), url: sameUrl }]),
+    ];
+    expect(collapseRepeatedEvidenceViews(rows).map((view) => view.evidence.length)).toEqual([1, 1]);
+  });
+
+  it("collapses long exact same-network copied text even if its URL differs", () => {
+    const text = "Investors described stronger demand across several major customers, while warning that export controls and inventory levels could shift near-term pricing. They said order visibility remains uneven and new supply may alter the outlook over the next two quarters.";
+    const rows = [
+      result("lemmy:a", "Lemmy A", [evidence("a", "Lemmy", text, "lemmy-federation")]),
+      result("lemmy:b", "Lemmy B", [{ ...evidence("b", "Lemmy", text, "lemmy-federation"), url: "https://example.test/different" }]),
+    ];
+    expect(collapseRepeatedEvidenceViews(rows).map((view) => view.evidence.length)).toEqual([1, 0]);
+  });
+
   it("redacts embedded links, emails, and handles from excerpts before model submission", () => {
     expect(redactSummaryExcerpt("Shared by (@market.reader), contact analyst@example.org or https://example.org/report.")).toBe("Shared by ([handle]), contact [email] or [link]");
   });

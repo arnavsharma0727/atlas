@@ -7,7 +7,7 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { flagRepeatedEvidenceViews, hasMarketSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
+import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
@@ -33,6 +33,7 @@ export default function ResearchSweep({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const citationIds = buildCitationIds(results);
+  const displayResults = collapseRepeatedEvidenceViews(results);
   const searchedCountry = marketCountry(searchedCountryCode);
   const queryClarity = inspectQueryClarity(searchedQuery);
 
@@ -255,7 +256,7 @@ export default function ResearchSweep({
               <p>Original links and provider-specific coverage, collected below the summary.</p>
             </header>
             <div className="market-results-grid">
-              {results.map((result) => <SourceResults key={result.key} result={result} citationIds={citationIds} />)}
+              {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} citationIds={citationIds} />)}
             </div>
           </section>
           <p className="search-limits">Public API results are incomplete samples. They can omit content, overlap across federated servers, and reflect platform/language selection. An AI summary describes only the retrieved sample; inspect original sources before drawing conclusions. <a href="/sources">How sources work</a> · <a href="/privacy">Privacy</a>.</p>
@@ -324,14 +325,14 @@ function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }
   return <>{passage.text}</>;
 }
 
-function SourceResults({ result, citationIds }: { result: ResearchSweepSourceResult; citationIds: Map<string, string> }) {
+function SourceResults({ result, evidence, returnedCount, duplicateCount, citationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; citationIds: Map<string, string> }) {
   const [showAll, setShowAll] = useState(false);
-  const items = showAll ? result.evidence : result.evidence.slice(0, 8);
+  const items = showAll ? evidence : evidence.slice(0, 8);
   return (
     <section className="source-results" aria-label={result.label}>
       <header>
         <h3>{result.label}</h3>
-        <span className={result.status === "unavailable" ? "source-count source-count--error" : result.status === "not-searched" ? "source-count source-count--muted" : "source-count"}>{result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? "Partial coverage" : `${result.evidence.length} returned`}</span>
+        <span className={result.status === "unavailable" ? "source-count source-count--error" : result.status === "not-searched" ? "source-count source-count--muted" : "source-count"}>{result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? "Partial coverage" : duplicateCount ? `${evidence.length} unique · ${returnedCount} returned` : `${returnedCount} returned`}</span>
       </header>
       <p className="source-window">{result.window}</p>
       <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
@@ -339,7 +340,7 @@ function SourceResults({ result, citationIds }: { result: ResearchSweepSourceRes
       {result.sourceNote && <p className="source-coverage-warning" role="status">{result.sourceNote}</p>}
       {result.error ? (
         <p className="source-empty">{result.status === "not-searched" ? result.error : result.status === "unavailable" ? `${result.error} Other sources can still return results.` : result.error}</p>
-      ) : result.evidence.length ? (
+      ) : evidence.length ? (
         <>
           <ul>{items.map((item) => (
             <li key={item.id} id={`citation-${citationIds.get(citationKey(result.key, item.id))}`}>
@@ -355,8 +356,10 @@ function SourceResults({ result, citationIds }: { result: ResearchSweepSourceRes
                   : item.licenseName}</>}</p>}
             </li>
           ))}</ul>
-          {result.evidence.length > items.length && <button className="show-more-results" type="button" onClick={() => setShowAll(true)}>Show all {result.evidence.length} results</button>}
+          {evidence.length > items.length && <button className="show-more-results" type="button" onClick={() => setShowAll(true)}>Show all {evidence.length} unique results</button>}
         </>
+      ) : returnedCount > 0 ? (
+        <p className="source-empty">All {returnedCount} returned {returnedCount === 1 ? "record also appeared" : "records also appeared"} in another selected view. Repeated appearances are one original record, not independent corroboration.</p>
       ) : (
         <div className="source-empty"><span className="source-empty-mark" aria-hidden="true">↗</span><div><strong>Search completed · no matching records returned</strong><p>Try another phrase or query lens. An empty result does not mean the topic is absent from this source.</p></div></div>
       )}
