@@ -68,37 +68,36 @@ describe("runResearchSweep", () => {
 
   it("searches only researcher-entered alternate phrases and keeps their provenance separate", async () => {
     const requested: string[] = [];
-    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
-      const url = new URL(String(input));
-      requested.push(url.searchParams.get("query") ?? "");
-      return new Response(JSON.stringify({ hits: [] }));
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requested.push((JSON.parse(String(init?.body)) as { query: string }).query);
+      return new Response(JSON.stringify({ editions: [{ language: "en", edition: "English", articles: [], error: null }] }));
     });
     const results = await runResearchSweep("EV", {
-      hackerNews: true,
-      globalVoices: false,
+      globalVoices: true,
       additionalQueries: ["electric vehicle"],
       lemmy: false,
-      lemmyTermsAccepted: false,
     }, fetcher, NOW);
     expect(requested).toEqual(["EV", "electric vehicle"]);
     expect(results.map(({ query, key }) => [query, key])).toEqual([
-      ["EV", "hacker-news"],
-      ["electric vehicle", "hacker-news:alternate:1"],
+      ["EV", "global-voices"],
+      ["electric vehicle", "global-voices:alternate:1"],
     ]);
   });
 
   it("keeps short ticker searches alive and marks Stack Exchange as not searched", async () => {
-    const fetcher = vi.fn(async () => new Response(JSON.stringify({ hits: [] })));
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith("/api/research/global-voices")) return new Response(JSON.stringify({ editions: [{ language: "en", edition: "English", articles: [], error: null }] }));
+      return new Response(JSON.stringify({ hits: [] }));
+    });
     const results = await runResearchSweep("EV", {
-      hackerNews: true,
-      globalVoices: false,
+      globalVoices: true,
       stackExchangeQueries: [{ site: "economics", query: "EV" }],
       lemmy: false,
       lemmyTermsAccepted: false,
     }, fetcher, NOW);
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(results).toMatchObject([
-      { key: "hacker-news", query: "EV", status: "complete" },
+      { key: "global-voices", query: "EV", status: "complete" },
       { key: "stack-exchange:economics", query: "EV", status: "not-searched", error: expect.stringContaining("requires at least 3") },
     ]);
   });
@@ -193,10 +192,11 @@ describe("runResearchSweep", () => {
   it("searches selected providers in parallel and preserves provider-specific labels and classes", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
-      if (url.hostname === "hn.algolia.com") {
-        return new Response(JSON.stringify({ hits: [{
-          objectID: "81001", author: "Reader", comment_text: "<p>A useful discussion</p>",
-          story_title: "Markets", created_at: new Date(NOW - 60_000).toISOString(),
+      if (url.hostname === "api.bsky.app") {
+        return new Response(JSON.stringify({ posts: [{
+          uri: "at://did:plc:reader/app.bsky.feed.post/one",
+          record: { text: "A useful discussion", createdAt: new Date(NOW - 60_000).toISOString(), langs: ["en"] },
+          author: { handle: "reader.example" },
         }] }));
       }
       if (url.hostname === "api.stackexchange.com") {
@@ -234,7 +234,7 @@ describe("runResearchSweep", () => {
       throw new Error("Unexpected provider");
     });
     const results = await runResearchSweep("markets", {
-      hackerNews: true,
+      bluesky: true,
       stackExchangeSite: "economics",
       lemmy: true,
       lemmyTermsAccepted: true,
@@ -243,29 +243,24 @@ describe("runResearchSweep", () => {
 
     expect(fetcher).toHaveBeenCalledTimes(4);
     expect(results.map(({ key, evidence, error }) => [key, evidence.length, error])).toEqual([
-      ["hacker-news", 1, null],
       ["stack-exchange:economics", 1, null],
       ["lemmy:lemmy.world", 1, null],
+      ["bluesky:0", 1, null],
       ["wikimedia", 1, null],
     ]);
-    expect(results[1].evidence[0]).toMatchObject({
+    expect(results[0].evidence[0]).toMatchObject({
       evidenceClass: "expert Q&A",
       licenseName: "CC BY-SA 4.0",
     });
-    expect(results[2].evidence[0]).toMatchObject({
+    expect(results[1].evidence[0]).toMatchObject({
       sourceOperatorKey: "lemmy-federation",
       sourceOperatorLabel: "Lemmy federated search",
     });
-    expect(results[0].evidence[0]).toMatchObject({
-      source: "Hacker News",
-      sourceOperatorKey: "hacker-news",
-      sourceOperatorLabel: "Hacker News",
-      transientPreview: "A useful discussion",
-    });
-    expect(results[2].evidence[0].evidenceClass).toBe("social discussion");
-    expect(results[2].evidence[0].transientPreview).toBe("This post body is transiently previewed, never saved");
-    expect(results[2].evidence[0].context ?? "").not.toContain("markets");
-    expect(results[0]).toMatchObject({ query: "markets", asOf: new Date(NOW).toISOString() });
+    expect(results[2].evidence[0]).toMatchObject({ source: "Bluesky public AppView · search 1", transientPreview: "A useful discussion" });
+    expect(results[1].evidence[0].evidenceClass).toBe("social discussion");
+    expect(results[1].evidence[0].transientPreview).toBe("This post body is transiently previewed, never saved");
+    expect(results[1].evidence[0].context ?? "").not.toContain("markets");
+    expect(results[2]).toMatchObject({ query: "markets", asOf: new Date(NOW).toISOString() });
     expect(results[3].evidence[0]).toMatchObject({
       evidenceClass: "editorial discussion",
       context: expect.stringContaining("not a general forum"),
@@ -293,14 +288,11 @@ describe("runResearchSweep", () => {
     expect(result.error).toBeNull();
   });
 
-  it("does not query Lemmy until its explicit terms and age affirmation is supplied", async () => {
-    const fetcher = vi.fn();
-    await expect(runResearchSweep("markets", {
-      gdelt: false,
-      lemmy: true,
-      lemmyTermsAccepted: false,
-    }, fetcher, NOW)).rejects.toThrow("Review and affirm");
-    expect(fetcher).not.toHaveBeenCalled();
+  it("does not require an in-app terms affirmation to query a public Lemmy API", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ posts: [] })));
+    const results = await runResearchSweep("markets", { gdelt: false, lemmy: true }, fetcher, NOW);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(results[0]).toMatchObject({ key: "lemmy:lemmy.world", status: "complete", evidence: [] });
   });
 
   it("keeps selected Lemmy instance results separate", async () => {
@@ -411,15 +403,16 @@ describe("runResearchSweep", () => {
   it("keeps source failures separate so one rate-limited API does not erase other results", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
-      if (url.hostname === "hn.algolia.com") return new Response("rate limited", { status: 429 });
+      if (url.hostname === "api.bsky.app") return new Response("rate limited", { status: 429 });
       return new Response(JSON.stringify({ query: { search: [] } }));
     });
     const results = await runResearchSweep("markets", {
-      hackerNews: true,
+      bluesky: true,
       lemmy: false,
       lemmyTermsAccepted: false,
       wikimediaLanguage: "en",
     }, fetcher, NOW);
+    expect(results[0]).toMatchObject({ key: "bluesky:0", status: "unavailable" });
     expect(results[0].error).toMatch(/rate-limiting/);
     expect(results[1]).toMatchObject({ key: "wikimedia", error: null, evidence: [] });
   });

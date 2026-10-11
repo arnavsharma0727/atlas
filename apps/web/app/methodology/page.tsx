@@ -8,15 +8,15 @@ const sections = [
   },
   {
     title: "Keep evidence types separate",
-    body: "Forum discussion, specialist Q&A, and community reporting answer different questions and attract different participants. Atlas presents them as separate source groups. A reporting headline is not a forum opinion, and a Stack Exchange answer is not a representative investor view.",
+    body: "The live search currently returns public social discussion from Bluesky and Lemmy, hashtag posts from Mastodon, and—on a non-U.S. lens—headline metadata from Global Voices reporting. Reporting is not forum opinion. Specialist Q&A and scheduled operational feeds shown in the source register are not mixed into this live search.",
   },
   {
     title: "Read the original before drawing a conclusion",
-    body: "Overview cards show short source excerpts or headlines, not a generated account of what a country thinks. When wording repeats across distinct records, Atlas may show exact normalized phrase matches with citation labels; this is not a theme, sentiment, or independent-view measure. Citation labels map to the source list below; open the original record to inspect its date, context, author attribution, and surrounding discussion. A displayed name or community label is not identity verification or proof of location.",
+    body: "When AI is enabled before search and available, the overview is generated only from a small, source-balanced selection of retrieved public excerpts; each factual passage links to the original record. Source URLs and author handles are not sent to Groq. Without AI, Atlas shows a rule-based notice directing you to the selected records; if AI fails, the UI labels that fallback as unavailable. A citation supports inspection, not independent verification. A displayed name or community label is not identity verification or proof of location.",
   },
   {
     title: "Compare like with like",
-    body: "For a useful cross-region comparison, enter equivalent phrases and relevant local-language terms in the optional alternate-phrase field, then compare the same source type and time period. Atlas submits those phrases separately and labels each one; it does not invent aliases or silently translate a query. Language, publication edition, hosting country, and community are not reliable substitutes for a contributor's location.",
+    body: "The English baseline adds a `lang:en` filter to Bluesky, while Lemmy uses the phrase as entered and Mastodon searches a mechanically formatted hashtag. The selected lens may use an AI translation only if the visitor enables AI and the server-side feature is configured; otherwise Atlas uses the original phrase. Global Voices searches headlines in localized editions and represents reporting, not conversation. These differences make the comparison non-equivalent; each provider query and time window is shown separately. Language, publication edition, server, and community do not verify contributor location.",
   },
 ];
 
@@ -34,7 +34,8 @@ export default function Methodology() {
             Atlas is a discovery tool for finding public conversations and
             reporting about a market topic across selected communities. It is
             not a census, sentiment index, investment recommendation, or
-            automated thesis generator.
+            automated thesis generator. Country selections are language/community
+            lenses, not verified national samples.
           </p>
         </header>
 

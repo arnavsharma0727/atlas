@@ -6,15 +6,11 @@ Atlas is a focused search engine for current public conversations and reporting 
 
 ## What a search covers
 
-- Hacker News comments: public Algolia search, recent 30-day window, with local checks that all meaningful query terms appear in the returned title/comment.
-- Bluesky: optional public AppView search, recent 7-day indexed-post window. It is opt-in; use separate researcher-entered phrases for language variants, and treat missing language metadata as unknown.
-- Global Voices: public multilingual reporting search, recent 30-day window. Atlas locally requires query terms to match the returned headline, and omits body-only matches; an edition language does not identify the location or views of readers.
-- Stack Exchange: selected specialist communities, title matches from the recent 30 days. This is expert Q&A, not a broad forum sample.
-- Lemmy: optional, researcher-selected public instances, recent 7-day window. Federation can duplicate posts; instances and language are not country proxies.
+The live search queries Bluesky and one or more public Lemmy instance APIs; it also queries public Mastodon hashtag timelines when the phrase can be formatted as a tag. A non-U.S. language/community lens additionally searches Global Voices headline metadata across localized editions. Its reporting is kept distinct from social discussion. The English baseline adds a `lang:en` filter to Bluesky; Lemmy uses the submitted phrase as entered, and Mastodon searches a mechanically generated hashtag. The selected lens may use an AI translation only when the visitor enables the optional Groq feature and it is configured server-side. Exact provider queries and windows are displayed with results. Hacker News is retired from visitor search pending content reuse review.
 
-Provider coverage and search behavior differ. An empty result does not establish that a topic is absent. Counts are returned records, not unique people, market attention, or prevalence. Atlas does not silently translate, infer synonyms, or infer contributor geography; optional alternate phrases are researcher-supplied, searched separately, and shown with their query. Overview highlights are source excerpts or headlines, not a generated consensus; reference IDs map to the citation list below them.
+Provider coverage and search behavior differ. An empty result does not establish that a topic is absent. Counts are returned records, not unique people, market attention, or prevalence. Country selections are language/community lenses, never verified contributor geography. The optional AI overview is limited to a small, source-balanced set of returned excerpts and links each factual passage to supporting records; without AI the app displays a rule-based evidence overview. Neither is a national opinion estimate or investment recommendation.
 
-Atlas does not currently establish a U.S. sample, representative country-level opinions, validated sentiment, source independence, financial materiality, or an investment thesis. Use it to discover questions and inspect original sources—not as a substitute for filings, financial statements, valuation work, or independent verification.
+Atlas does not establish a U.S. sample, representative country-level opinions, validated sentiment, source independence, financial materiality, or an investment thesis. Use it to discover questions and inspect original sources—not as a substitute for filings, financial statements, valuation work, or independent verification.
 
 ## Run locally
 

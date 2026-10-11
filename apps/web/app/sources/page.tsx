@@ -4,6 +4,8 @@ import { serverSupabase } from "../../lib/server-supabase";
 import { getDisplayTimeZone } from "../../lib/display-timezone";
 import { formatTimestamp } from "../../lib/format-time";
 import { summarizeConnectorRuns } from "../../lib/source-health";
+import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
+import { MASTODON_INSTANCES } from "../../lib/mastodon-public";
 
 export const dynamic = "force-dynamic";
 
@@ -102,12 +104,12 @@ export default async function Sources() {
         "Optional no-key government-policy context, not investor discussion. Each linked article must show the KOGL Type 1 attribution license; only title, source link, and date are retained.",
     },
     {
-      name: "Hacker News · public comment search",
+      name: "Hacker News · retired from visitor search",
       key: "hacker-news",
-      enabled: true,
-      onDemand: true,
+      enabled: false,
+      onDemand: false,
       detail:
-        "On-demand search uses the public Algolia Hacker News Search API, sorted by relevance and filtered to comments from the last 30 days. Matching excerpts are shown transiently in the search session only; Atlas does not schedule collection or persist comment text. This is a technology-oriented, English-language community, not an international or representative sample. Public API availability does not grant broader reuse rights; review provider terms before expanding retention or commercial use.",
+        "Retired from live Atlas search because public API access alone did not resolve the content-display and reuse review. It is not queried, included in summaries, or a claim of current coverage. Historical operational data is separate and not surfaced in visitor search.",
       referenceUrl: "https://hn.algolia.com/api",
       referenceLabel: "Hacker News Search API documentation",
       secondaryReferenceUrl: "https://github.com/HackerNews/API",
@@ -117,6 +119,7 @@ export default async function Sources() {
       name: "Stack Exchange · international Q&A",
       key: "stack-exchange",
       enabled: process.env.STACK_EXCHANGE_ENABLED === "true",
+      onDemand: true,
       detail:
         "Keyless daily collection samples the latest public questions from 12 communities across economics, quantitative finance, personal finance, politics, law, AI, data science, information security, and four non-English Stack Overflow editions. Each community is bounded to one API page of up to 100 questions from the last 30 days. Only individually CC BY-SA 4.0 items are retained, with unmodified title, original link, author/profile attribution, site, tags, and license; question and answer bodies are discarded. Explore offers on-demand title searches across up to four selected communities with a separately supplied phrase for each language. This is specialist Q&A from one platform operator, not a general forum, independent operators, or representative public opinion; feed caps omit older/lower-ranked items and on-demand results are not stored.",
     },
@@ -143,8 +146,9 @@ export default async function Sources() {
       onDemand: true,
       referenceUrl: "https://docs.joinmastodon.org/client/public/",
       referenceLabel: "Official Mastodon public-data API guidance",
+      additionalReferences: MASTODON_INSTANCES.map(({ host }) => ({ url: `https://${host}/about`, label: `${host} instance policies` })),
       detail:
-        "Visitor-triggered public hashtag timeline searches across up to four reviewed instances, with at most 20 newest posts per instance. When optional Groq Free-tier AI is configured and the visitor opts in, Atlas translates the phrase and derives localized hashtags; otherwise the phrase is used as entered. Only public, non-boosted posts are shown; excerpts are transient and content warnings suppress previews. Hashtag feeds are not arbitrary keyword search; servers may restrict public access. Instance identity and language do not establish author location or country opinion. Server terms/privacy must be reviewed before the search.",
+        "The current search calls a public hashtag timeline on selected instances, up to 20 newest posts per server. Atlas mechanically turns the entered phrase into the displayed hashtag; this is not arbitrary keyword search, so untagged posts are missed. Public access may be restricted by a server. Excerpts are transient; content warnings suppress previews. Language and server identity do not establish author location or country opinion. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
     },
     {
       name: "Lemmy · public federated forum view",
@@ -154,7 +158,11 @@ export default async function Sources() {
       referenceUrl: "https://join-lemmy.org/docs/contributors/04-api.html",
       referenceLabel: "Official Lemmy API documentation",
       detail:
-        "Visitor-triggered, keyless search of up to 20 newest matching posts on each of four reviewed instances: lemmy.world, discuss.tchncs.de, feddit.org, and the French-speaking jlai.lu instance. feddit.uk was removed after its API returned instance_is_private. When optional Groq Free-tier AI is configured and the visitor opts in, Atlas translates the phrase; otherwise it uses the original phrase. A short excerpt is transiently shown for manual relevance review. Bot-marked, NSFW, removed, stale, future-dated, and unlinked items are filtered. Federation can duplicate posts; these are incomplete, non-independent views, not a global timeline, country proxy, representative population sample, or measure of attention. Posts remain their authors’ content; no blanket license is implied. Visitors must review selected-server terms and privacy information and affirm before searching.",
+        "Visitor-triggered, keyless search of up to 20 newest matching posts on each configured instance: lemmy.world, discuss.tchncs.de, feddit.org, and jlai.lu. A short excerpt is shown transiently. Bot-marked, NSFW, removed, stale, future-dated, and unlinked items are filtered. Federation can duplicate posts; these are incomplete, overlapping server views, not a global timeline, country proxy, representative population sample, or measure of attention. Posts remain their authors’ content; no blanket license is implied. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
+      additionalReferences: LEMMY_INSTANCES.flatMap(({ host, legalUrl, privacyUrl }) => [
+        { url: legalUrl, label: `${host} terms` },
+        { url: privacyUrl, label: `${host} privacy` },
+      ]),
     },
     {
       name: "Wikimedia · article talk pages",
@@ -195,7 +203,7 @@ export default async function Sources() {
         "Daily keyless RSS collection plus on-demand search through the public WordPress API across twelve localized editions: English, Spanish, French, Portuguese, Arabic, Russian, Italian, Dutch, Yoruba, Ukrainian, Greek, and Catalan. On-demand search requests headline metadata and links through a first-party no-store route; Atlas locally requires each meaningful query term to match the returned headline so loose body-only API matches are not presented as relevant headlines. Edition language does not establish author or audience geography. RSS-retained content follows item-level rights checks and attribution; descriptions and story bodies are discarded. Localized editions share one publisher and may include translations; this is reporting, not raw forum discussion, independent outlets, or a representative survey.",
     },
     {
-      name: "Bluesky · optional public conversation search",
+      name: "Bluesky · public conversation search",
       key: "bluesky",
       enabled: true,
       onDemand: true,
@@ -204,7 +212,7 @@ export default async function Sources() {
       secondaryReferenceUrl: "https://bsky.social/about/support/tos",
       secondaryReferenceLabel: "Bluesky Terms of Service",
       detail:
-        "Optional, visitor-triggered search through the public AppView with no API key or account. Up to 25 indexed posts from the last 7 days per researcher-entered phrase. Alternate phrases are submitted separately and labeled; Atlas does not infer translations. Exact normalized text is collapsed within a query with its repeat count disclosed, and samples concentrated in one displayed handle receive a concentration note. These checks do not verify identity or independence. Post excerpts are transient and provider-labeled posts have their preview withheld. Language may be absent, and a query in one language does not establish the post's language, author location, or audience. This is an incomplete platform index, not a representative sample or a complete firehose; provider access and rate limits may vary.",
+        "Visitor-triggered search through the public AppView with no API key or account. Up to 25 indexed posts from the last 7 days per researcher-entered phrase. The English baseline adds a `lang:en` query filter; the selected lens uses the localized phrase when available. Repeated text and byline concentration are flagged without asserting identity or independence. Excerpts are transient. Language metadata and query language do not establish author location or audience. This is an incomplete platform index, not a representative sample or firehose; access and rate limits may vary.",
     },
     {
       name: "YouTube public comments (candidate)",
@@ -282,11 +290,11 @@ export default async function Sources() {
         <div className="eyebrow mb-4">Source configuration and health</div>
         <h1 className="mb-4 text-4xl font-extrabold">Sources</h1>
         <p className="mb-10 max-w-2xl leading-7 text-muted">
-          Configured does not mean recently successful. Discussion inputs
-          include broad licensed Stack Exchange expert Q&amp;A and narrow,
-          licensed Typst and Fedora community forums. Each source has a
-          different audience and coverage; none is a representative measure of
-          public opinion. Check each source&apos;s health and limits below.
+          The live search uses Bluesky, Lemmy, Mastodon public hashtags, and
+          Global Voices reporting. These are incomplete, different kinds of
+          evidence—not a representative measure of a country or market.
+          Scheduled operational connectors are listed separately below;
+          their stored records are not automatically part of this search.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           {health.map(({ source, runs, latest, lastSuccess, historyCapped, historyIncomplete }) => {

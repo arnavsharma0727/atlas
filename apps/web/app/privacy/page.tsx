@@ -23,7 +23,7 @@ export default function Privacy() {
               Search requests are sent to the relevant public search provider.
               The Global Voices request is routed through an Atlas server
               endpoint; that endpoint applies a short-window, IP-keyed,
-              best-effort rate limit. Hacker News, Bluesky, Lemmy, and Mastodon
+              best-effort rate limit. Bluesky, Lemmy, and Mastodon
               searches are sent from your browser to their public APIs. Forum
               excerpts are held transiently in the page; content-warning
               Mastodon posts are shown without a text preview. Those providers
@@ -35,13 +35,15 @@ export default function Privacy() {
               Only when a visitor checks the optional AI box, Atlas sends the
               topic and up to 16 short public-source excerpts (without source
               URLs or author handles) to Groq for translation and summary.
-              This feature requires a server-side Groq API key and uses the
-              provider&apos;s Free tier; Atlas falls back to a local evidence
-              overview if AI is not enabled or available. Groq says inference
-              prompts are not retained by default but usage metadata is
-              collected; see its <a className="underline text-ink" href="https://console.groq.com/docs/your-data" target="_blank" rel="noreferrer">data handling documentation</a>.
-              Groq processes prompts under its own terms. Never configure a paid plan or add
-              payment details for this feature. Queries also go to the public
+              This feature requires a server-side Groq API key and a server
+              configuration explicitly marked free-tier; Atlas does not
+              upgrade an account or add billing details. The free-tier status
+              must be confirmed by the project operator in Groq settings.
+              Groq says prompts are not retained by default for inference, but
+              reliability and abuse monitoring may retain prompts for up to
+              30 days; usage metadata is collected. See its <a className="underline text-ink" href="https://console.groq.com/docs/your-data" target="_blank" rel="noreferrer">data handling documentation</a>.
+              If AI is off or unavailable, Atlas labels a local evidence
+              overview or AI-unavailable fallback. Queries also go to the public
               sources listed on the Sources page. Avoid entering personal,
               confidential, or sensitive information.
             </p>

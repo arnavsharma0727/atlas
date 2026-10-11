@@ -6,15 +6,16 @@ This describes the visitor-facing workflow in the current code. `/sources` is th
 
 | Source | Product role | Scope and limitation |
 | --- | --- | --- |
-| Hacker News (Algolia) | English-language baseline conversation | Keyless comments, last 30 days, up to 20 matches. Technology-oriented and not a verified U.S. sample. |
-| Bluesky AppView | Public social discussion | Keyless search, last seven days, up to 25 indexed posts per phrase. Language query is not author geolocation; results and excerpts are transient. |
-| Lemmy instances | Public federated forum posts | Keyless query to `lemmy.world`, `discuss.tchncs.de`, `feddit.org`, and `jlai.lu`; up to 20 newest matching posts per instance in seven days. The visitor reviews applicable instance terms/privacy and age rules first. Federation may duplicate posts; no blanket reuse license is implied. |
-| Mastodon instances | Public hashtag conversation | Keyless hashtag timeline, up to 20 newest posts per queried instance. This is not arbitrary keyword search; untagged discussion is missed. Instances can restrict public access. Terms and server information are reviewed before use. |
-| Global Voices editions | International reporting context | Twelve language editions, headline metadata only, 30-day window and capped results. One publisher's editions are not independent forums or country samples. |
+| Bluesky AppView | Public social discussion | Public search, last seven days, up to 25 indexed posts per phrase. English baseline adds `lang:en`; the selected lens uses its query phrase. Language is not author geolocation; excerpts are transient. |
+| Lemmy instances | Public federated forum posts | Public API query to `lemmy.world`, `discuss.tchncs.de`, `feddit.org`, and `jlai.lu`; up to 20 recent matching posts per instance in seven days. Federation may duplicate posts; no blanket reuse license is implied. Instance terms and privacy links are listed on `/sources`. |
+| Mastodon instances | Public hashtag conversation | Public hashtag timeline, up to 20 newest posts per queried instance. Atlas mechanically formats the phrase as a hashtag; untagged discussion and nonmatching tags are missed. Instances can restrict public access. |
+| Global Voices editions | International reporting context | Non-U.S. lens only: twelve language editions, headline metadata only, 30-day window and capped results. One publisher's editions are not independent forums or country samples. |
 
 The form compares an English-language baseline with one selected country/language lens from eight options: U.S./English, South Korea/Korean, Japan/Japanese, Germany/German, France/French, Brazil/Portuguese, India/Hindi, and Spain/Spanish. These are query and community lenses, not verified contributor geographies. The product presents the English and selected-language summaries separately and lists sources beneath; it does not combine the international sample into one national-opinion estimate.
 
-Optional AI translation and summaries use the Groq Free tier only when separately enabled and explicitly selected by a visitor. A server-side `GROQ_API_KEY` is required; never configure paid billing or add payment details. Without it, Atlas displays a local evidence overview. See Groq's [billing FAQ](https://console.groq.com/docs/billing-faqs) and the [privacy notice](https://signal-scout-xi-ruby.vercel.app/privacy).
+Hacker News is retired from visitor search while content display/reuse review is unresolved. Stack Exchange, Wikimedia talk pages, and scheduled feeds shown in operational health are not automatically included in this search.
+
+AI translation and summaries are off by default and require explicit visitor opt-in plus server configuration. The code does not verify an account's Groq billing status; operators must independently confirm free-tier eligibility and must not enable paid billing for Atlas. If no confirmed free access is available, leave AI disabled. Only the topic and up to 16 short excerpts are sent, without source URLs or author handles. Groq's [data handling](https://console.groq.com/docs/your-data) and [billing FAQ](https://console.groq.com/docs/billing-faqs) apply; see Atlas's [privacy notice](https://signal-scout-xi-ruby.vercel.app/privacy).
 
 ## Operational ingestion is separate
 

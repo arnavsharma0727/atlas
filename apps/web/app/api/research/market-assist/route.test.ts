@@ -42,17 +42,34 @@ describe("free-tier market assist", () => {
     const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       expect(String(_url)).toBe("https://api.groq.com/openai/v1/chat/completions");
       expect(new Headers(init?.headers).get("authorization")).toBe("Bearer test-key");
-      const prompt = JSON.parse(String(init?.body)).messages[0].content as string;
+      const messages = JSON.parse(String(init?.body)).messages as Array<{ role: string; content: string }>;
+      expect(messages[0].role).toBe("system");
+      const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
       expect(prompt).toContain("semiconductors");
       expect(prompt).not.toContain("https://private.example");
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ usSummary: "US sample notes demand.", localSummary: "KR sample notes exports.", comparison: "Samples differ; evidence is limited.", limitations: ["Not representative"] }) } }] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ usSummary: "US sample notes demand.", usCitations: ["C1"], localSummary: "KR sample notes exports.", localCitations: ["C2"], comparison: "Samples differ; evidence is limited.", comparisonCitations: ["C1", "C2"], limitations: ["Not representative"] }) } }] }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiConsent: true,
-      evidence: { us: [{ source: "Bluesky", title: "US discussion", excerpt: "Demand comments", language: "en" }], local: [{ source: "Lemmy", title: "KR discussion", excerpt: "Export comments", language: "ko" }] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "Export comments", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: "US sample notes demand.", localSummary: "KR sample notes exports." } });
+    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "US sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
+  });
+
+  it("rejects model passages with citations that were not included in the request", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      usSummary: "Unsupported statement.", usCitations: ["C99"], localSummary: "No local evidence.", localCitations: [],
+      comparison: "No comparison.", comparisonCitations: [], limitations: [],
+    }) } }] }), { status: 200 })));
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "KR", aiConsent: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Text", language: "en" }], local: [] },
+    }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ mode: "unavailable" });
   });
 });

@@ -3,11 +3,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { MARKET_COUNTRIES, marketCountry } from "../../lib/market-countries";
 import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
-import { runResearchSweep, ResearchSweepSourceResult } from "../../lib/research-sweep";
+import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-
-type MarketSummary = { usSummary: string; localSummary: string; comparison: string; limitations: string[] };
+import { flagRepeatedEvidenceViews, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
 
 export default function ResearchSweep({
   initialTopic,
@@ -20,7 +19,7 @@ export default function ResearchSweep({
   const [countryCode, setCountryCode] = useState("KR");
   const [results, setResults] = useState<ResearchSweepSourceResult[]>([]);
   const [summary, setSummary] = useState<MarketSummary | null>(null);
-  const [summaryMode, setSummaryMode] = useState<"ai" | "evidence">("evidence");
+  const [summaryMode, setSummaryMode] = useState<"ai" | "evidence" | "unavailable">("evidence");
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,7 +33,7 @@ export default function ResearchSweep({
 
   useEffect(() => {
     try {
-      setAiConsent(window.localStorage.getItem("atlas-ai-summary-opt-in-v1") === "true");
+      setAiConsent(window.sessionStorage.getItem("atlas-ai-summary-opt-in-v1") === "true");
     } catch {
       // Keep AI summaries opt-in when browser storage is unavailable.
     }
@@ -50,7 +49,7 @@ export default function ResearchSweep({
   function changeAiConsent(enabled: boolean) {
     setAiConsent(enabled);
     try {
-      window.localStorage.setItem("atlas-ai-summary-opt-in-v1", String(enabled));
+      window.sessionStorage.setItem("atlas-ai-summary-opt-in-v1", String(enabled));
     } catch {
       // The choice still applies to this page session.
     }
@@ -74,16 +73,13 @@ export default function ResearchSweep({
       const englishHashtag = hashtagFromTopic(topic);
       const baseMastodon = englishHashtag ? [{ hashtag: englishHashtag, instance: "mastodon.social" as const }] : [];
       const baseSearch = runResearchSweep(topic, {
-        hackerNews: true,
         globalVoices: false,
         bluesky: true,
         blueskyQueries: [topic.length <= 92 ? `${topic} lang:en` : topic],
         lemmy: true,
         lemmyInstances: ["lemmy.world"],
         lemmyQueries: [{ host: "lemmy.world", query: topic }],
-        lemmyTermsAccepted: true,
         mastodonQueries: baseMastodon,
-        mastodonTermsAccepted: true,
       });
 
       const localSearch = countryCode !== "US" ? (() => {
@@ -95,12 +91,10 @@ export default function ResearchSweep({
           lemmy: true,
           lemmyInstances: localLemmyInstances,
           lemmyQueries: localLemmyInstances.map((host) => ({ host, query: localQuery })),
-          lemmyTermsAccepted: true,
           mastodonQueries: country.mastodonInstances.flatMap((host, index) => {
             const hashtag = localHashtags[index % localHashtags.length];
             return hashtag ? [{ hashtag, instance: host }] : [];
           }),
-          mastodonTermsAccepted: true,
         });
       })() : Promise.resolve([] as ResearchSweepSourceResult[]);
       const [baseResults, localResults] = await Promise.all([baseSearch, localSearch]);
@@ -111,27 +105,32 @@ export default function ResearchSweep({
           ...result,
           key: `local:${result.key}`,
           label: `${country.name} lens · ${result.label}`,
-          coverageNote: [result.coverageNote, preparation.mode === "english-fallback" && country.language !== "en"
+          coverageNote: [result.coverageNote, result.key.startsWith("mastodon:")
+            ? "Mastodon searches the hashtag shown, not arbitrary keywords. Atlas mechanically formats the entered phrase as that tag; untagged posts are missed."
+            : undefined, preparation.mode === "english-fallback" && country.language !== "en"
             ? `Automatic ${country.languageName} query translation was unavailable; this search used the original phrase.`
             : undefined].filter(Boolean).join(" ") || undefined,
         })),
       ];
-      setResults(merged);
-      const baselineEvidence = merged.filter(({ key }) => !key.startsWith("local:")).flatMap(({ evidence }) => evidence);
-      const localEvidence = merged.filter(({ key }) => key.startsWith("local:") && key !== "local:global-voices").flatMap(({ evidence }) => evidence);
+      const markedResults = flagRepeatedEvidenceViews(merged);
+      setResults(markedResults);
+      const citations = buildCitationIds(markedResults);
+      const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices");
+      const localEvidenceResults = markedResults.filter(({ key }) => key.startsWith("local:") && key !== "local:global-voices");
+      const includedEvidenceKeys = new Set<string>();
       const evidenceForAi = {
-        us: baselineEvidence.slice(0, 8).map((item) => ({ source: item.source, title: item.title, excerpt: (item.transientPreview ?? item.title).slice(0, 300), language: item.language })),
-        local: localEvidence.slice(0, 8).map((item) => ({ source: item.source, title: item.title, excerpt: (item.transientPreview ?? item.title).slice(0, 300), language: item.language })),
+        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys),
+        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys),
       };
-      const generated = allowAi
+      const generated = allowAi && (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
         ? await requestMarketAssist({ action: "summarize", topic, country: countryCode, evidence: evidenceForAi, aiConsent: true })
         : { mode: "unavailable", query: "", hashtags: [], summary: null };
       if (generated.mode === "ai" && generated.summary) {
-        setSummary(generated.summary);
+        setSummary(countryCode === "US" ? sameCountrySummary(generated.summary) : generated.summary);
         setSummaryMode("ai");
       } else {
-        setSummary(buildEvidenceSummary(baselineEvidence, localEvidence, country.name, countryCode === "US"));
-        setSummaryMode("evidence");
+        setSummary(buildEvidenceSummary(evidenceForAi.us, evidenceForAi.local, country.name, countryCode === "US"));
+        setSummaryMode(allowAi ? "unavailable" : "evidence");
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The search could not be completed.");
@@ -166,14 +165,16 @@ export default function ResearchSweep({
         </button>
       </form>
 
-      <p className="market-attribution">By: Arnav Sharma UVA30&apos;</p>
+      <p className="market-attribution">By: Arnav Sharma UVA30’</p>
       <div className="search-data-note">
         <label className="search-ai-toggle">
           <input type="checkbox" checked={aiConsent} onChange={(event) => changeAiConsent(event.target.checked)} />
           <span>AI summary</span>
         </label>
-        <span>{aiConsent ? "Topic goes to public search APIs; AI also sends up to 16 short excerpts to Groq. No source links or author handles." : "Topic goes to public search APIs; the overview is assembled locally."}</span>
-        <a href="/sources">Sources &amp; data use</a>
+        <span>{aiConsent ? "Topic goes to public search APIs. With AI on, the topic and up to 16 short excerpts also go to Groq for this session; source links and author handles are excluded. Enable only when the operator confirms free-tier access." : "Topic goes to public search APIs. AI is off; no search text or excerpts go to Groq. AI is session-only and should be enabled only when the operator confirms free-tier access."}</span>
+        <nav className="search-policy-links" aria-label="Search and data policies">
+          <a href="/sources">Sources</a><a href="/methodology">Methodology</a><a href="/privacy">Privacy</a>
+        </nav>
       </div>
 
       {searched && !loading && <p className="country-lens-note">Country lens: {country.name} · {country.languageName} communities, using the phrase as entered. Enter it in {country.languageName} for better local-language matches. Server or language does not verify a poster&apos;s location.</p>}
@@ -184,34 +185,34 @@ export default function ResearchSweep({
           <div className="market-results-heading">
             <div>
               <p className="eyebrow">Live conversation search</p>
-              <h2>“{query}” · United States and {country.name}</h2>
+              <h2>“{query}” · English-language baseline vs {country.name} language/community lens</h2>
             </div>
-            <p>{results.reduce((count, item) => count + item.evidence.length, 0)} matching records · sources listed below</p>
+            <p>Each source, query, time window, and availability status is listed below.</p>
           </div>
 
           <section className="market-summary" aria-labelledby="market-summary-title">
             <header>
               <div>
-                <p className="eyebrow">{summaryMode === "ai" ? "AI-generated from retrieved evidence" : "Evidence overview"}</p>
-                <h3 id="market-summary-title">What the sampled conversations say</h3>
+                <p className="eyebrow">{summaryMode === "ai" ? "AI-generated from retrieved evidence" : summaryMode === "unavailable" ? "AI unavailable · evidence overview" : "Evidence overview · AI not used"}</p>
+                <h3 id="market-summary-title">Selected public conversation</h3>
               </div>
-                <span>{summaryMode === "ai" ? "AI summary" : "Local fallback"}</span>
+                <span>{summaryMode === "ai" ? "AI summary" : summaryMode === "unavailable" ? "AI unavailable" : "Local overview"}</span>
             </header>
             <div className="market-summary-columns">
               <article>
                 <h4>United States · English-language baseline</h4>
-                <p>{summary.usSummary}</p>
+                <p><SummaryPassageText passage={summary.usSummary} /></p>
               </article>
               <article>
                 <h4>{country.name} · {country.languageName} search lens</h4>
-                <p>{summary.localSummary}</p>
+                <p><SummaryPassageText passage={summary.localSummary} /></p>
               </article>
             </div>
             <article className="market-summary-comparison">
               <h4>Comparison</h4>
-              <p>{summary.comparison}</p>
+              <p><SummaryPassageText passage={summary.comparison} /></p>
             </article>
-            <p className="market-summary-caveat">English-language results are not verified U.S. residents. The selected country is a language/community search lens, not verified poster nationality or a representative national sample. Counts reflect API returns, not attention, prevalence, or investor positioning.</p>
+            <p className="market-summary-caveat">The English-language baseline is not verified U.S. residents; only its Bluesky query is explicitly language-filtered. Lemmy uses the phrase as entered, and Mastodon searches the displayed hashtag. The selected country is a language/community lens, not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}
           </section>
 
@@ -234,7 +235,7 @@ export default function ResearchSweep({
   );
 }
 
-async function requestMarketAssist(input: { action: "prepare"; topic: string; country: string; aiConsent: true } | { action: "summarize"; topic: string; country: string; aiConsent: true; evidence: { us: Array<{ source: string; title: string; excerpt: string; language: string }>; local: Array<{ source: string; title: string; excerpt: string; language: string }> } }) {
+async function requestMarketAssist(input: { action: "prepare"; topic: string; country: string; aiConsent: true } | { action: "summarize"; topic: string; country: string; aiConsent: true; evidence: { us: ReturnType<typeof selectBalancedEvidence>; local: ReturnType<typeof selectBalancedEvidence> } }) {
   try {
     const response = await fetch("/api/research/market-assist", {
       method: "POST",
@@ -250,25 +251,32 @@ async function requestMarketAssist(input: { action: "prepare"; topic: string; co
   }
 }
 
-function buildEvidenceSummary(us: ResearchSweepSourceResult["evidence"], local: ResearchSweepSourceResult["evidence"], country: string, sameCountry: boolean): MarketSummary {
-  const summarize = (items: ResearchSweepSourceResult["evidence"], label: string) => {
-    if (!items.length) return `No matching records were returned from the completed ${label} searches. An empty sample does not establish that the topic is absent.`;
-    const sourceCounts = new Map<string, number>();
-    for (const item of items) sourceCounts.set(item.source, (sourceCounts.get(item.source) ?? 0) + 1);
-    const sources = [...sourceCounts.entries()].slice(0, 4).map(([source, count]) => `${source} (${count})`).join(", ");
-    const excerpts = items.filter(({ transientPreview }) => transientPreview).slice(0, 2).map(({ transientPreview }) => `“${compactOverview(transientPreview!)}”`);
-    return `${items.length} matching records were returned from ${sources || "the selected sources"}.${excerpts.length ? ` Sample excerpts: ${excerpts.join("; ")}` : " The returned records do not include usable text excerpts for a content synthesis."}`;
-  };
+function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, local: ReturnType<typeof selectBalancedEvidence>, country: string, sameCountry: boolean): MarketSummary {
+  const summarize = (items: ReturnType<typeof selectBalancedEvidence>, label: string) => items.length
+    ? { text: `This evidence overview does not infer a shared opinion; inspect the selected ${label} records below.`, citations: items.slice(0, 3).map(({ citationId }) => citationId) }
+    : { text: `No text-bearing records were selected for this ${label} overview. Check each source status below; an empty sample does not show that discussion is absent.`, citations: [] };
   return {
     usSummary: summarize(us, "English-language baseline"),
-    localSummary: sameCountry ? "The United States is selected. This search provides one English-language baseline; it does not represent a separate international view." : summarize(local, `${country} language/community lens`),
+    localSummary: sameCountry
+      ? { text: "The United States is selected, so this is the same English-language baseline—not a second view.", citations: [] }
+      : summarize(local, `${country} language/community lens`),
     comparison: sameCountry
-      ? "No cross-country comparison was run because the selected country is the United States."
-      : us.length && local.length
-        ? "Both groups returned evidence, but different providers, languages, and server communities are sampled. Treat any contrast as a research lead to inspect—not a measured difference between national populations."
-        : "One or both samples are empty or unavailable, so a substantive comparison cannot be made. An empty search is not evidence of absent discussion.",
+      ? { text: "No separate country-lens search was run for this query.", citations: [] }
+      : { text: "Provider coverage, language, and communities differ, so these results are not like-for-like national samples. Read the original records and source limitations before interpreting any contrast.", citations: [...us, ...local].slice(0, 4).map(({ citationId }) => citationId) },
     limitations: ["This is a free, rule-based evidence overview—not an AI-generated synthesis or representative opinion poll."],
   };
+}
+
+function sameCountrySummary(summary: MarketSummary): MarketSummary {
+  return {
+    ...summary,
+    localSummary: { text: "The United States is selected; this repeats the English-language baseline, not a second search.", citations: [] },
+    comparison: { text: "No separate country-language comparison was run.", citations: [] },
+  };
+}
+
+function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }) {
+  return <>{passage.text}{passage.citations.map((id) => <a key={id} className="overview-citation-ref" href={`#citation-${id}`} aria-label={`Open supporting source ${id}`}>{id}</a>)}</>;
 }
 
 function hashtagFromTopic(topic: string) {
@@ -284,11 +292,12 @@ function SourceResults({ result, citationIds }: { result: ResearchSweepSourceRes
     <section className="source-results" aria-label={result.label}>
       <header>
         <h3>{result.label}</h3>
-        <span className={result.status === "unavailable" ? "source-count source-count--error" : result.status === "not-searched" ? "source-count source-count--muted" : "source-count"}>{result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? "Partial coverage" : `${result.evidence.length} ${result.evidence.length === 1 ? "result" : "results"}`}</span>
+        <span className={result.status === "unavailable" ? "source-count source-count--error" : result.status === "not-searched" ? "source-count source-count--muted" : "source-count"}>{result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? "Partial coverage" : `${result.evidence.length} returned`}</span>
       </header>
       <p className="source-window">{result.window}</p>
-      <p className="source-query-meta">Query: <q>{result.query}</q> · Search started {new Date(result.asOf).toISOString().replace("T", " ").replace(".000Z", " UTC")}</p>
+      <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
       {result.coverageNote && <p className="source-coverage-warning" role="status">{result.coverageNote}</p>}
+      {result.sourceNote && <p className="source-coverage-warning" role="status">{result.sourceNote}</p>}
       {result.error ? (
         <p className="source-empty">This source is temporarily unavailable. Other sources can still return results.</p>
       ) : result.evidence.length ? (
@@ -297,7 +306,7 @@ function SourceResults({ result, citationIds }: { result: ResearchSweepSourceRes
             <li key={item.id} id={`citation-${citationIds.get(citationKey(result.key, item.id))}`}>
               <span className="source-citation-ref">{citationIds.get(citationKey(result.key, item.id))}</span>
               <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
-              {(item.context?.includes("Preview withheld") || item.context?.includes("Identical normalized text")) && <p className="source-context-note">{item.context}</p>}
+              {(item.context?.includes("Preview withheld") || item.context?.includes("Identical normalized text") || item.context?.includes("query/server views")) && <p className="source-context-note">{item.context}</p>}
               {item.transientPreview && <p className="source-preview" lang={languageTag(item.language)}>{compactPreview(item.transientPreview)}</p>}
               <p className="source-meta">{item.source} · {item.language} · {item.timeLabel.toLowerCase()} <time dateTime={item.timeValue}>{new Date(item.timeValue).toISOString().replace("T", " ").replace(".000Z", " UTC")}</time></p>
             </li>
@@ -316,11 +325,4 @@ function compactPreview(value: string) {
   if (value.length <= limit) return value;
   const boundary = value.lastIndexOf(" ", limit);
   return `${value.slice(0, boundary > 280 ? boundary : limit).trimEnd()}…`;
-}
-
-function compactOverview(value: string) {
-  const limit = 210;
-  if (value.length <= limit) return value;
-  const boundary = value.lastIndexOf(" ", limit);
-  return `${value.slice(0, boundary > 140 ? boundary : limit).trimEnd()}…`;
 }

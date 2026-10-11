@@ -1,6 +1,5 @@
 import { searchBlueskyPosts } from "./bluesky-public";
 import { withFetchTimeout } from "./fetch-with-timeout";
-import { searchHackerNewsComments } from "./hacker-news-search";
 import type { GlobalVoicesEditionResult } from "./global-voices-search";
 import { DISCUSSION_COMMUNITIES, searchLiveDiscussion } from "./live-topic-search";
 import { LEMMY_INSTANCES, LemmyInstance, searchLemmyPosts } from "./lemmy-public";
@@ -21,10 +20,12 @@ export type ResearchSweepSelection = {
   lemmyInstances?: readonly LemmyInstance[];
   /** Visitor-supplied local-language query for each selected instance; never translated or pooled. */
   lemmyQueries?: readonly { host: LemmyInstance; query: string }[];
-  lemmyTermsAccepted: boolean;
+  /** Deprecated compatibility field; no extra provider-terms affirmation is required. */
+  lemmyTermsAccepted?: boolean;
   mastodon?: { hashtag: string; instance: string };
   /** Per-instance hashtag searches; instances remain independently labeled and bounded. */
   mastodonQueries?: readonly { hashtag: string; instance: string }[];
+  /** Deprecated compatibility field; no extra provider-terms affirmation is required. */
   mastodonTermsAccepted?: boolean;
   bluesky?: boolean;
   /** Visitor-supplied language variants stay separate; no translation or pooling. */
@@ -37,6 +38,7 @@ export type ResearchSweepSourceResult = {
   label: string;
   query: string;
   asOf: string;
+  retrievedAt?: string;
   window: string;
   evidence: ResearchEvidence[];
   error: string | null;
@@ -57,7 +59,7 @@ export async function runResearchSweep(
 ): Promise<ResearchSweepSourceResult[]> {
   const query = input.trim();
   const asOf = new Date(now).toISOString();
-  const boundedFetch = withFetchTimeout(fetcher);
+  const boundedFetch = withFetchTimeout(fetcher, 8_000);
   const additionalQueries = selection.additionalQueries ?? [];
   if (additionalQueries.length > 3 || additionalQueries.some((term) => term.trim().length < 2 || term.trim().length > 100)) {
     throw new Error("Add no more than three alternate phrases, each 2–100 characters.");
@@ -89,9 +91,6 @@ export async function runResearchSweep(
   if (new Set(blueskyQueries.map((term) => term.trim().normalize("NFKC").toLocaleLowerCase())).size !== blueskyQueries.length) {
     throw new Error("Use a different phrase for each Bluesky language search.");
   }
-  if (selection.lemmy && !selection.lemmyTermsAccepted) {
-    throw new Error("Review and affirm the Lemmy instance terms and age condition before including it.");
-  }
   const lemmyInstances = selection.lemmyInstances ?? [LEMMY_INSTANCES[0].host];
   if (selection.lemmy && (!lemmyInstances.length || lemmyInstances.some(
     (host) => !LEMMY_INSTANCES.some((instance) => instance.host === host),
@@ -107,7 +106,7 @@ export async function runResearchSweep(
     }
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
-  if (!selection.hackerNews && !selection.globalVoices && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -118,32 +117,7 @@ export async function runResearchSweep(
   )) {
     throw new Error("Choose up to four listed Mastodon servers and valid hashtags.");
   }
-  if (mastodonQueries.length && !selection.mastodonTermsAccepted) {
-    throw new Error("Review the selected Mastodon server's rules and privacy information before searching.");
-  }
-
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
-  if (selection.hackerNews) {
-    for (const [index, term] of [query, ...additionalQueries.map((value) => value.trim())].entries()) {
-      tasks.push(capture(index === 0 ? "hacker-news" : `hacker-news:alternate:${index}`, index === 0 ? "Hacker News · tech community" : `Hacker News · alternate phrase ${index}`, term, asOf, "Relevant comments from the last 30 days · up to 20", async () =>
-      (await searchHackerNewsComments(term, boundedFetch, now)).map((item) => ({
-        id: `hacker-news:${item.id}`,
-        title: item.title,
-        url: item.url,
-        source: "Hacker News",
-        evidenceClass: "social discussion" as const,
-        language: "English",
-        timeLabel: "Published",
-        timeValue: item.createdAt,
-        transientPreview: item.transientPreview,
-        attribution: `Author: ${item.author}`,
-        sourceOperatorKey: "hacker-news",
-        sourceOperatorLabel: "Hacker News",
-        context: "An English-language technology community; not a cross-country or general-population sample",
-      })),
-      ));
-    }
-  }
   if (selection.globalVoices) {
     for (const [index, term] of [query, ...additionalQueries.map((value) => value.trim())].entries()) {
       tasks.push((async () => {
@@ -183,6 +157,7 @@ export async function runResearchSweep(
           label,
           query: term,
           asOf,
+          retrievedAt: new Date().toISOString(),
           window: `${available.length}/${body.editions.length} editions · last 30 days · headline terms must match; up to 5 per edition`,
           evidence,
           error: null,
@@ -190,7 +165,7 @@ export async function runResearchSweep(
           status: unavailable.length ? "partial" : "complete",
         };
       } catch (cause) {
-        return { key, label, query: term, asOf, window: "Localized edition search · last 30 days · headline metadata shown", evidence: [], error: cause instanceof Error ? cause.message : "Global Voices search is unavailable.", status: "unavailable" };
+        return { key, label, query: term, asOf, retrievedAt: new Date().toISOString(), window: "Localized edition search · last 30 days · headline metadata shown", evidence: [], error: cause instanceof Error ? cause.message : "Global Voices search is unavailable.", status: "unavailable" };
       }
       })());
     }
@@ -204,6 +179,7 @@ export async function runResearchSweep(
         label: community.label,
         query: term,
         asOf,
+        retrievedAt: new Date().toISOString(),
         window: "Title search · last 30 days",
         evidence: [],
         error: "Not searched: this provider requires at least 3 characters. Other selected sources were still searched.",
@@ -342,13 +318,14 @@ async function capture(
   try {
     const evidence = await search();
     const sourceNote = getSourceNote?.();
-    return { key, label, query, asOf, window, evidence, error: null, status: "complete", ...(sourceNote ? { sourceNote } : {}) };
+    return { key, label, query, asOf, retrievedAt: new Date().toISOString(), window, evidence, error: null, status: "complete", ...(sourceNote ? { sourceNote } : {}) };
   } catch (cause) {
     return {
       key,
       label,
       query,
       asOf,
+      retrievedAt: new Date().toISOString(),
       window,
       evidence: [],
       error: cause instanceof Error ? cause.message : "This source is temporarily unavailable.",

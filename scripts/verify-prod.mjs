@@ -18,8 +18,8 @@ for (const route of ["/", "/explore", "/sources", "/privacy", "/methodology", "/
 try {
   const response = await fetch(`${base}/`, { signal: AbortSignal.timeout(15000) });
   const page = await response.text();
-  if (response.ok && page.includes("The Engine for Global Markets") && page.includes("Search a market, company, or idea")) {
-    pass("focused Atlas search landing", "brand subtitle and single search field are rendered");
+  if (response.ok && page.includes("The Engine for Global Markets") && page.includes("Search a market, company, or idea") && page.includes("By: Arnav Sharma UVA30") && page.includes("AI is off")) {
+    pass("focused Atlas search landing", "brand subtitle, search field, byline, and AI-off disclosure are rendered");
   } else {
     fail("focused Atlas search landing", `HTTP ${response.status}; expected Atlas brand and search field were not found`);
   }
