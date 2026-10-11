@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -89,6 +89,23 @@ describe("market summary evidence contracts", () => {
     expect(hasTopicSignalTerms("반도체 수요가 증가했다.", "반도체 수요")).toBe(true);
     expect(hasTopicSignalTerms("Demand increased across markets.", "semiconductor demand")).toBe(false);
     expect(hasTopicSignalTerms("Supply is tightening.", "demand and supply")).toBe(false);
+  });
+
+  it("filters off-topic displayed evidence while preserving raw provider counts and per-lens wording", () => {
+    const rows = [
+      result("bluesky", "Bluesky", [
+        evidence("off-topic", "Bluesky", "Critical minerals and industrial demand are changing."),
+        evidence("on-topic", "Bluesky", "GPU chip demand is accelerating."),
+      ]),
+      result("local:bluesky", "Korean Bluesky", [
+        { ...evidence("local-on-topic", "Bluesky", "반도체 수요와 가격이 상승했다."), language: "Korean" },
+        { ...evidence("local-off-topic", "Bluesky", "철강 수요와 가격이 상승했다."), language: "Korean" },
+      ]),
+    ];
+    const filtered = filterResultsToTopic(rows, "semiconductor demand", "반도체 수요");
+    expect(filtered.map(({ evidence }) => evidence.map(({ id }) => id))).toEqual([["on-topic"], ["local-on-topic"]]);
+    expect(filtered.map(({ providerReturnedCount, topicExcludedCount }) => [providerReturnedCount, topicExcludedCount])).toEqual([[2, 1], [2, 1]]);
+    expect(collapseRepeatedEvidenceViews(filtered).map(({ returnedCount }) => returnedCount)).toEqual([2, 2]);
   });
 
   it("applies the market-language screen before the balanced eight-item cap", () => {

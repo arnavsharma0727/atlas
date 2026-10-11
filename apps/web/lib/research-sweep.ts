@@ -60,6 +60,10 @@ export type ResearchSweepSourceResult = {
   retrievedAt?: string;
   window: string;
   evidence: ResearchEvidence[];
+  /** Raw provider return total retained when a visitor-facing topic screen is applied. */
+  providerReturnedCount?: number;
+  /** Number of raw records excluded by the transparent visitor-facing topic screen. */
+  topicExcludedCount?: number;
   error: string | null;
   coverageNote?: string;
   sourceNote?: string;

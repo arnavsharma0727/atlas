@@ -38,6 +38,11 @@ const QUERY_INTENT_TERMS = new Set([
   "import", "imports", "production", "yield", "yields", "commodity", "commodities", "futures",
   "valuation", "valuations", "guidance", "cash", "flow", "dividend", "dividends", "debt", "equity",
   "interest", "rate", "rates", "bond", "bonds", "chain", "order", "book", "capital", "expenditure",
+  "mercado", "mercados", "demanda", "oferta", "preço", "preços", "precio", "precios", "prix", "marché", "nachfrage", "angebot", "markt", "preis", "preise",
+  "mercati", "domanda", "offerta", "prezzi", "prezzo", "marknaden", "efterfrågan", "anbud", "kurs", "kursen",
+  "수요", "공급", "시장", "가격", "매출", "주가", "주식", "투자", "실적", "이익", "손실", "수출", "수입", "생산", "원자재", "선물", "시가총액", "영업이익", "배당", "금리", "환율", "주주", "공급망", "가이던스",
+  "需要", "供給", "市場", "価格", "売上", "利益", "在庫", "株価", "株式", "投資", "業績", "関税", "輸出", "輸入", "生産", "原材料", "先物", "時価総額", "営業利益", "配当", "金利", "為替", "株主", "供給網",
+  "बाज़ार", "बाजार", "मांग", "आपूर्ति", "कीमत", "बिक्री", "राजस्व", "शेयर", "निवेश", "लाभ", "हानि", "निर्यात", "आयात", "उत्पादन", "फसल", "कमोडिटी", "ब्याज", "विनिमय", "लाभांश",
 ]);
 
 const MARKET_TOPIC_ALIASES: string[][] = [
@@ -64,6 +69,27 @@ export function hasTopicSignalTerms(excerpt: string, topic: string): boolean {
     if (topicTerms.some((term) => aliasGroup.includes(term)) && aliasGroup.some(matches)) return true;
   }
   return topicTerms.some(matches);
+}
+
+/** Filter displayed records by the phrase actually used for each search lens, preserving raw API counts. */
+export function filterResultsToTopic(
+  results: ResearchSweepSourceResult[],
+  baselineTopic: string,
+  localTopic = baselineTopic,
+): ResearchSweepSourceResult[] {
+  return results.map((result) => {
+    const topic = result.key.startsWith("local:") ? localTopic : baselineTopic;
+    const evidence = result.evidence.filter((item) =>
+      hasTopicSignalTerms(`${item.title} ${item.transientPreview ?? ""}`, topic),
+    );
+    const newlyExcluded = result.evidence.length - evidence.length;
+    return {
+      ...result,
+      evidence,
+      providerReturnedCount: result.providerReturnedCount ?? result.evidence.length,
+      topicExcludedCount: (result.topicExcludedCount ?? 0) + newlyExcluded,
+    };
+  });
 }
 
 /**
@@ -197,7 +223,7 @@ export function collapseRepeatedEvidenceViews(results: ResearchSweepSourceResult
   });
   return results.map((result, resultIndex) => ({
     result,
-    returnedCount: result.evidence.length,
+    returnedCount: result.providerReturnedCount ?? result.evidence.length,
     duplicateCount: duplicateCounts[resultIndex],
     evidence: result.evidence.flatMap((item, itemIndex) => {
       if (suppressed.has(`${resultIndex}\u0000${itemIndex}`)) return [];

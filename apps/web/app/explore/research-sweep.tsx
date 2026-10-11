@@ -7,7 +7,7 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
@@ -122,7 +122,7 @@ export default function ResearchSweep({
             : undefined].filter(Boolean).join(" ") || undefined,
         })),
       ];
-      const markedResults = flagRepeatedEvidenceViews(merged);
+      const markedResults = flagRepeatedEvidenceViews(filterResultsToTopic(merged, topic, localQuery));
       setResults(markedResults);
       const citations = buildCitationIds(markedResults);
       const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && !key.startsWith("the-conversation:"));
@@ -243,7 +243,7 @@ export default function ResearchSweep({
             </article>
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             <p className="market-summary-caveat">For social posts with attribution, no more than one excerpt per displayed account from each provider/network enters an overview. Account labels are used only to limit concentration; they are not sent to AI and do not verify a person's identity.</p>
-            <p className="market-summary-caveat">Before source balancing and the eight-excerpt cap, the topic-and-market-language screen excluded {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens candidate excerpts. It requires a query-topic term plus market language; synonym-only posts can be missed, and passing the screen does not prove relevance.</p>
+            <p className="market-summary-caveat">The source register omits results whose titles or excerpts do not contain a query-topic term, while preserving the raw provider-return count and screened-out count. The AI overview then requires both a query-topic term and market language; synonym-only posts can be missed, and passing either screen does not prove relevance. Before source balancing and the eight-excerpt cap, {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} candidate excerpts were excluded from AI consideration.</p>
             <p className="market-summary-caveat">The selected-language AI overview uses only records with an understood, matching provider language label. Mismatched, missing, or instance-specific language labels stay visible in the source list but are excluded from that overview.</p>
             <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives an English-language filter only when the query fits the provider limit; Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}
@@ -330,11 +330,13 @@ function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }
 function SourceResults({ result, evidence, returnedCount, duplicateCount, citationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; citationIds: Map<string, string> }) {
   const [showAll, setShowAll] = useState(false);
   const items = showAll ? evidence : evidence.slice(0, 8);
+  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
+  const statusLabel = result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? `Partial coverage · ${countsLabel}` : countsLabel;
   return (
     <section className="source-results" aria-label={result.label}>
       <header>
         <h3>{result.label}</h3>
-        <span className={result.status === "unavailable" ? "source-count source-count--error" : result.status === "not-searched" ? "source-count source-count--muted" : "source-count"}>{result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? "Partial coverage" : duplicateCount ? `${evidence.length} unique · ${returnedCount} returned` : `${returnedCount} returned`}</span>
+        <span className={result.status === "unavailable" ? "source-count source-count--error" : result.status === "not-searched" ? "source-count source-count--muted" : "source-count"}>{statusLabel}</span>
       </header>
       <p className="source-window">{result.window}</p>
       <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
@@ -360,6 +362,8 @@ function SourceResults({ result, evidence, returnedCount, duplicateCount, citati
           ))}</ul>
           {evidence.length > items.length && <button className="show-more-results" type="button" onClick={() => setShowAll(true)}>Show all {evidence.length} unique results</button>}
         </>
+      ) : result.topicExcludedCount ? (
+        <p className="source-empty">No displayed records matched the searched topic terms. {result.topicExcludedCount} were screened from this register; related items using different wording may have been missed.</p>
       ) : returnedCount > 0 ? (
         <p className="source-empty">All {returnedCount} returned {returnedCount === 1 ? "record also appeared" : "records also appeared"} in another selected view. Repeated appearances are one original record, not independent corroboration.</p>
       ) : (
