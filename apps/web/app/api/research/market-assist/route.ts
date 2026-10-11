@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketCountry } from "../../../../lib/market-countries";
-import { normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
+import { hasMarketSignalTerms, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { topicHashtags } from "../../../../lib/topic-hashtags";
 
 export const runtime = "nodejs";
@@ -197,7 +197,12 @@ function parseEvidence(value: unknown): EvidenceGroups | null {
     return result;
   };
   const us = parse(record.us); const local = parse(record.local);
-  return us && local ? { us, local } : null;
+  // Enforce the same minimum market-language gate at the server boundary.
+  // Browser filtering improves UX; this prevents a direct request from
+  // bypassing that screen and spending the model call on incidental mentions.
+  if (!us || !local || (!us.length && !local.length)) return null;
+  if ([...us, ...local].some((item) => !hasMarketSignalTerms(item))) return null;
+  return { us, local };
 }
 
 function allow(ip: string) {

@@ -84,6 +84,7 @@ try {
   const page = await response.text();
   if (
     response.ok && page.includes("conservative market-language screen") &&
+      page.includes("server repeats this lexical gate") && page.includes("rejects empty or unscreened requests") &&
     page.includes("each comparison claim must cite both sides") &&
     page.includes("Citation validation does not establish") && page.includes("inspect the original record")
   ) {

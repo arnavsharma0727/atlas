@@ -12,7 +12,7 @@ const sections = [
   },
   {
     title: "Read the original before drawing a conclusion",
-    body: "When the operator has enabled the optional AI service and it is available, the overview uses at most eight short, source-balanced excerpts per side. A conservative market-language screen must pass before excerpts are sent; this lexical gate can miss relevant evidence and is not semantic verification. Each one-sentence claim must cite exact submitted records, and each comparison claim must cite both sides. Citations are collected with the source records below the overview. Source URLs and author handles are not sent to Groq. Citation validation does not establish that a source entails the claim; inspect the original record. Without AI or when it fails, Atlas shows a limited rule-based overview and labels AI unavailable.",
+    body: "When the operator has enabled the optional AI service and it is available, the overview uses at most eight short, source-balanced excerpts per side. A conservative market-language screen must pass before excerpts are sent; the server repeats this lexical gate and rejects empty or unscreened requests. This screen can miss relevant evidence and is not semantic verification. Each one-sentence claim must cite exact submitted records, and each comparison claim must cite both sides. Citations are collected with the source records below the overview. Source URLs and author handles are not sent to Groq. Citation validation does not establish that a source entails the claim; inspect the original record. Without AI or when it fails, Atlas shows a limited rule-based overview and labels AI unavailable.",
   },
   {
     title: "Compare like with like",

@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 
+let requestSequence = 10;
 function makeRequest(body: unknown) {
+  requestSequence++;
   return new NextRequest("http://localhost/api/research/market-assist", {
     method: "POST",
-    headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost" },
+    headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "x-forwarded-for": `198.51.100.${requestSequence}` },
     body: JSON.stringify(body),
   });
 }
@@ -24,6 +26,32 @@ describe("free-tier market assist", () => {
     const response = await POST(makeRequest({ action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true, evidence: { us: [], local: [] } }));
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "disabled" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("enforces the market-language screen at the server boundary", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "coffee", country: "KR", aiEnabled: true,
+      evidence: {
+        us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "I drink coffee before work.", language: "en" }],
+        local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "매일 아침 커피를 마신다.", language: "ko" }],
+      },
+    }));
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not spend a model request when both evidence groups are empty", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({ action: "summarize", topic: "coffee", country: "KR", aiEnabled: true, evidence: { us: [], local: [] } }));
+    expect(response.status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -104,7 +132,7 @@ describe("free-tier market assist", () => {
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments (@reader), https://private.example/story analyst@private.example", language: "en", linkSharing: true }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "Export comments", language: "ko" }] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments (@reader), https://private.example/story analyst@private.example", language: "en", linkSharing: true }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "수출 관련 의견", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "US sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
@@ -122,7 +150,7 @@ describe("free-tier market assist", () => {
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand comments", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Post", excerpt: "Export comments", language: "ko" }] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand comments", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Post", excerpt: "수출 관련 의견", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { citations: ["C1"] }, localSummary: { citations: ["C2"] } } });
@@ -141,7 +169,7 @@ describe("free-tier market assist", () => {
     }) } }] }), { status: 200 })));
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Text", language: "en" }], local: [] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand remains uncertain.", language: "en" }], local: [] },
     }));
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation" });
