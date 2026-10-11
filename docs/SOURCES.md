@@ -36,6 +36,7 @@ Scheduled or optional ingestion may include Stack Exchange, Global Voices, The C
 
 - GDELT live search is retired after provider rate-limit/timeout failures.
 - GitHub public issue/discussion search is not integrated. Although public REST search can be queried without a token, GitHub's [Acceptable Use Policies](https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies) restrict use of public non-personal information for research to cases where resulting publications are open access. Atlas is an interactive product, not an open-access research publication; do not add this source without a clear applicable permission basis.
+- Stocktwits is not integrated. The operator currently says it is not accepting new API registrations, and its terms prohibit automated extraction except through written authorization or an approved API/developer offering. Public webpages are not a permitted substitute for API access; see [developer access](https://api.stocktwits.com/developers) and [terms](https://stocktwits.com/about/legal/terms/).
 - Wikimedia talk pages and scheduled feeds are operational/research-context sources and are not included in this focused conversation search.
 - Wikinews is archived, not a current source.
 - YouTube comments are not implemented; API keys, quotas, and additional policy requirements apply.

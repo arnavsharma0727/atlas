@@ -14,6 +14,8 @@ India Mastodon follow-up: 2026-10-11 09:53 UTC. `india.goonj.xyz`'s public insta
 
 Production follow-up: 2026-10-11 09:54 UTC, commit `84fdd4d`. The 25-check production verifier initially received HTTP 503 from the optional OpenAlex metadata route (24/25 checks passed). One immediate bounded retry returned HTTP 200 with a valid empty `works` array. No root cause was identified; this is evidence of intermittent availability, not a confirmed OpenAlex quota or service incident. Crossref and arXiv completed in the same verifier run.
 
+Stocktwits access review: 2026-10-11. The operator's developer page says new API registrations are not being accepted during its API review, and its current terms prohibit automated extraction except through written authorization or an approved API/developer offering. Atlas does not scrape the site or use an unapproved endpoint. This rules out adding Stocktwits under the present no-signup/no-cost scope; it does not establish that the platform has no relevant discussion.
+
 ## Live public API sample
 
 Run: 2026-10-11 07:45 UTC. The queries below were sent directly to the public provider adapters. `complete` means the API request succeeded; it does not mean the returned items are representative or that the query is semantically unambiguous.
