@@ -43,6 +43,8 @@ describe("free-tier market assist", () => {
       expect(String(_url)).toBe("https://api.groq.com/openai/v1/chat/completions");
       expect(new Headers(init?.headers).get("authorization")).toBe("Bearer test-key");
       const messages = JSON.parse(String(init?.body)).messages as Array<{ role: string; content: string }>;
+      const requestBody = JSON.parse(String(init?.body)) as { reasoning_effort?: string; max_completion_tokens?: number };
+      expect(requestBody).toMatchObject({ reasoning_effort: "low", max_completion_tokens: 1400 });
       expect(messages[0].role).toBe("system");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
       expect(prompt).toContain("semiconductors");
@@ -77,6 +79,7 @@ describe("free-tier market assist", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toHaveProperty("response_format");
     expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).not.toHaveProperty("response_format");
+    expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toMatchObject({ reasoning_effort: "low", max_completion_tokens: 1400 });
   });
 
   it("rejects model passages with citations that were not included in the request", async () => {
