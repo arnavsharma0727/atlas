@@ -10,6 +10,7 @@ import type { ResearchEvidence } from "./research-brief";
 import type { CrossrefWork } from "./crossref-search";
 import type { ArxivRecord } from "./arxiv-search";
 import { searchManifoldForecasts } from "./manifold-search";
+import type { OpenAlexWork } from "./openalex-search";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -19,6 +20,8 @@ export type ResearchSweepSelection = {
   theConversation?: boolean;
   /** Visitor-triggered, title/DOI-only global scholarly metadata; never a country or discussion sample. */
   crossref?: boolean;
+  /** Visitor-triggered, title-only global scholarly metadata; never a country or discussion sample. */
+  openAlex?: boolean;
   /** Visitor-triggered, title/ID-only arXiv metadata; never a country or discussion sample. */
   arxiv?: boolean;
   /** Visitor-triggered play-money prediction markets; never fed into country/community summaries. */
@@ -124,7 +127,7 @@ export async function runResearchSweep(
     }
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
-  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.arxiv && !selection.manifoldForecasts && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -299,6 +302,44 @@ export async function runResearchSweep(
           attributionUrl: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
           sourceOperatorKey: "crossref",
           sourceOperatorLabel: "Crossref",
+        }));
+      },
+    ));
+  }
+  if (selection.openAlex) {
+    tasks.push(capture(
+      "openalex",
+      "OpenAlex · recent global research literature",
+      query,
+      asOf,
+      "Title-matched metadata · publication date within 5 years · up to 12 records",
+      async () => {
+        const response = await boundedFetch("/api/research/openalex", {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error(response.status === 429
+          ? "OpenAlex search limit reached. Try again in one minute."
+          : "OpenAlex research metadata is temporarily unavailable.");
+        const body = await response.json() as { works?: OpenAlexWork[] };
+        if (!Array.isArray(body.works)) throw new Error("OpenAlex returned an unexpected response.");
+        return body.works.map((work) => ({
+          id: `openalex:${work.id}`,
+          title: work.title,
+          url: work.url,
+          source: `OpenAlex · ${work.workType || "research work"}`,
+          evidenceClass: "research literature" as const,
+          language: "Not reported",
+          timeLabel: "Published",
+          timeValue: work.publishedAt,
+          context: `OpenAlex scholarly metadata${work.openAccess === null ? "; access status not reported" : work.openAccess ? "; marked open access by OpenAlex" : "; not marked open access by OpenAlex"}. Title-level record only; not public discussion, not a country sample, and not an assessment of study quality.`,
+          attribution: "OpenAlex metadata",
+          attributionUrl: "https://help.openalex.org/access/pricing/",
+          licenseName: "Metadata: CC0 1.0",
+          licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
+          sourceOperatorKey: "openalex",
+          sourceOperatorLabel: "OpenAlex",
         }));
       },
     ));

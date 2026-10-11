@@ -49,6 +49,24 @@ try {
   fail("Manifold source and privacy boundaries", error instanceof Error ? error.message : "request failed");
 }
 
+try {
+  const sourcesResponse = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
+  const sourcesPage = await sourcesResponse.text();
+  const privacyResponse = await fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) });
+  const privacyPage = await privacyResponse.text();
+  if (sourcesResponse.ok && privacyResponse.ok &&
+    sourcesPage.includes("OpenAlex · recent global research metadata") &&
+    sourcesPage.includes("keyless casual-use budget") &&
+    sourcesPage.includes("Metadata is CC0") &&
+    privacyPage.includes("OpenAlex and Crossref searches")) {
+    pass("OpenAlex free-source disclosure", "keyless quota, CC0 metadata, title-only scope, and server-side search privacy are disclosed");
+  } else {
+    fail("OpenAlex free-source disclosure", "source register or privacy disclosures are missing");
+  }
+} catch (error) {
+  fail("OpenAlex free-source disclosure", error instanceof Error ? error.message : "request failed");
+}
+
 for (const route of ["/about", "/briefs", "/candidates", "/companies", "/companies/NVDA", "/coverage", "/divergences/example", "/login", "/watchlists"]) {
   try {
     const response = await fetch(`${base}${route}`, { redirect: "manual", signal: AbortSignal.timeout(15000) });
@@ -77,6 +95,7 @@ for (const [name, route, method] of [
 }
 
 for (const [name, route, resultKey] of [
+  ["OpenAlex research metadata", "/api/research/openalex", "works"],
   ["Crossref research metadata", "/api/research/crossref", "works"],
   ["arXiv research metadata", "/api/research/arxiv", "records"],
 ]) {

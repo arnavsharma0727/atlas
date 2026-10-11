@@ -141,6 +141,26 @@ describe("runResearchSweep", () => {
     expect(results[0].evidence[0].context).toContain("Not public discussion");
   });
 
+  it("adds OpenAlex title-only metadata as global context, never discussion evidence", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("/api/research/openalex");
+      expect(JSON.parse(String(init?.body))).toEqual({ query: "semiconductor" });
+      return Response.json({ works: [{
+        id: "https://openalex.org/W12345", title: "Semiconductor supply chain resilience",
+        url: "https://doi.org/10.1234/example.1", publishedAt: new Date(NOW - 60_000).toISOString(),
+        workType: "article", openAccess: true,
+      }] });
+    });
+    const results = await runResearchSweep("semiconductor", { openAlex: true, lemmy: false }, fetcher, NOW);
+    expect(results).toMatchObject([{
+      key: "openalex", status: "complete",
+      evidence: [{ evidenceClass: "research literature", sourceOperatorKey: "openalex", licenseName: "Metadata: CC0 1.0" }],
+    }]);
+    expect(results[0].evidence[0].context).toContain("not public discussion");
+    expect(results[0].evidence[0].transientPreview).toBeUndefined();
+    expect(selectBalancedEvidence(results, new Map())).toEqual([]);
+  });
+
   it("adds arXiv title metadata as preprint context without abstract text", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe("/api/research/arxiv");

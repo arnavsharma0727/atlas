@@ -21,7 +21,7 @@ export default function Privacy() {
             </p>
             <p>
               Search requests are sent to the relevant public search provider.
-              arXiv, Crossref, Global Voices, and The Conversation requests are routed through
+              arXiv, OpenAlex, Crossref, Global Voices, and The Conversation requests are routed through
               Atlas server endpoints; those endpoints apply short-window,
               IP-keyed, best-effort rate limits. Bluesky, Lemmy, Mastodon, and Stack
               Exchange searches are sent from your browser to their public
@@ -54,7 +54,7 @@ export default function Privacy() {
             </p>
             <p>
               Atlas does not write on-demand searches to durable user history.
-              To respect provider request limits, identical Crossref searches
+              To respect provider request limits, identical OpenAlex and Crossref searches
               may be cached in server memory for 60 seconds and arXiv searches
               for 24 hours; these caches are not durable or shared across
               serverless instances. Results are also held temporarily in the

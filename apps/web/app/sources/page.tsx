@@ -99,6 +99,17 @@ export default async function Sources() {
       detail: "Each search makes one bounded request to Crossref’s free public API, without signup or key, for up to 12 recent five-year title matches. Atlas shows DOI-linked titles and depositor-provided bibliographic metadata only; it does not fetch abstracts or publisher pages. The records are global scholarly literature, not current community opinion, a country sample, or evidence of study quality. Crossref’s public pool has tighter rate limits than its optional paid service; Atlas caches identical queries for 60 seconds, serializes requests and applies a per-client limit best-effort within each server instance.",
     },
     {
+      name: "OpenAlex · recent global research metadata",
+      key: "openalex",
+      enabled: true,
+      onDemand: true,
+      referenceUrl: "https://help.openalex.org/api/authentication/",
+      referenceLabel: "OpenAlex keyless API and rate limits",
+      secondaryReferenceUrl: "https://help.openalex.org/access/pricing/",
+      secondaryReferenceLabel: "OpenAlex free access and CC0 data",
+      detail: "One visitor-triggered search uses OpenAlex’s keyless casual-use budget; no account, API key, payment method, or paid plan is configured. Atlas requests only ID, DOI, title, publication date, work type, and open-access flag, then keeps up to 12 title matches from the last five years. Abstracts and author names are neither requested nor retained. Metadata is CC0. This is global scholarly context, not live discussion, a country sample, or a quality assessment. OpenAlex documents keyless use as free but rate-limited; service availability for anonymous requests is not guaranteed. Atlas rate-limits best-effort per server instance and has no access to OpenAlex's shared keyless-pool quota.",
+    },
+    {
       name: "Manifold · play-money community forecasts",
       key: "manifold-forecasts",
       enabled: true,

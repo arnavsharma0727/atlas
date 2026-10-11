@@ -73,6 +73,7 @@ export default function ResearchSweep({
         globalVoices: false,
         theConversation: true,
         crossref: true,
+        openAlex: true,
         arxiv: true,
         manifoldForecasts: true,
         bluesky: true,
