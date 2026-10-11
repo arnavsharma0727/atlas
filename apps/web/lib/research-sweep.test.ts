@@ -223,7 +223,6 @@ describe("runResearchSweep", () => {
       { uri: "at://did:plc:abc/app.bsky.feed.post/c", record: { text: "Third distinct view", createdAt: new Date(NOW - 3000).toISOString() }, author: { handle: "one.example" } },
     ] })));
     const [result] = await runResearchSweep("markets", {
-      hackerNews: false,
       globalVoices: false,
       bluesky: true,
       lemmy: false,
@@ -235,13 +234,11 @@ describe("runResearchSweep", () => {
   it("rejects duplicate and excessive alternate phrases before any provider call", async () => {
     const fetcher = vi.fn();
     await expect(runResearchSweep("topic", {
-      hackerNews: true,
       additionalQueries: [" TOPIC "],
       lemmy: false,
       lemmyTermsAccepted: false,
     }, fetcher, NOW)).rejects.toThrow("must be different");
     await expect(runResearchSweep("topic", {
-      hackerNews: true,
       additionalQueries: ["one", "two", "three", "four"],
       lemmy: false,
       lemmyTermsAccepted: false,
@@ -281,7 +278,6 @@ describe("runResearchSweep", () => {
       return new Response("[]");
     });
     const results = await runResearchSweep("markets", {
-      hackerNews: false,
       globalVoices: false,
       lemmy: false,
       lemmyTermsAccepted: false,
@@ -387,7 +383,6 @@ describe("runResearchSweep", () => {
       { language: "fr", edition: "French", articles: [], error: "Timed out" },
     ] }), { status: 200 }));
     const [result] = await runResearchSweep("market update", {
-      hackerNews: false,
       globalVoices: true,
       lemmy: false,
       lemmyTermsAccepted: false,

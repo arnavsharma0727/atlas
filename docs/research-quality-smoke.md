@@ -63,6 +63,18 @@ Crossref returned 12 DOI-linked records whose publication dates passed the adapt
 
 Run: 2026-10-11 08:23 UTC, via the local Atlas server endpoint, query `semiconductor`. The public API request completed and the adapter returned five records. All links passed the `arxiv.org/abs/` host/path check; the returned objects contained no abstract or author fields. This is a technical integration check of one query, not a measure of arXiv coverage or the quality of the papers.
 
+### Broader topic and language check
+
+Run: 2026-10-11 08:46 UTC, by running the same live adapters without the AI summarizer and recording counts only. Topic: `bitcoin`; localized probes: Korean `비트코인` and Spanish-language `bitcoin`. No excerpts, titles, author handles, or URLs were retained here.
+
+| Lens/query | Bluesky | Lemmy (six server views) | Mastodon hashtag | Global Voices |
+| --- | ---: | ---: | ---: | ---: |
+| English · `bitcoin` | 24 | 14–20 per server | 20 (cap) | 0 |
+| Korean · `비트코인` | 11 | 0 across all six | 18 | 0 |
+| Spanish-language phrase · `bitcoin` | 24 | 14–20 per server | 20 (cap) | 0 |
+
+This validates that the public adapters can return live records on multiple providers and that the Korean phrase has coverage on Bluesky and a Japanese-hosted Mastodon instance while this particular term returned no Lemmy matches. It does not validate language purity, local author geography, relevance to investor thesis, independent authorship, or representation. English and Spanish rows intentionally share the same query, so their identical counts are not evidence of Spanish-language coverage. The Mastodon count is at its cap and queries only a hashtag timeline. The six Lemmy counts are separate, potentially overlapping federated server views, not six independent samples.
+
 ### Production release check
 
 Run: 2026-10-11 08:28 UTC against `https://signal-scout-xi-ruby.vercel.app` after commit `f403515` was pushed to `main` and the deployment updated. The production verifier passed all 21 checks, including public routes, protected operational endpoints, and the new source APIs. Its live query `electric vehicles` returned 12 Crossref records and 10 arXiv records with title/URL fields. A separate live `semiconductor` request returned HTTP 200 from The Conversation (six editions, zero title matches) and Global Voices (twelve editions, zero title matches); the `/sources` register displayed all three providers plus Crossref and arXiv. Successful empty results are not evidence of topic absence. This verifies deployment and bounded endpoint operation only—not relevance precision, recall, coverage, representativeness, or the 8/10 quality bar.

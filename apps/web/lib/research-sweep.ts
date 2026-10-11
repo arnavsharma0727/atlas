@@ -13,7 +13,6 @@ import type { ArxivRecord } from "./arxiv-search";
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
   gdelt?: boolean;
-  hackerNews?: boolean;
   globalVoices?: boolean;
   /** Visitor-triggered, headline-only international expert analysis; excluded from the discussion synthesis. */
   theConversation?: boolean;
