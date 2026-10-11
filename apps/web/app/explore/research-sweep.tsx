@@ -132,7 +132,7 @@ export default function ResearchSweep({
         setSummary(activeCountryCode === "US" ? sameCountrySummary(generated.summary) : generated.summary);
         setSummaryMode("ai");
       } else {
-        setSummary(buildEvidenceSummary(evidenceForAi.us, evidenceForAi.local, activeCountry.name, activeCountryCode === "US"));
+        setSummary(buildEvidenceSummary(evidenceForAi.us, evidenceForAi.local, activeCountry.name, activeCountryCode === "US", generated.reason));
         setSummaryMode("unavailable");
       }
     } catch (cause) {
@@ -257,15 +257,15 @@ async function requestMarketAssist(input: { action: "prepare"; topic: string; co
       body: JSON.stringify(input),
       cache: "no-store",
     });
-    const body = await response.json() as { mode?: string; query?: string; hashtags?: string[]; summary?: MarketSummary };
-    if (!response.ok) throw new Error("AI summary unavailable");
-    return { mode: body.mode, query: body.query ?? "", hashtags: body.hashtags ?? [], summary: body.summary ?? null };
+    const body = await response.json() as { mode?: string; query?: string; hashtags?: string[]; summary?: MarketSummary; reason?: string };
+    if (!response.ok) return { mode: "unavailable", query: body.query ?? "", hashtags: body.hashtags ?? [], summary: null, reason: body.reason ?? (response.status === 429 ? "request-limited" : "provider-error") };
+    return { mode: body.mode, query: body.query ?? "", hashtags: body.hashtags ?? [], summary: body.summary ?? null, ...(body.reason ? { reason: body.reason } : {}) };
   } catch {
-    return { mode: "unavailable", query: input.action === "prepare" ? input.topic : "", hashtags: input.action === "prepare" ? [hashtagFromTopic(input.topic)] : [], summary: null };
+    return { mode: "unavailable", query: input.action === "prepare" ? input.topic : "", hashtags: input.action === "prepare" ? [hashtagFromTopic(input.topic)] : [], summary: null, reason: "network-error" };
   }
 }
 
-function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, local: ReturnType<typeof selectBalancedEvidence>, country: string, sameCountry: boolean): MarketSummary {
+function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, local: ReturnType<typeof selectBalancedEvidence>, country: string, sameCountry: boolean, failureReason?: string): MarketSummary {
   const summarize = (items: ReturnType<typeof selectBalancedEvidence>, label: string) => items.length
     ? { text: `This evidence overview does not infer a shared opinion; inspect the selected ${label} records below.`, citations: items.slice(0, 3).map(({ citationId }) => citationId) }
     : { text: `No text-bearing records were selected for this ${label} overview. Check each source status below; an empty sample does not show that discussion is absent.`, citations: [] };
@@ -277,8 +277,21 @@ function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, loc
     comparison: sameCountry
       ? { text: "No separate country-lens search was run for this query.", citations: [] }
       : { text: "Provider coverage, language, and communities differ, so these results are not like-for-like national samples. Read the original records and source limitations before interpreting any contrast.", citations: [...us, ...local].slice(0, 4).map(({ citationId }) => citationId) },
-    limitations: ["This is a free, rule-based evidence overview—not an AI-generated synthesis or representative opinion poll."],
+    limitations: ["This is a free, rule-based evidence overview—not an AI-generated synthesis or representative opinion poll.", ...(failureReason ? [aiFailureMessage(failureReason)] : [])],
   };
+}
+
+function aiFailureMessage(reason: string) {
+  switch (reason) {
+    case "disabled": return "AI summaries are not enabled or configured by the operator; this local overview remains available.";
+    case "rate-limited": return "The free AI provider reported a usage limit; this local overview is shown instead.";
+    case "request-limited": return "Atlas's AI request limit was reached; this local overview is shown instead.";
+    case "timeout": return "The AI provider did not respond in time; this local overview is shown instead.";
+    case "citation-validation": return "The AI response did not pass Atlas citation checks; this local overview is shown instead.";
+    case "invalid-response": return "The AI provider returned an unusable response; this local overview is shown instead.";
+    case "network-error": return "Atlas could not reach the AI provider; this local overview is shown instead.";
+    default: return "The AI provider is temporarily unavailable; this local overview is shown instead.";
+  }
 }
 
 function sameCountrySummary(summary: MarketSummary): MarketSummary {

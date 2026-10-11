@@ -23,7 +23,34 @@ describe("free-tier market assist", () => {
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({ action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true, evidence: { us: [], local: [] } }));
     expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "disabled" });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("identifies a free-provider usage limit without exposing provider details", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "private provider detail" } }), { status: 429 })));
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand is increasing.", language: "en" }], local: [] },
+    }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ mode: "unavailable", reason: "rate-limited" });
+  });
+
+  it("distinguishes Atlas's own per-client request limit from a provider limit", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const makeUniqueRequest = () => new NextRequest("http://localhost/api/research/market-assist", {
+      method: "POST",
+      headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "x-forwarded-for": "203.0.113.77" },
+      body: JSON.stringify({ action: "prepare", topic: "semiconductors", country: "US", aiEnabled: true }),
+    });
+    for (let index = 0; index < 6; index++) expect((await POST(makeUniqueRequest())).status).toBe(200);
+    const response = await POST(makeUniqueRequest());
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ reason: "request-limited" });
   });
 
   it("requires an explicit AI request from the search workflow", async () => {
@@ -103,6 +130,6 @@ describe("free-tier market assist", () => {
       evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Text", language: "en" }], local: [] },
     }));
     expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ mode: "unavailable" });
+    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation" });
   });
 });
