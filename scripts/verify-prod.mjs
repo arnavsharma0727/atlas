@@ -27,6 +27,28 @@ try {
   fail("focused Atlas search landing", error instanceof Error ? error.message : "request failed");
 }
 
+try {
+  const [sourcesResponse, privacyResponse] = await Promise.all([
+    fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),
+  ]);
+  const [sourcesPage, privacyPage] = await Promise.all([sourcesResponse.text(), privacyResponse.text()]);
+  if (
+    sourcesResponse.ok && privacyResponse.ok &&
+    sourcesPage.includes("Manifold · play-money community forecasts") &&
+    sourcesPage.includes("MANA is platform play money") &&
+    sourcesPage.includes("never sent to the AI summarizer") &&
+    privacyPage.includes("Manifold search terms are also sent directly") &&
+    privacyPage.includes("not sent to Groq")
+  ) {
+    pass("Manifold source and privacy boundaries", "play-money-only source policy and direct-query disclosure are present; forecast data stays outside Groq summaries");
+  } else {
+    fail("Manifold source and privacy boundaries", "source policy or direct-query privacy disclosure is missing");
+  }
+} catch (error) {
+  fail("Manifold source and privacy boundaries", error instanceof Error ? error.message : "request failed");
+}
+
 for (const route of ["/about", "/briefs", "/candidates", "/companies", "/companies/NVDA", "/coverage", "/divergences/example", "/login", "/watchlists"]) {
   try {
     const response = await fetch(`${base}${route}`, { redirect: "manual", signal: AbortSignal.timeout(15000) });
