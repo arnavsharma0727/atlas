@@ -69,7 +69,9 @@ Run: 2026-10-11 08:28 UTC against `https://signal-scout-xi-ruby.vercel.app` afte
 
 ### Manual rendered-result spot check
 
-Run: 2026-10-11 07:13 UTC, read-only inspection of an already-rendered production search for `coffee` with the Brazil/Portuguese lens. The summary's cited observations corresponded to casual/lifestyle excerpts, but the retrieved record set also included fiction, advertisements, affiliate promotions, and exact federated Lemmy copies. This is a useful failure case: topical mention alone is not a fundamental-research market view. Commit `e3fb4d9` strengthened the summarizer instructions with a concrete coffee example and requires it to say when evidence does not establish a market thesis. The prompt and tests verify the instruction is present; no post-deployment live model response has yet been used to establish that the model reliably follows it.
+Run: 2026-10-11 07:13 UTC, read-only inspection of an already-rendered production search for `coffee` with the Brazil/Portuguese lens. The summary's cited observations corresponded to casual/lifestyle excerpts, but the retrieved record set also included fiction, advertisements, affiliate promotions, and exact federated Lemmy copies. This is a useful failure case: topical mention alone is not a fundamental-research market view. Commit `e3fb4d9` strengthened the summarizer instructions with a concrete coffee example and requires it to say when evidence does not establish a market thesis. The follow-up below tests one controlled negative example; it does not establish reliability on real samples or other topics.
+
+Follow-up: 2026-10-11 08:36 UTC, one production request through `/api/research/market-assist` using four synthetic, link-free lifestyle excerpts (no real posts, handles, or URLs). The deployed model returned HTTP 200 and explicitly said that neither lens supplied market-relevant evidence and that no market thesis could be drawn; all three passages cited only the submitted IDs. This validates the safeguard on a controlled negative example, not its reliability on real-world samples or other languages/topics.
 
 ## Failure and product checks
 
