@@ -193,7 +193,7 @@ describe("free-tier market assist", () => {
       evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Semiconductor demand comments (@reader), https://private.example/story analyst@private.example", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "반도체 수출 관련 의견", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "The baseline sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
+    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "The cited, unverified material says: The baseline sample notes demand.", citations: ["C1"] }, localSummary: { text: "The cited, unverified material says: KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
   });
 
   it("rejects a linked post instead of letting it support the AI overview", async () => {

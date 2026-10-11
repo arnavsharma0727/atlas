@@ -338,6 +338,26 @@ describe("market summary evidence contracts", () => {
     expect(summary?.comparison.citations).toEqual(["C1", "C2"]);
   });
 
+  it("attributes model prose as unverified and rejects numeric details absent from cited text", () => {
+    const valid = normalizeMarketSummary({
+      baselineClaims: [{ text: "Silicon wafer demand score was 65.6 in 2026-08.", citations: ["C1"] }],
+      localClaims: [], comparisonClaims: [],
+    }, {
+      us: new Set(["C1"]), local: new Set(),
+      evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score 65.6."]]), local: new Map() },
+    });
+    expect(valid?.usSummary.text).toContain("The cited, unverified material says:");
+
+    const unsupportedNumber = normalizeMarketSummary({
+      baselineClaims: [{ text: "Silicon wafer demand score was 66.5 in 2026-08.", citations: ["C1"] }],
+      localClaims: [], comparisonClaims: [],
+    }, {
+      us: new Set(["C1"]), local: new Set(),
+      evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score 65.6."]]), local: new Map() },
+    });
+    expect(unsupportedNumber).toBeNull();
+  });
+
   it("uses deterministic non-claiming text for a side with no submitted evidence", () => {
     const summary = normalizeMarketSummary({
       baselineClaims: [{ text: "Investors universally expect growth.", citations: ["C1"] }],

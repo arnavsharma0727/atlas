@@ -401,7 +401,11 @@ export function isNearDuplicateExcerpt(left: string, right: string): boolean {
 /** Validate model-returned citations against the exact evidence sent in that request. */
 export function normalizeMarketSummary(
   value: unknown,
-  available: { us: Set<string>; local: Set<string> },
+  available: {
+    us: Set<string>;
+    local: Set<string>;
+    evidenceText?: { us: Map<string, string>; local: Map<string, string> };
+  },
 ): MarketSummary | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
@@ -421,7 +425,22 @@ export function normalizeMarketSummary(
       // do not resolve to evidence actually submitted for this summary.
       if (!citations.length) return null;
       if (requireBothGroups && (!citations.some((id) => available.us.has(id)) || !citations.some((id) => available.local.has(id)))) return null;
-      claims.push({ text, citations });
+      // Models can ignore attribution instructions and restate a forum user's
+      // precise statistic like an established market fact. Keep a deterministic
+      // disclosure in the rendered sentence, and fail closed on figures that
+      // do not occur in the cited excerpt(s).
+      const citedEvidence = citations.flatMap((id) => {
+        const inBaseline = available.us.has(id) ? available.evidenceText?.us.get(id) : undefined;
+        const inLocal = available.local.has(id) ? available.evidenceText?.local.get(id) : undefined;
+        return [inBaseline, inLocal].filter((excerpt): excerpt is string => typeof excerpt === "string");
+      });
+      const numericTokens = extractNumericTokens(text);
+      if (numericTokens.length && (!citedEvidence.length || numericTokens.some((token) =>
+        !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return null;
+      const attributedText = /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(text)
+        ? text
+        : `The cited, unverified material says: ${text}`;
+      claims.push({ text: attributedText, citations });
     }
     const text = claims.map(({ text: claimText }) => claimText).join(" ").slice(0, 900);
     const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))].slice(0, 8);
@@ -443,6 +462,11 @@ export function normalizeMarketSummary(
   // Model-generated limitations were uncited free text. The interface already
   // renders deterministic, code-owned coverage caveats, so ignore this field.
   return { usSummary, localSummary, comparison, limitations: [] };
+}
+
+function extractNumericTokens(value: string): string[] {
+  return (value.normalize("NFKC").match(/(?<![\p{L}])[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?%?(?![\p{L}])/gu) ?? [])
+    .map((token) => token.replaceAll(",", ""));
 }
 
 function isSingleSentence(value: string): boolean {

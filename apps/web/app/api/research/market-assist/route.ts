@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
     const summary = normalizeMarketSummary(generated.value, {
       us: new Set(evidence.us.map(({ citationId }) => citationId)),
       local: new Set(evidence.local.map(({ citationId }) => citationId)),
+      evidenceText: {
+        us: new Map(evidence.us.map(({ citationId, excerpt }) => [citationId, excerpt])),
+        local: new Map(evidence.local.map(({ citationId, excerpt }) => [citationId, excerpt])),
+      },
     });
     if (!generated.value) console.warn("[market-assist] Groq returned no usable summary response", { reason: generated.reason });
     else if (!summary) console.warn("[market-assist] Groq summary failed evidence/citation validation", {
