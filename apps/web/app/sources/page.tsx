@@ -99,6 +99,17 @@ export default async function Sources() {
       detail: "Each search makes one bounded request to Crossref’s free public API, without signup or key, for up to 12 recent five-year title matches. Atlas shows DOI-linked titles and depositor-provided bibliographic metadata only; it does not fetch abstracts or publisher pages. The records are global scholarly literature, not current community opinion, a country sample, or evidence of study quality. Crossref’s public pool has tighter rate limits than its optional paid service; Atlas caches identical queries for 60 seconds, serializes requests and applies a per-client limit best-effort within each server instance.",
     },
     {
+      name: "Manifold · play-money community forecasts",
+      key: "manifold-forecasts",
+      enabled: true,
+      onDemand: true,
+      referenceUrl: "https://docs.manifold.markets/api",
+      referenceLabel: "Official Manifold API documentation",
+      secondaryReferenceUrl: "https://manifold.markets/terms-of-service",
+      secondaryReferenceLabel: "Manifold Terms of Service",
+      detail: "One visitor-triggered, read-only public API query; no account, key, or paid tier is used. Atlas requests up to 20 open binary-market matches sorted by recent volume, then keeps only active MANA-denominated markets with a matching question, positive recent volume, and positive liquidity. MANA is platform play money, not fiat or a real-money asset price. Probability, recent volume, and liquidity are displayed as one platform's self-selected forecast activity; they are not a representative survey, verified probability, national view, or evidence of financial positioning. These records appear only with citations below the conversation overview and are never sent to the AI summarizer. Manifold API documentation permits non-commercial/personal research use and documents a rate limit; this source is excluded if Atlas becomes commercial without a written agreement.",
+    },
+    {
       name: "GDELT · retired from live search",
       key: "gdelt",
       enabled: false,

@@ -1,9 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
 import { runResearchSweep } from "./research-sweep";
+import { selectBalancedEvidence } from "./market-summary";
 
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("keeps MANA crowd forecasts separate from discussion summaries", async () => {
+    const fetcher = vi.fn(async () => Response.json([{
+      id: "market-1",
+      question: "Will Bitcoin exceed $100,000 by year end?",
+      url: "https://manifold.markets/forecaster/bitcoin-over-100k",
+      probability: 0.61,
+      volume24Hours: 123,
+      totalLiquidity: 800,
+      closeTime: NOW + 86400000,
+      lastUpdatedTime: NOW - 1000,
+      isResolved: false,
+      outcomeType: "BINARY",
+      token: "MANA",
+    }]));
+    const results = await runResearchSweep("bitcoin", { manifoldForecasts: true, lemmy: false }, fetcher, NOW);
+    const evidence = results[0].evidence[0];
+
+    expect(results[0]).toMatchObject({ key: "manifold-forecasts", status: "complete", evidence: [expect.objectContaining({ evidenceClass: "crowd forecast" })] });
+    expect(evidence.context).toContain("61.0% YES");
+    expect(evidence.context).toContain("MANA is virtual play money");
+    expect(evidence.transientPreview).toBeUndefined();
+    expect(selectBalancedEvidence(results, new Map())).toEqual([]);
+  });
+
   it("exposes Bluesky text only as a transient result preview", async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ posts: [{
       uri: "at://did:plc:reader/app.bsky.feed.post/xyz",

@@ -1,4 +1,4 @@
-export type ResearchEvidenceClass = "expert Q&A" | "social discussion" | "news coverage" | "editorial discussion" | "expert analysis" | "research literature" | "community forum" | "official company disclosure" | "survey research";
+export type ResearchEvidenceClass = "expert Q&A" | "social discussion" | "news coverage" | "editorial discussion" | "expert analysis" | "research literature" | "community forum" | "official company disclosure" | "survey research" | "crowd forecast";
 
 export type ResearchEvidence = {
   id: string;
@@ -264,6 +264,7 @@ export function summarizeEvidenceCoverage(evidence: ResearchEvidence[]): Evidenc
     "community forum",
     "official company disclosure",
     "survey research",
+    "crowd forecast",
   ];
   const assessments: NonNullable<ResearchEvidence["researcherAssessment"]>[] = [
     "supports",

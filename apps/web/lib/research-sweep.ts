@@ -9,6 +9,7 @@ import type { TheConversationSearchEdition } from "./the-conversation-search";
 import type { ResearchEvidence } from "./research-brief";
 import type { CrossrefWork } from "./crossref-search";
 import type { ArxivRecord } from "./arxiv-search";
+import { searchManifoldForecasts } from "./manifold-search";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -20,6 +21,8 @@ export type ResearchSweepSelection = {
   crossref?: boolean;
   /** Visitor-triggered, title/ID-only arXiv metadata; never a country or discussion sample. */
   arxiv?: boolean;
+  /** Visitor-triggered play-money prediction markets; never fed into country/community summaries. */
+  manifoldForecasts?: boolean;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -121,7 +124,7 @@ export async function runResearchSweep(
     }
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
-  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.arxiv && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.arxiv && !selection.manifoldForecasts && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -134,6 +137,28 @@ export async function runResearchSweep(
   }
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
   const conversationTasks: Promise<ResearchSweepSourceResult[]>[] = [];
+  if (selection.manifoldForecasts) {
+    tasks.push(capture(
+      "manifold-forecasts",
+      "Manifold · community forecasts (play money)",
+      query,
+      asOf,
+      "Open binary questions · MANA play-money only · recent traded volume required · up to 20 API matches before relevance filtering",
+      async () => (await searchManifoldForecasts(query, boundedFetch, now)).map((market) => ({
+        id: `manifold:${market.id}`,
+        title: market.question,
+        url: market.url,
+        source: "Manifold community forecast · MANA play money",
+        evidenceClass: "crowd forecast" as const,
+        language: "Not reported",
+        timeLabel: "Observed",
+        timeValue: market.updatedAt,
+        context: `Current community probability: ${(market.probability * 100).toFixed(1)}% YES. Recent volume: ${market.volume24Hours.toFixed(1)} MANA; liquidity: ${market.liquidity.toFixed(1)} MANA.${market.closesAt ? ` Closes ${market.closesAt.slice(0, 10)}.` : " No close date reported."} MANA is virtual play money, not fiat or a real-money price. Self-selected platform forecasts are not surveys, verified probabilities, or country views.`,
+        sourceOperatorKey: "manifold",
+        sourceOperatorLabel: "Manifold Markets",
+      })),
+    ));
+  }
   if (selection.globalVoices) {
     for (const [index, term] of [query, ...additionalQueries.map((value) => value.trim())].entries()) {
       tasks.push((async () => {

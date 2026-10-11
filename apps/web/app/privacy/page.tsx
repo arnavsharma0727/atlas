@@ -25,8 +25,11 @@ export default function Privacy() {
               Atlas server endpoints; those endpoints apply short-window,
               IP-keyed, best-effort rate limits. Bluesky, Lemmy, Mastodon, and Stack
               Exchange searches are sent from your browser to their public
-              APIs. Public discussion excerpts and Q&amp;A titles are held
-              transiently in the page; Q&amp;A titles are not sent to Groq.
+              APIs. Manifold search terms are also sent directly from your
+              browser to its public, read-only API; returned forecast metadata
+              is held transiently in the page and is not sent to Groq. Public
+              discussion excerpts and Q&amp;A titles are held transiently in
+              the page; Q&amp;A titles are not sent to Groq.
               Content-warning Mastodon posts are shown without a text preview.
               Those providers
               and Atlas&apos;s hosting infrastructure may process technical
