@@ -63,10 +63,10 @@ describe("free-tier market assist", () => {
     vi.stubEnv("GROQ_API_KEY", "test-key");
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "json_validate_failed", type: "invalid_request_error" } }), { status: 400 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: `Here is the evidence summary:\n\n\`\`\`json\n${JSON.stringify({
         usSummary: "US sample notes demand.", usCitations: ["C1"], localSummary: "KR sample notes exports.", localCitations: ["C2"],
         comparison: "Samples differ; evidence is limited.", comparisonCitations: ["C1", "C2"], limitations: [],
-      }) } }] }), { status: 200 }));
+      })}\n\`\`\`` } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,

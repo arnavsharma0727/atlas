@@ -106,15 +106,54 @@ async function groq<T>(prompt: string, systemPrompt?: string, jsonMode = true): 
       }
       return null;
     }
-    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const data = await response.json() as { choices?: Array<{ finish_reason?: string; message?: { content?: string | Array<{ type?: string; text?: string }> } }> };
     const content = data.choices?.[0]?.message?.content;
-    return content ? JSON.parse(content) as T : null;
+    const text = typeof content === "string" ? content : Array.isArray(content) ? content.map((part) => part.text ?? "").join("\n") : "";
+    if (!text) {
+      console.warn("[market-assist] Groq response had no text content", { finishReason: data.choices?.[0]?.finish_reason });
+      return null;
+    }
+    const parsed = parseJsonObject(text);
+    if (!parsed) console.warn("[market-assist] Groq returned non-JSON summary content", { length: text.length, startsWithFence: text.trimStart().startsWith("```") });
+    return parsed as T | null;
   } catch (error) {
     console.warn("[market-assist] Groq request could not be completed", {
       reason: error instanceof Error ? error.name : "unknown",
     });
     return null;
   }
+}
+
+function parseJsonObject(text: string): Record<string, unknown> | null {
+  const direct = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    const parsed: unknown = JSON.parse(direct);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+  } catch { /* Try extracting a JSON object from brief model preamble/trailing text. */ }
+
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index++) {
+    const character = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === "{") depth++;
+    else if (character === "}" && --depth === 0) {
+      try {
+        const parsed: unknown = JSON.parse(text.slice(start, index + 1));
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+      } catch { return null; }
+    }
+  }
+  return null;
 }
 
 function parseEvidence(value: unknown): EvidenceGroups | null {
