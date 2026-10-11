@@ -119,7 +119,7 @@ export function toPublisherEvidence(
     } else if (meta.citationProvider === "lemmy" &&
         meta.researcherLinkedOnly === true && meta.postBodyDiscarded === true &&
         meta.transientPreviewDiscarded === true &&
-        ["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu"].includes(host) &&
+        ["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu", "sopuli.xyz", "sh.itjust.works"].includes(host) &&
         /^\/post\/\d+\/?$/.test(url.pathname)) {
       evidenceClass = "social discussion";
       sourceOperatorKey = "lemmy-federation";

@@ -196,7 +196,7 @@ async function readBoundedText(response: Response, maximumBytes: number) {
   return Buffer.concat(chunks, totalBytes).toString("utf8");
 }
 
-function hasAttributionNoDerivativesRights(value: string) {
+export function hasAttributionNoDerivativesRights(value: string) {
   const rights = value.normalize("NFKC").toLocaleLowerCase();
   return rights.includes("creative commons") &&
     rights.includes("attribution") &&

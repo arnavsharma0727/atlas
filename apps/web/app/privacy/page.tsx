@@ -11,7 +11,7 @@ export default function Privacy() {
         <article className="max-w-3xl">
           <div className="eyebrow mb-4">Privacy</div>
           <h1 className="text-4xl font-extrabold">How Atlas search handles information</h1>
-          <p className="mt-3 text-sm text-muted">Last updated: October 9, 2026</p>
+          <p className="mt-3 text-sm text-muted">Last updated: October 11, 2026</p>
           <section className="mt-8 space-y-6 leading-7 text-muted">
             <p>
               Atlas is a public-conversation search tool. Search terms and
@@ -21,12 +21,14 @@ export default function Privacy() {
             </p>
             <p>
               Search requests are sent to the relevant public search provider.
-              The Global Voices request is routed through an Atlas server
-              endpoint; that endpoint applies a short-window, IP-keyed,
-              best-effort rate limit. Bluesky, Lemmy, and Mastodon
-              searches are sent from your browser to their public APIs. Forum
-              excerpts are held transiently in the page; content-warning
-              Mastodon posts are shown without a text preview. Those providers
+              arXiv, Crossref, Global Voices, and The Conversation requests are routed through
+              Atlas server endpoints; those endpoints apply short-window,
+              IP-keyed, best-effort rate limits. Bluesky, Lemmy, Mastodon, and Stack
+              Exchange searches are sent from your browser to their public
+              APIs. Public discussion excerpts and Q&amp;A titles are held
+              transiently in the page; Q&amp;A titles are not sent to Groq.
+              Content-warning Mastodon posts are shown without a text preview.
+              Those providers
               and Atlas&apos;s hosting infrastructure may process technical
               request data under their own terms and operational logging
               practices. Atlas does not control their retention.
@@ -34,8 +36,8 @@ export default function Privacy() {
             <p>
               When a visitor submits a search, Atlas automatically attempts
               AI translation and a summary by sending the topic and up to 16
-              short public-source excerpts (without source URLs or author
-              handles) to Groq. This feature requires a server-side Groq API
+              short public-source excerpts (with links, emails, and @handles
+              removed) to Groq. This feature requires a server-side Groq API
               key and a server configuration explicitly marked free-tier; Atlas does not
               upgrade an account or add billing details. The free-tier status
               must be confirmed by the project operator in Groq settings.
@@ -48,11 +50,14 @@ export default function Privacy() {
               confidential, or sensitive information.
             </p>
             <p>
-              Atlas does not intentionally persist your on-demand search terms
-              or returned search results as a user search history. Search
-              results are displayed temporarily and link back to their
-              providers. Avoid entering personal, confidential, or sensitive
-              information as a search query.
+              Atlas does not write on-demand searches to durable user history.
+              To respect provider request limits, identical Crossref searches
+              may be cached in server memory for 60 seconds and arXiv searches
+              for 24 hours; these caches are not durable or shared across
+              serverless instances. Results are also held temporarily in the
+              page. Providers and hosting infrastructure may separately log
+              requests under their policies. Avoid entering personal,
+              confidential, or sensitive information as a search query.
             </p>
             <p>
               Atlas also has server-side operational data services for

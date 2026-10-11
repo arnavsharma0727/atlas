@@ -30,8 +30,12 @@ export type LiveDiscussionItem = {
 const LICENSE = "CC BY-SA 4.0";
 const LICENSE_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
 const API = "https://api.stackexchange.com/2.3/search/advanced";
+let stackExchangeQuotaRemaining: number | null = null;
+let stackExchangeBackoffUntil = 0;
 
 type ApiResponse = {
+  quota_remaining?: number;
+  backoff?: number;
   items?: Array<{
     question_id?: number;
     title?: string;
@@ -55,6 +59,13 @@ export async function searchLiveDiscussion(
   if (query.length < 3 || query.length > 80 || !community) {
     throw new Error("Enter a topic of 3–80 characters and choose a listed community.");
   }
+  if (now < stackExchangeBackoffUntil) {
+    const seconds = Math.ceil((stackExchangeBackoffUntil - now) / 1000);
+    throw new Error(`Stack Exchange requested a backoff. Atlas will wait ${seconds} seconds before another request.`);
+  }
+  if (stackExchangeQuotaRemaining === 0) {
+    throw new Error("Stack Exchange reports no shared API quota remaining. Try again after its quota resets.");
+  }
 
   const params = new URLSearchParams({
     order: "desc",
@@ -76,6 +87,12 @@ export async function searchLiveDiscussion(
   }
 
   const body = (await response.json()) as ApiResponse;
+  if (typeof body.quota_remaining === "number" && Number.isInteger(body.quota_remaining) && body.quota_remaining >= 0) {
+    stackExchangeQuotaRemaining = body.quota_remaining;
+  }
+  if (typeof body.backoff === "number" && Number.isFinite(body.backoff) && body.backoff > 0) {
+    stackExchangeBackoffUntil = Math.max(stackExchangeBackoffUntil, now + Math.ceil(body.backoff) * 1000);
+  }
   const oldest = now - 30 * 24 * 60 * 60 * 1000;
   return (body.items ?? []).flatMap((item) => {
     const createdAt = typeof item.creation_date === "number" ? item.creation_date * 1000 : NaN;
@@ -112,6 +129,19 @@ export async function searchLiveDiscussion(
       licenseUrl: LICENSE_URL,
     }];
   });
+}
+
+export function getStackExchangeThrottleStatus() {
+  return {
+    quotaRemaining: stackExchangeQuotaRemaining,
+    backoffSeconds: Math.max(0, Math.ceil((stackExchangeBackoffUntil - Date.now()) / 1000)),
+  };
+}
+
+/** Reset in-memory provider state after isolated adapter tests. */
+export function resetStackExchangeThrottleStatus() {
+  stackExchangeQuotaRemaining = null;
+  stackExchangeBackoffUntil = 0;
 }
 
 const STOP_WORDS = new Set(["a", "an", "and", "are", "for", "from", "in", "is", "of", "on", "or", "the", "to", "with"]);

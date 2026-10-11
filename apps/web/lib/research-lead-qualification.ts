@@ -66,7 +66,7 @@ export function knownSourceOperator(source: EvidenceSource): string | null {
         ["mastodon.social", "mastodon.online", "mstdn.jp", "mastodon.world"].includes(domain))
       return "mastodon-network";
     if (metadata.citationProvider === "lemmy" &&
-        ["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu"].includes(domain))
+        ["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu", "sopuli.xyz", "sh.itjust.works"].includes(domain))
       return "lemmy-federation";
     return null;
   }

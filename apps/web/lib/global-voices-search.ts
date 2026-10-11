@@ -96,7 +96,7 @@ export async function searchGlobalVoices(
 
 const STOP_WORDS = new Set(["a", "an", "and", "are", "for", "from", "in", "is", "of", "on", "or", "the", "to", "with"]);
 
-function headlineMatchesQuery(title: string, query: string) {
+export function headlineMatchesQuery(title: string, query: string) {
   const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase();
   const tokens = (value: string) => normalize(value).match(/[\p{L}\p{N}]+/gu) ?? [];
   const queryTerms = tokens(query);

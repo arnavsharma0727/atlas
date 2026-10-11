@@ -1,17 +1,26 @@
 import { searchBlueskyPosts } from "./bluesky-public";
 import { withFetchTimeout } from "./fetch-with-timeout";
 import type { GlobalVoicesEditionResult } from "./global-voices-search";
-import { DISCUSSION_COMMUNITIES, searchLiveDiscussion } from "./live-topic-search";
+import { DISCUSSION_COMMUNITIES, getStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-topic-search";
 import { LEMMY_INSTANCES, LemmyInstance, searchLemmyPosts } from "./lemmy-public";
 import { MASTODON_INSTANCES, mastodonHtmlToTransientText, searchPublicHashtag } from "./mastodon-public";
 import { WIKIMEDIA_TALK_WIKIS, searchWikimediaTalk } from "./wikimedia-talk";
+import type { TheConversationSearchEdition } from "./the-conversation-search";
 import type { ResearchEvidence } from "./research-brief";
+import type { CrossrefWork } from "./crossref-search";
+import type { ArxivRecord } from "./arxiv-search";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
   gdelt?: boolean;
   hackerNews?: boolean;
   globalVoices?: boolean;
+  /** Visitor-triggered, headline-only international expert analysis; excluded from the discussion synthesis. */
+  theConversation?: boolean;
+  /** Visitor-triggered, title/DOI-only global scholarly metadata; never a country or discussion sample. */
+  crossref?: boolean;
+  /** Visitor-triggered, title/ID-only arXiv metadata; never a country or discussion sample. */
+  arxiv?: boolean;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -46,6 +55,13 @@ export type ResearchSweepSourceResult = {
   sourceNote?: string;
   status: "complete" | "partial" | "unavailable" | "not-searched";
 };
+
+const STACK_EXCHANGE_REPEAT_WINDOW_MS = 65_000;
+const STACK_EXCHANGE_CACHE_LIMIT = 200;
+const stackExchangeRecentSearches = new Map<string, {
+  expiresAt: number;
+  result: Promise<ResearchEvidence[]>;
+}>();
 
 /**
  * Run bounded, visitor-triggered searches directly from the browser.
@@ -82,8 +98,8 @@ export async function runResearchSweep(
   }
   if (stackExchangeQueries.some(({ site, query: term }) =>
     !DISCUSSION_COMMUNITIES.some((community) => community.site === site) ||
-    term.trim().length < 2 || term.trim().length > 80,
-  )) throw new Error("Each Stack Exchange community needs a listed site and its own 2–80 character search phrase.");
+    term.trim().length < 2 || term.trim().length > 100,
+  )) throw new Error("Each Stack Exchange community needs a listed site and its own 2–100 character search phrase.");
   if (blueskyQueries.length > 4) throw new Error("Use the main phrase plus no more than three alternate Bluesky phrases.");
   if (blueskyQueries.some((term) => term.trim().length < 2 || term.trim().length > 100)) {
     throw new Error("Each Bluesky phrase must contain 2–100 characters.");
@@ -94,8 +110,8 @@ export async function runResearchSweep(
   const lemmyInstances = selection.lemmyInstances ?? [LEMMY_INSTANCES[0].host];
   if (selection.lemmy && (!lemmyInstances.length || lemmyInstances.some(
     (host) => !LEMMY_INSTANCES.some((instance) => instance.host === host),
-  ) || lemmyInstances.length > 4)) {
-    throw new Error("Choose one to four listed public Lemmy instances.");
+    ) || lemmyInstances.length > LEMMY_INSTANCES.length)) {
+    throw new Error(`Choose one to ${LEMMY_INSTANCES.length} listed public Lemmy instances.`);
   }
   if (selection.lemmy && selection.lemmyQueries) {
     if (selection.lemmyQueries.length !== new Set(lemmyInstances).size ||
@@ -106,7 +122,7 @@ export async function runResearchSweep(
     }
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
-  if (!selection.globalVoices && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.arxiv && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -118,6 +134,7 @@ export async function runResearchSweep(
     throw new Error("Choose up to four listed Mastodon servers and valid hashtags.");
   }
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
+  const conversationTasks: Promise<ResearchSweepSourceResult[]>[] = [];
   if (selection.globalVoices) {
     for (const [index, term] of [query, ...additionalQueries.map((value) => value.trim())].entries()) {
       tasks.push((async () => {
@@ -170,6 +187,136 @@ export async function runResearchSweep(
       })());
     }
   }
+  if (selection.theConversation) {
+    conversationTasks.push((async () => {
+      try {
+        const response = await boundedFetch("/api/research/the-conversation", {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error(response.status === 429
+          ? "The Conversation search limit reached. Try again in one minute."
+          : "The Conversation feeds are temporarily unavailable.");
+        const body = await response.json() as { editions?: TheConversationSearchEdition[] };
+        if (!Array.isArray(body.editions)) throw new Error("The Conversation returned an unexpected response.");
+        return body.editions.map((edition) => ({
+          key: `the-conversation:${edition.code}`,
+          label: `The Conversation · ${edition.edition} edition · expert analysis`,
+          query,
+          asOf,
+          retrievedAt: new Date().toISOString(),
+          window: "Headline title matches · up to 5 · last 30 days",
+          evidence: edition.articles.map((article) => ({
+            id: `the-conversation:${article.id}`,
+            title: article.title,
+            url: article.url,
+            source: `The Conversation · ${edition.edition} edition`,
+            evidenceClass: "expert analysis" as const,
+            language: edition.language,
+            timeLabel: "Published",
+            timeValue: article.publishedAt,
+            context: "Headline-only expert analysis; edition does not establish author or audience location",
+            attribution: `Author: ${article.authors.join(", ")}`,
+            licenseName: "Creative Commons · attribution/no derivatives (feed notice)",
+            licenseUrl: "https://theconversation.com/republishing-guidelines",
+            sourceOperatorKey: "the-conversation",
+            sourceOperatorLabel: "The Conversation",
+          })),
+          error: edition.error,
+          coverageNote: "English-language expert analysis headlines only; this publisher's edition is not a country sample. Article bodies are not retrieved for search display or AI synthesis.",
+          status: edition.error ? "unavailable" as const : "complete" as const,
+        }));
+      } catch (cause) {
+        return ["uk", "ca", "africa", "nz", "au", "us"].map((code) => ({
+          key: `the-conversation:${code}`,
+          label: `The Conversation · ${code.toUpperCase()} edition · expert analysis`,
+          query,
+          asOf,
+          retrievedAt: new Date().toISOString(),
+          window: "Headline title matches · last 30 days",
+          evidence: [],
+          error: cause instanceof Error ? cause.message : "The Conversation search is unavailable.",
+          coverageNote: "English-language expert analysis headlines only; this publisher's edition is not a country sample.",
+          status: "unavailable" as const,
+        }));
+      }
+    })());
+  }
+  if (selection.crossref) {
+    tasks.push(capture(
+      "crossref",
+      "Crossref · recent global research literature",
+      query,
+      asOf,
+      "Title-matched DOI metadata · publication date within 5 years · up to 12 records",
+      async () => {
+        const response = await boundedFetch("/api/research/crossref", {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error(response.status === 429
+          ? "Crossref search limit reached. Try again in one minute."
+          : "Crossref research metadata is temporarily unavailable.");
+        const body = await response.json() as { works?: CrossrefWork[] };
+        if (!Array.isArray(body.works)) throw new Error("Crossref returned an unexpected response.");
+        return body.works.map((work) => ({
+          id: `crossref:${work.doi}`,
+          title: work.title,
+          url: work.url,
+          source: work.containerTitle ? `Crossref · ${work.containerTitle}` : "Crossref · research literature",
+          evidenceClass: "research literature" as const,
+          language: work.language,
+          timeLabel: "Published · date precision varies",
+          timeValue: work.publishedAt,
+          context: `Bibliographic metadata deposited with Crossref${work.publisher ? ` by ${work.publisher}` : ""}. The publication date may specify only a year or month. Not public discussion, not a country sample, and not an assessment of study quality.`,
+          attribution: "Crossref metadata",
+          attributionUrl: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
+          sourceOperatorKey: "crossref",
+          sourceOperatorLabel: "Crossref",
+        }));
+      },
+    ));
+  }
+  if (selection.arxiv) {
+    tasks.push(capture(
+      "arxiv",
+      "arXiv · recent open research metadata",
+      query,
+      asOf,
+      "Title-matched preprint metadata · submitted within 5 years · up to 12 records",
+      async () => {
+        const response = await boundedFetch("/api/research/arxiv", {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error(response.status === 429
+          ? "arXiv search limit reached. Try again in one minute."
+          : "arXiv research metadata is temporarily unavailable.");
+        const body = await response.json() as { records?: ArxivRecord[] };
+        if (!Array.isArray(body.records)) throw new Error("arXiv returned an unexpected response.");
+        return body.records.map((record) => ({
+          id: `arxiv:${record.id}`,
+          title: record.title,
+          url: record.url,
+          source: record.category ? `arXiv · ${record.category}` : "arXiv · open research",
+          evidenceClass: "research literature" as const,
+          language: "Not reported",
+          timeLabel: "Submitted",
+          timeValue: record.publishedAt,
+          context: "Open-access preprint metadata; submission is not peer review, not public discussion, not a country sample, and not an assessment of study quality.",
+          attribution: "arXiv metadata",
+          attributionUrl: "https://info.arxiv.org/help/api/index.html",
+          licenseName: "Metadata: CC0 1.0; paper reuse varies by item",
+          licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
+          sourceOperatorKey: "arxiv",
+          sourceOperatorLabel: "arXiv",
+        }));
+      },
+    ));
+  }
   for (const { site, query: termInput } of stackExchangeQueries) {
     const term = termInput.trim();
     const community = DISCUSSION_COMMUNITIES.find(({ site: candidate }) => candidate === site)!;
@@ -187,8 +334,22 @@ export async function runResearchSweep(
       }));
       continue;
     }
-    tasks.push(capture(`stack-exchange:${site}`, community.label, term, asOf, "Title matches within 30 days", async () =>
-      (await searchLiveDiscussion(term, site, boundedFetch, now)).map((item) => ({
+    if (term.length > 80) {
+      tasks.push(Promise.resolve({
+        key: `stack-exchange:${site}`,
+        label: community.label,
+        query: term,
+        asOf,
+        retrievedAt: new Date().toISOString(),
+        window: "Title search · last 30 days",
+        evidence: [],
+        error: "Not searched: this provider accepts title-query phrases up to 80 characters. Other selected sources were still searched.",
+        status: "not-searched",
+      }));
+      continue;
+    }
+    let reusedRecentSearch = false;
+    const loadEvidence = async () => (await searchLiveDiscussion(term, site, boundedFetch, now)).map((item) => ({
         id: `stackexchange:${item.url}`,
         title: item.title,
         url: item.url,
@@ -204,7 +365,27 @@ export async function runResearchSweep(
         licenseUrl: item.licenseUrl,
         sourceOperatorKey: "stack-exchange",
         sourceOperatorLabel: "Stack Exchange",
-      })),
+      }));
+    const searchEvidence = fetcher === fetch
+      ? cachedStackExchangeSearch(site, term, now, loadEvidence, () => { reusedRecentSearch = true; })
+      : loadEvidence();
+    tasks.push(capture(
+      `stack-exchange:${site}`,
+      community.label,
+      term,
+      asOf,
+      "Title matches within 30 days",
+      () => searchEvidence,
+      () => {
+        const notes = [
+          reusedRecentSearch ? "Reused a matching result retrieved within the past 65 seconds to respect the provider's duplicate-query guidance." : undefined,
+        ];
+        if (site === stackExchangeQueries[0]?.site) {
+          const status = getStackExchangeThrottleStatus();
+          if (status.quotaRemaining !== null) notes.push(`Most recent Stack Exchange API response reported quota_remaining=${status.quotaRemaining}; available quota may be shared and can vary.`);
+        }
+        return notes.filter(Boolean).join(" ") || undefined;
+      },
     ));
   }
   if (selection.lemmy) {
@@ -303,7 +484,38 @@ export async function runResearchSweep(
       })),
     ));
   }
-  return Promise.all(tasks);
+  const [results, conversationResults] = await Promise.all([
+    Promise.all(tasks),
+    Promise.all(conversationTasks),
+  ]);
+  return [...results, ...conversationResults.flat()];
+}
+
+function cachedStackExchangeSearch(
+  site: string,
+  query: string,
+  now: number,
+  load: () => Promise<ResearchEvidence[]>,
+  onReuse: () => void,
+): Promise<ResearchEvidence[]> {
+  for (const [key, value] of stackExchangeRecentSearches) {
+    if (value.expiresAt <= now) stackExchangeRecentSearches.delete(key);
+  }
+  const key = `${site}\u0000${query.normalize("NFKC").toLocaleLowerCase()}`;
+  const existing = stackExchangeRecentSearches.get(key);
+  if (existing && existing.expiresAt > now) {
+    onReuse();
+    return existing.result;
+  }
+  if (stackExchangeRecentSearches.size >= STACK_EXCHANGE_CACHE_LIMIT) {
+    stackExchangeRecentSearches.delete(stackExchangeRecentSearches.keys().next().value!);
+  }
+  const result = load().catch((cause) => {
+    if (stackExchangeRecentSearches.get(key)?.result === result) stackExchangeRecentSearches.delete(key);
+    throw cause;
+  });
+  stackExchangeRecentSearches.set(key, { expiresAt: now + STACK_EXCHANGE_REPEAT_WINDOW_MS, result });
+  return result;
 }
 
 async function capture(

@@ -54,6 +54,29 @@ for (const [name, route, method] of [
   }
 }
 
+for (const [name, route, resultKey] of [
+  ["Crossref research metadata", "/api/research/crossref", "works"],
+  ["arXiv research metadata", "/api/research/arxiv", "records"],
+]) {
+  try {
+    const response = await fetch(`${base}${route}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "electric vehicles" }),
+      signal: AbortSignal.timeout(45000),
+    });
+    const body = await response.json().catch(() => null);
+    const results = body && Array.isArray(body[resultKey]) ? body[resultKey] : null;
+    if (response.ok && results && results.every((item) => typeof item.title === "string" && typeof item.url === "string")) {
+      pass(`${name} route`, `HTTP ${response.status}; ${results.length} valid metadata records`);
+    } else {
+      fail(`${name} route`, `HTTP ${response.status}; expected a ${resultKey} array of title/URL records`);
+    }
+  } catch (error) {
+    fail(`${name} route`, error instanceof Error ? error.message : "request failed");
+  }
+}
+
 try {
   const response = await fetch(`${base}/api/operator/takedown`, {
     method: "POST",

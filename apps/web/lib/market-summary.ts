@@ -17,18 +17,45 @@ export type ModelEvidence = {
   language: string;
 };
 
+/** Remove direct links, emails, and @handles before a short discussion excerpt is sent to the model. */
+export function redactSummaryExcerpt(value: string): string {
+  return value.normalize("NFKC")
+    .replace(/(?:https?:\/\/|www\.)[^\s<>"']+/giu, "[link]")
+    .replace(/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/gu, "[email]")
+    .replace(/(^|[^\p{L}\p{N}_])@[\p{L}\p{N}][\p{L}\p{N}_.-]{0,63}/gu, "$1[handle]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+}
+
 /** Preserve provider return counts while flagging records repeated across query/server views. */
 export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]): ResearchSweepSourceResult[] {
   const recordViews = new Map<string, Set<string>>();
   const textViews = new Map<string, Set<string>>();
+  const nearDuplicateItems = new Set<string>();
+  const textItemsByOperator = new Map<string, Array<{ resultKey: string; itemKey: string; text: string }>>();
   for (const result of results) {
     for (const item of result.evidence) {
       const operator = item.sourceOperatorKey ?? item.source;
       const recordKey = `${operator}\u0000url\u0000${item.url}`;
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textKey = text ? `${operator}\u0000text\u0000${text}` : "";
+      if (text) {
+        const rows = textItemsByOperator.get(operator) ?? [];
+        rows.push({ resultKey: result.key, itemKey: `${result.key}\u0000${item.id}`, text });
+        textItemsByOperator.set(operator, rows);
+      }
       addView(recordViews, recordKey, result.key);
       if (textKey) addView(textViews, textKey, result.key);
+    }
+  }
+  for (const rows of textItemsByOperator.values()) {
+    for (let left = 0; left < rows.length; left++) {
+      for (let right = left + 1; right < rows.length; right++) {
+        if (!isNearDuplicateExcerpt(rows[left].text, rows[right].text)) continue;
+        nearDuplicateItems.add(rows[left].itemKey);
+        nearDuplicateItems.add(rows[right].itemKey);
+      }
     }
   }
   return results.map((result) => {
@@ -38,12 +65,15 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
       const recordViewsForItem = recordViews.get(`${operator}\u0000url\u0000${item.url}`);
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textViewsForItem = textViews.get(`${operator}\u0000text\u0000${text}`);
+      const nearDuplicate = nearDuplicateItems.has(`${result.key}\u0000${item.id}`);
       const otherViews = Math.max(recordViewsForItem?.size ?? 0, textViewsForItem?.size ?? 0) - 1;
-      if (otherViews < 1) return item;
+      if (otherViews < 1 && !nearDuplicate) return item;
       repeated += 1;
       const reason = recordViewsForItem && recordViewsForItem.size > 1
         ? `Same source URL appears in ${recordViewsForItem.size} query/server views; repeated appearances are not independent evidence.`
-        : `Exact normalized text appears in ${textViewsForItem?.size ?? 0} query/server views; repeated appearances are not independent corroboration.`;
+        : textViewsForItem && textViewsForItem.size > 1
+          ? `Exact normalized text appears in ${textViewsForItem.size} query/server views; repeated appearances are not independent corroboration.`
+          : "Near-identical long-form text appears in another record from the same source network; treat it as a possible copy, not independent corroboration.";
       return { ...item, context: [item.context, reason].filter(Boolean).join(" ") };
     });
     const overlapNote = repeated
@@ -73,10 +103,11 @@ export function selectBalancedEvidence(
   const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[] }>>();
   const seenText = new Set<string>();
   const seenRecords = new Set<string>();
+  const seenNearDuplicateText = new Map<string, string[]>();
 
   for (const result of results) {
     for (const item of result.evidence) {
-      const excerpt = item.transientPreview?.replace(/(^|\s)@[\p{L}\p{N}_.-]{2,}/gu, "$1[handle]").trim().slice(0, 300);
+      const excerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
       const citationId = citationIds.get(citationKey(result.key, item.id));
       if (!excerpt || !citationId || !/^C\d{1,4}$/.test(citationId)) continue;
 
@@ -87,8 +118,12 @@ export function selectBalancedEvidence(
       const textKey = `${operator}\u0000text\u0000${normalizedText}`;
       const recordKey = `${operator}\u0000url\u0000${item.url}`;
       if (seenText.has(textKey) || seenRecords.has(recordKey) || excludedKeys.has(textKey) || excludedKeys.has(recordKey)) continue;
+      const nearMatches = seenNearDuplicateText.get(operator) ?? [];
+      if (nearMatches.some((text) => isNearDuplicateExcerpt(normalizedText, text))) continue;
       seenText.add(textKey);
       seenRecords.add(recordKey);
+      nearMatches.push(normalizedText);
+      seenNearDuplicateText.set(operator, nearMatches);
 
       const group = sources.get(operator) ?? [];
       group.push({
@@ -120,6 +155,32 @@ export function selectBalancedEvidence(
   return selected.map(({ dedupeKeys: _dedupeKeys, ...item }) => item);
 }
 
+/** Conservative copy detection: long excerpts need >=90% shingle overlap (5-token or 4-character CJK). */
+export function isNearDuplicateExcerpt(left: string, right: string): boolean {
+  if (left.length < 120 || right.length < 120) return false;
+  const shingles = (value: string) => {
+    const normalized = value.normalize("NFKC").toLocaleLowerCase();
+    if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(normalized)) {
+      const characters = Array.from(normalized.replace(/[^\p{L}\p{N}]/gu, ""));
+      const result = new Set<string>();
+      for (let index = 0; index <= characters.length - 4; index++) result.add(characters.slice(index, index + 4).join(""));
+      return result;
+    }
+    const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? [];
+    const result = new Set<string>();
+    for (let index = 0; index <= tokens.length - 5; index++) result.add(tokens.slice(index, index + 5).join(" "));
+    return result;
+  };
+  const leftShingles = shingles(left);
+  const rightShingles = shingles(right);
+  const smaller = leftShingles.size <= rightShingles.size ? leftShingles : rightShingles;
+  const larger = smaller === leftShingles ? rightShingles : leftShingles;
+  if (smaller.size < 8) return false;
+  let shared = 0;
+  for (const shingle of smaller) if (larger.has(shingle)) shared++;
+  return shared / smaller.size >= 0.9;
+}
+
 /** Validate model-returned citations against the exact evidence sent in that request. */
 export function normalizeMarketSummary(
   value: unknown,
@@ -140,7 +201,7 @@ export function normalizeMarketSummary(
   const submittedIds = new Set([...available.us, ...available.local]);
   const usSummary = available.us.size
     ? passage("usSummary", "usCitations", available.us, true)
-    : { text: "No text-bearing records were submitted for this English-language overview. Check source status below; this does not show that discussion is absent.", citations: [] };
+    : { text: "No text-bearing records were submitted for the baseline overview. Check source status below; this does not show that discussion is absent.", citations: [] };
   const localSummary = available.local.size
     ? passage("localSummary", "localCitations", available.local, true)
     : { text: "No text-bearing records were submitted for this selected language/community overview. Check source status below; this does not show that discussion is absent.", citations: [] };

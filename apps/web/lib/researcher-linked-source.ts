@@ -18,7 +18,7 @@ const LINK_ONLY_REPORT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const STACK_EXCHANGE_LICENSE = "CC BY-SA 4.0";
 const STACK_EXCHANGE_LICENSE_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
 const MASTODON_HOSTS = new Set(["mastodon.social", "mastodon.online", "mstdn.jp", "mastodon.world"]);
-const LEMMY_HOSTS = new Set(["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu"]);
+const LEMMY_HOSTS = new Set(["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu", "sopuli.xyz", "sh.itjust.works"]);
 const STACK_EXCHANGE_SITES: Record<string, { host: string; label: string }> = {
   economics: { host: "economics.stackexchange.com", label: "Economics Stack Exchange" },
   quant: { host: "quant.stackexchange.com", label: "Quantitative Finance Stack Exchange" },

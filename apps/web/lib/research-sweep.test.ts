@@ -84,6 +84,56 @@ describe("runResearchSweep", () => {
     ]);
   });
 
+  it("keeps The Conversation editions separate as licensed analysis and preserves per-edition failures", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ editions: [
+      { code: "au", edition: "Australia", language: "en", error: null, articles: [{ id: "au:1", title: "Semiconductor demand outlook", url: "https://theconversation.com/au/example", publishedAt: new Date(NOW - 60_000).toISOString(), authors: ["Research Author"] }] },
+      { code: "us", edition: "United States", language: "en", error: "Feed unavailable", articles: [] },
+    ] })));
+    const results = await runResearchSweep("semiconductor", { theConversation: true, lemmy: false }, fetcher, NOW);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(results).toMatchObject([
+      { key: "the-conversation:au", status: "complete", evidence: [{ evidenceClass: "expert analysis", attribution: "Author: Research Author", licenseName: expect.stringContaining("no derivatives") }] },
+      { key: "the-conversation:us", status: "unavailable", error: "Feed unavailable", evidence: [] },
+    ]);
+    expect(JSON.stringify(results)).not.toContain("Feed summary");
+  });
+
+  it("adds Crossref title/DOI metadata as global research context, not discussion evidence", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("/api/research/crossref");
+      expect(JSON.parse(String(init?.body))).toEqual({ query: "semiconductor" });
+      return new Response(JSON.stringify({ works: [{
+        doi: "10.1234/example.1", title: "Semiconductor investment and supply chains",
+        url: "https://doi.org/10.1234/example.1", publisher: "Example Publisher",
+        containerTitle: "Journal of Markets", publishedAt: new Date(NOW - 60_000).toISOString(), language: "en",
+      }] }));
+    });
+    const results = await runResearchSweep("semiconductor", { crossref: true, lemmy: false }, fetcher, NOW);
+    expect(results).toMatchObject([{
+      key: "crossref", status: "complete",
+      evidence: [{ evidenceClass: "research literature", sourceOperatorKey: "crossref" }],
+    }]);
+    expect(results[0].evidence[0].context).toContain("Not public discussion");
+  });
+
+  it("adds arXiv title metadata as preprint context without abstract text", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("/api/research/arxiv");
+      expect(JSON.parse(String(init?.body))).toEqual({ query: "semiconductor" });
+      return new Response(JSON.stringify({ records: [{
+        id: "2604.01234", title: "Semiconductor supply chain resilience", url: "https://arxiv.org/abs/2604.01234",
+        publishedAt: new Date(NOW - 60_000).toISOString(), category: "econ.GN",
+      }] }));
+    });
+    const results = await runResearchSweep("semiconductor", { arxiv: true, lemmy: false }, fetcher, NOW);
+    expect(results).toMatchObject([{
+      key: "arxiv", status: "complete",
+      evidence: [{ evidenceClass: "research literature", sourceOperatorKey: "arxiv", licenseName: expect.stringContaining("CC0") }],
+    }]);
+    expect(results[0].evidence[0].context).toContain("not public discussion");
+    expect(results[0].evidence[0]).not.toHaveProperty("transientPreview");
+  });
+
   it("keeps short ticker searches alive and marks Stack Exchange as not searched", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).startsWith("/api/research/global-voices")) return new Response(JSON.stringify({ editions: [{ language: "en", edition: "English", articles: [], error: null }] }));
@@ -100,6 +150,70 @@ describe("runResearchSweep", () => {
       { key: "global-voices", query: "EV", status: "complete" },
       { key: "stack-exchange:economics", query: "EV", status: "not-searched", error: expect.stringContaining("requires at least 3") },
     ]);
+  });
+
+  it("adds licensed economics, quant, and personal-finance Q&A as separate title-only sources", async () => {
+    const requests: string[] = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      requests.push(url.searchParams.get("site") ?? "");
+      const site = url.searchParams.get("site")!;
+      return new Response(JSON.stringify({ items: [{
+        question_id: 42,
+        title: "Semiconductor demand outlook",
+        link: `https://${site}.stackexchange.com/questions/42/example`,
+        creation_date: Math.floor((NOW - 60_000) / 1000),
+        content_license: "CC BY-SA 4.0",
+        owner: { display_name: "Researcher", link: `https://${site}.stackexchange.com/users/9/researcher` },
+      }] }));
+    });
+    const results = await runResearchSweep("semiconductor demand", {
+      stackExchangeQueries: ["economics", "quant", "money"].map((site) => ({ site, query: "semiconductor demand" })),
+      lemmy: false,
+    }, fetcher, NOW);
+
+    expect(requests).toEqual(["economics", "quant", "money"]);
+    expect(results.map(({ label, evidence }) => [label, evidence[0]?.evidenceClass, evidence[0]?.licenseName])).toEqual([
+      ["Economics Stack Exchange", "expert Q&A", "CC BY-SA 4.0"],
+      ["Quantitative Finance Stack Exchange", "expert Q&A", "CC BY-SA 4.0"],
+      ["Personal Finance & Money", "expert Q&A", "CC BY-SA 4.0"],
+    ]);
+    expect(results.every(({ evidence }) => evidence[0].transientPreview === undefined)).toBe(true);
+  });
+
+  it("reuses a matching live Stack Exchange request for 65 seconds", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ items: [] })));
+    vi.stubGlobal("fetch", fetcher);
+    const query = `quota-cache-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const first = await runResearchSweep(query, {
+        stackExchangeQueries: [{ site: "economics", query }],
+        lemmy: false,
+      }, undefined, NOW);
+      const second = await runResearchSweep(query, {
+        stackExchangeQueries: [{ site: "economics", query }],
+        lemmy: false,
+      }, undefined, NOW + 1_000);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(first[0].sourceNote).toBeUndefined();
+      expect(second[0].sourceNote).toContain("within the past 65 seconds");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("marks an overlong Stack Exchange query not-searched without truncating it or failing other sources", async () => {
+    const query = `semiconductor ${"demand ".repeat(11)}`.trim();
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ posts: [] })));
+    const results = await runResearchSweep(query, {
+      stackExchangeQueries: [{ site: "economics", query }],
+      bluesky: true,
+      lemmy: false,
+    }, fetcher, NOW);
+    const stack = results.find(({ key }) => key === "stack-exchange:economics");
+    expect(stack).toMatchObject({ query, status: "not-searched" });
+    expect(stack?.error).toContain("up to 80 characters");
+    expect(results.find(({ key }) => key === "bluesky:0")?.status).toBe("complete");
   });
 
   it("flags a Bluesky sample dominated by one displayed handle", async () => {
@@ -314,6 +428,23 @@ describe("runResearchSweep", () => {
     expect(results.map(({ key, evidence }) => [key, evidence[0]?.source])).toEqual([
       ["lemmy:lemmy.world", "Lemmy · lemmy.world / c/world"],
       ["lemmy:discuss.tchncs.de", "Lemmy · discuss.tchncs.de / c/world"],
+    ]);
+  });
+
+  it("queries all six reviewed public instances independently within one bounded sweep", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ posts: [] })));
+    const results = await runResearchSweep("markets", {
+      lemmy: true,
+      lemmyInstances: ["lemmy.world", "discuss.tchncs.de", "feddit.org", "jlai.lu", "sopuli.xyz", "sh.itjust.works"],
+    }, fetcher, NOW);
+    expect(fetcher).toHaveBeenCalledTimes(6);
+    expect(results.map(({ key, status }) => [key, status])).toEqual([
+      ["lemmy:lemmy.world", "complete"],
+      ["lemmy:discuss.tchncs.de", "complete"],
+      ["lemmy:feddit.org", "complete"],
+      ["lemmy:jlai.lu", "complete"],
+      ["lemmy:sopuli.xyz", "complete"],
+      ["lemmy:sh.itjust.works", "complete"],
     ]);
   });
 

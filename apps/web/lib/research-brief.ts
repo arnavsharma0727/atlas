@@ -1,4 +1,4 @@
-export type ResearchEvidenceClass = "expert Q&A" | "social discussion" | "news coverage" | "editorial discussion" | "expert analysis" | "community forum" | "official company disclosure" | "survey research";
+export type ResearchEvidenceClass = "expert Q&A" | "social discussion" | "news coverage" | "editorial discussion" | "expert analysis" | "research literature" | "community forum" | "official company disclosure" | "survey research";
 
 export type ResearchEvidence = {
   id: string;
@@ -260,6 +260,7 @@ export function summarizeEvidenceCoverage(evidence: ResearchEvidence[]): Evidenc
     "news coverage",
     "editorial discussion",
     "expert analysis",
+    "research literature",
     "community forum",
     "official company disclosure",
     "survey research",

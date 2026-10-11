@@ -77,6 +77,28 @@ export default async function Sources() {
   const db = serverSupabase();
   const sources: SourceConfig[] = [
     {
+      name: "arXiv · open research metadata",
+      key: "arxiv",
+      enabled: true,
+      onDemand: true,
+      referenceUrl: "https://info.arxiv.org/help/api/index.html",
+      referenceLabel: "arXiv public API, terms and acknowledgment",
+      secondaryReferenceUrl: "https://info.arxiv.org/help/api/tou.html",
+      secondaryReferenceLabel: "arXiv API terms of use",
+      detail: "One keyless public Atom API request searches up to six topic terms and returns no more than 12 title-matched preprint records submitted within five years. Atlas discards abstracts and author names and retains title, arXiv identifier, submission date, and category only. arXiv metadata is CC0; paper content remains subject to the individual rights holder's license. Preprints are not necessarily peer-reviewed, and this is not discussion or a country sample. Identical searches are kept in a volatile in-memory cache for 24 hours; distinct requests are serialized and spaced at least three seconds apart per server instance, per arXiv guidance. Free-service uptime and cross-instance rate coordination are not guaranteed. Thank you to arXiv for use of its open access interoperability.",
+    },
+    {
+      name: "Crossref · recent scholarly metadata",
+      key: "crossref",
+      enabled: true,
+      onDemand: true,
+      referenceUrl: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
+      referenceLabel: "Crossref public REST API and metadata reuse guidance",
+      secondaryReferenceUrl: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/access-and-authentication/",
+      secondaryReferenceLabel: "Public access and rate limits",
+      detail: "Each search makes one bounded request to Crossref’s free public API, without signup or key, for up to 12 recent five-year title matches. Atlas shows DOI-linked titles and depositor-provided bibliographic metadata only; it does not fetch abstracts or publisher pages. The records are global scholarly literature, not current community opinion, a country sample, or evidence of study quality. Crossref’s public pool has tighter rate limits than its optional paid service; Atlas caches identical queries for 60 seconds, serializes requests and applies a per-client limit best-effort within each server instance.",
+    },
+    {
       name: "GDELT · retired from live search",
       key: "gdelt",
       enabled: false,
@@ -120,8 +142,26 @@ export default async function Sources() {
       key: "stack-exchange",
       enabled: process.env.STACK_EXCHANGE_ENABLED === "true",
       onDemand: true,
+      referenceUrl: "https://api.stackexchange.com/docs/advanced-search",
+      referenceLabel: "Official Stack Exchange advanced-search API",
+      additionalReferences: [
+        { url: "https://api.stackexchange.com/docs/throttle", label: "Official API throttling guidance" },
+        { url: "https://stackoverflow.com/help/licensing", label: "Stack Exchange content licensing" },
+      ],
       detail:
-        "Keyless daily collection samples the latest public questions from 12 communities across economics, quantitative finance, personal finance, politics, law, AI, data science, information security, and four non-English Stack Overflow editions. Each community is bounded to one API page of up to 100 questions from the last 30 days. Only individually CC BY-SA 4.0 items are retained, with unmodified title, original link, author/profile attribution, site, tags, and license; question and answer bodies are discarded. Explore offers on-demand title searches across up to four selected communities with a separately supplied phrase for each language. This is specialist Q&A from one platform operator, not a general forum, independent operators, or representative public opinion; feed caps omit older/lower-ranked items and on-demand results are not stored.",
+        "The visitor search queries the public Stack Exchange API for title matches in Economics, Quantitative Finance, and Personal Finance & Money. For the selected Japanese, Brazilian Portuguese, or Spanish lens, it also searches the corresponding public Stack Overflow language community; other selected languages have no configured localized Stack Exchange site. It returns only individually CC BY-SA 4.0 items, with unmodified title, original link, author/profile attribution, site, and license; question and answer bodies are not retrieved. Each provider query is bounded to recent title matches, and terms shorter than 3 or longer than 80 characters are explicitly marked not searched. Matching queries are reused for 65 seconds in the current browser session, and provider backoff instructions are honored; remaining quota is shown when the API reports it. The query is free to call and does not require a paid plan. This is specialist Q&A from one platform operator, not a general forum, independent operators, or representative public opinion; on-demand results are not stored. Scheduled collection is a separate optional feature and not mixed into the visitor search.",
+    },
+    {
+      name: "Reddit · excluded from Atlas research search",
+      key: "reddit-public",
+      enabled: false,
+      onDemand: false,
+      referenceUrl: "https://support.reddithelp.com/hc/en-us/articles/14945211791892-Developer-Platform-Accessing-Reddit-Data",
+      referenceLabel: "Reddit API access and research restrictions",
+      secondaryReferenceUrl: "https://www.redditinc.com/policies/data-api-terms",
+      secondaryReferenceLabel: "Reddit Data API Terms",
+      detail:
+        "Not queried or scraped. Reddit's current developer guidance says its developer tools/APIs are not authorized for research and directs research use to its Reddit for Researchers program. Atlas is a research product, so ordinary Data API credentials or a free quota are not sufficient permission. Reconsider only if Atlas is eligible for and receives the distinct research-program authorization, and its terms can be implemented compliantly.",
     },
     {
       name: "Typst Forum · licensed community discussion",
@@ -158,7 +198,7 @@ export default async function Sources() {
       referenceUrl: "https://join-lemmy.org/docs/contributors/04-api.html",
       referenceLabel: "Official Lemmy API documentation",
       detail:
-        "Visitor-triggered, keyless search of up to 20 newest matching posts on each configured instance: lemmy.world, discuss.tchncs.de, feddit.org, and jlai.lu. A short excerpt is shown transiently. Bot-marked, NSFW, removed, stale, future-dated, and unlinked items are filtered. Federation can duplicate posts; these are incomplete, overlapping server views, not a global timeline, country proxy, representative population sample, or measure of attention. Posts remain their authors’ content; no blanket license is implied. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
+        "Visitor-triggered, keyless search of up to 20 newest matching posts on six configured instances: lemmy.world, discuss.tchncs.de, feddit.org, jlai.lu, sopuli.xyz, and sh.itjust.works. The additional live-checked endpoints add Finnish/English and Canadian English/French community-server views, not verified country samples. A short excerpt is shown transiently. Bot-marked, NSFW, removed, stale, future-dated, and unlinked items are filtered. Federation can duplicate posts; these are incomplete, overlapping server views, not a global timeline, country proxy, representative population sample, or measure of attention. Posts remain their authors’ content; no blanket license is implied. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
       additionalReferences: LEMMY_INSTANCES.flatMap(({ host, legalUrl, privacyUrl }) => [
         { url: legalUrl, label: `${host} terms` },
         { url: privacyUrl, label: `${host} privacy` },
@@ -196,6 +236,16 @@ export default async function Sources() {
         "Daily keyless Atom collection from the English Australia, U.S., U.K., Canada, Africa, and New Zealand editions. Each retained feed entry must explicitly carry a Creative Commons attribution/no-derivatives notice. Atlas keeps the unmodified headline, author byline, publication date, original link, edition, and rights notice; summaries and article bodies are discarded. These are editions within one publisher network, not independent outlets or proxies for audience location; this expert analysis is distinct from forum discussion and breaking-news coverage.",
     },
     {
+      name: "The Conversation · visitor headline search",
+      key: "the-conversation-search",
+      enabled: true,
+      onDemand: true,
+      referenceUrl: "https://theconversation.com/republishing-guidelines",
+      referenceLabel: "Publisher republishing and attribution guidance",
+      detail:
+        "Visitor-triggered search across six first-party English Atom feeds (U.S., U.K., Canada, Australia, New Zealand, and Africa editions), up to five exact headline matches per edition in 30 days. Each returned entry must carry its Creative Commons attribution/no-derivatives feed notice. The route returns only title, author attribution, date, edition, and article URL; any feed excerpt is discarded and never sent to AI. One publisher network's expert analysis is not forum opinion, an independent-source count, or a proxy for contributor/audience geography.",
+    },
+    {
       name: "Global Voices · international community reporting",
       key: "global-voices",
       enabled: true,
@@ -212,7 +262,7 @@ export default async function Sources() {
       secondaryReferenceUrl: "https://bsky.social/about/support/tos",
       secondaryReferenceLabel: "Bluesky Terms of Service",
       detail:
-        "Visitor-triggered search through the public AppView with no API key or account. Up to 25 indexed posts from the last 7 days per researcher-entered phrase. The English baseline adds a `lang:en` query filter; the selected lens uses the localized phrase when available. Repeated text and byline concentration are flagged without asserting identity or independence. Excerpts are transient. Language metadata and query language do not establish author location or audience. This is an incomplete platform index, not a representative sample or firehose; access and rate limits may vary.",
+        "Visitor-triggered search through the public AppView with no API key or account. Up to 25 indexed posts from the last 7 days per phrase. The baseline adds a `lang:en` query filter only when the phrase fits the provider query limit; otherwise it uses the phrase unchanged. The selected lens uses an automatic or researcher-entered local phrase when available, and Atlas displays which phrase was used. Repeated text and byline concentration are flagged without asserting identity or independence. Excerpts are transient. Language metadata and query language do not establish author location or audience. This is an incomplete platform index, not a representative sample or firehose; access and rate limits may vary.",
     },
     {
       name: "YouTube public comments (candidate)",
@@ -290,8 +340,7 @@ export default async function Sources() {
         <div className="eyebrow mb-4">Source configuration and health</div>
         <h1 className="mb-4 text-4xl font-extrabold">Sources</h1>
         <p className="mb-10 max-w-2xl leading-7 text-muted">
-          The live search uses Bluesky, Lemmy, Mastodon public hashtags, and
-          Global Voices reporting. These are incomplete, different kinds of
+          The live search uses Bluesky, Lemmy, Mastodon public hashtags, title-only Stack Exchange Q&amp;A, Global Voices reporting, and The Conversation expert-analysis headlines. Reddit is excluded from research search under its current developer/API policy. These are incomplete, different kinds of
           evidence—not a representative measure of a country or market.
           Scheduled operational connectors are listed separately below;
           their stored records are not automatically part of this search.

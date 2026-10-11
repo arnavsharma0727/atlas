@@ -35,6 +35,7 @@ describe("buildPerspectiveSnapshot", () => {
       result("stack-exchange:economics", "Economics", [item("en-se", "Economics Stack Exchange", "English")]),
       result("stack-exchange:es.stackoverflow", "Spanish Stack Overflow", [item("es-se", "Stack Overflow en español", "Spanish")]),
       result("global-voices", "Global Voices", [item("gv-es", "Global Voices · Spanish edition", "Spanish"), item("gv-ar", "Global Voices · Arabic edition", "Arabic")]),
+      result("the-conversation:au", "The Conversation · Australia", [{ ...item("tc-au", "The Conversation · Australia edition", "English"), evidenceClass: "expert analysis" }]),
     ]);
 
     expect(snapshot.englishPerspectives.map(({ source, evidenceClass }) => [source, evidenceClass])).toEqual([
@@ -46,6 +47,7 @@ describe("buildPerspectiveSnapshot", () => {
       ["Stack Overflow en español", "Spanish"],
       ["Global Voices · Spanish edition", "Spanish"],
       ["Global Voices · Arabic edition", "Arabic"],
+      ["The Conversation · Australia edition", "English"],
     ]);
     expect(snapshot.otherPerspectives.flatMap(({ items }) => items).map(({ title }) => title)).not.toContain("Evidence hn");
     expect(snapshot.otherPerspectives[0].evidenceClass).toBe("expert Q&A");

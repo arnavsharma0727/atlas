@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { searchLiveDiscussion } from "./live-topic-search";
+import { getStackExchangeThrottleStatus, resetStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-topic-search";
 
 describe("searchLiveDiscussion", () => {
   it("queries one selected community and returns only attributed CC BY-SA 4.0 items", async () => {
@@ -49,6 +49,19 @@ describe("searchLiveDiscussion", () => {
     await expect(searchLiveDiscussion("ab", "economics", fetchMock)).rejects.toThrow("3–80 characters");
     await expect(searchLiveDiscussion("valid topic", "unknown", fetchMock)).rejects.toThrow("listed community");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("honors API-reported backoff and exposes its reported remaining quota", async () => {
+    const now = Date.parse("2026-10-01T00:00:00Z");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], quota_remaining: 17, backoff: 5 }), { status: 200 }));
+    try {
+      await searchLiveDiscussion("inflation", "economics", fetchMock, now);
+      expect(getStackExchangeThrottleStatus().quotaRemaining).toBe(17);
+      await expect(searchLiveDiscussion("tariffs", "economics", fetchMock, now + 1_000)).rejects.toThrow("wait 4 seconds");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      resetStackExchangeThrottleStatus();
+    }
   });
 
   it("supports a licensed policy discussion community", async () => {

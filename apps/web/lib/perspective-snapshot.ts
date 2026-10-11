@@ -33,6 +33,7 @@ export function buildPerspectiveSnapshot(results: ResearchSweepSourceResult[]) {
       const isEnglishForum = item.language.toLocaleLowerCase() === "english" &&
         (result.key === "hacker-news" || result.key.startsWith("stack-exchange:"));
       const isOtherPerspective = result.key === "global-voices" ||
+        result.key.startsWith("the-conversation:") ||
         result.key.startsWith("lemmy:") ||
         item.language.toLocaleLowerCase() !== "english";
       const isIncludedSource = isEnglishForum || isOtherPerspective;

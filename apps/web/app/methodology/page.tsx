@@ -8,15 +8,19 @@ const sections = [
   },
   {
     title: "Keep evidence types separate",
-    body: "The live search currently returns public social discussion from Bluesky and Lemmy, hashtag posts from Mastodon, and—on a non-U.S. lens—headline metadata from Global Voices reporting. Reporting is not forum opinion. Specialist Q&A and scheduled operational feeds shown in the source register are not mixed into this live search.",
+    body: "The live search currently returns public social discussion from Bluesky and Lemmy, hashtag posts from Mastodon, title-only questions from the Economics, Quantitative Finance, and Personal Finance Stack Exchange communities, and Japanese, Portuguese, or Spanish Stack Overflow questions for the corresponding selected language lens. Non-U.S. searches also include headline metadata from Global Voices reporting. Q&A and reporting are separate evidence classes, not forum opinion. Scheduled operational feeds shown in the source register are not mixed into this visitor search.",
   },
   {
     title: "Read the original before drawing a conclusion",
-    body: "When AI is enabled before search and available, the overview is generated only from a small, source-balanced selection of retrieved public excerpts; each factual passage links to the original record. Source URLs and author handles are not sent to Groq. Without AI, Atlas shows a rule-based notice directing you to the selected records; if AI fails, the UI labels that fallback as unavailable. A citation supports inspection, not independent verification. A displayed name or community label is not identity verification or proof of location.",
+    body: "When the operator has enabled the optional AI service and it is available, the overview is generated only from a small, source-balanced selection of retrieved public excerpts; each factual passage links to the original record. Source URLs and author handles are not sent to Groq. Without AI or when it fails, Atlas shows a rule-based notice directing you to the selected records and labels AI as unavailable. A citation supports inspection, not independent verification. A displayed name or community label is not identity verification or proof of location.",
   },
   {
     title: "Compare like with like",
-    body: "The English baseline adds a `lang:en` filter to Bluesky, while Lemmy uses the phrase as entered and Mastodon searches a mechanically formatted hashtag. The selected lens may use an AI translation only if the visitor enables AI and the server-side feature is configured; otherwise Atlas uses the original phrase. Global Voices searches headlines in localized editions and represents reporting, not conversation. These differences make the comparison non-equivalent; each provider query and time window is shown separately. Language, publication edition, server, and community do not verify contributor location.",
+    body: "The baseline may include mixed languages: Bluesky receives a `lang:en` filter only when the query fits its provider limit, Lemmy uses the displayed phrase, and Mastodon searches a mechanically formatted hashtag. Stack Exchange searches title-only questions in three English-language specialist communities; the selected lens also searches its corresponding Japanese, Portuguese, or Spanish Stack Overflow site where one is available. Queries must be 3–80 characters; this is expert Q&A, not a general forum or investor sample. The selected lens uses an automatic translation only when the operator has enabled the server-side AI service; researchers can instead enter an explicit phrase, and the effective phrase is shown. Global Voices searches headlines in localized editions and represents reporting, not conversation. These provider samples are not like-for-like; each query and time window is shown separately. Language, publication edition, server, and community do not verify contributor location.",
+  },
+  {
+    title: "Clarify short and ticker-like phrases",
+    body: "Short acronyms and tickers can collide with ordinary words or unrelated entities. Atlas warns on common ambiguous forms and offers a small set of optional company/concept expansions. Choosing an expansion runs a new, separately labeled search; Atlas does not silently add aliases. This list is not exhaustive, so specify the company or concept when results are ambiguous.",
   },
 ];
 
