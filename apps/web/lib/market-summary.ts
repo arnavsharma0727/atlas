@@ -78,7 +78,7 @@ export function isLikelyMarketPromotion(value: string): boolean {
     /\b(?:top|best)\s+\d+\s+(?:stocks?|shares?)\s+(?:to\s+)?buy\b/iu,
     /\b\d+\s+(?:reasons|ways)\b.{0,60}\b(?:buy|stock|shares?|profit|rally)\b/iu,
     /\b(?:price target|target price|stock forecast|stock prediction|buy recommendation|guaranteed returns?)\b/iu,
-    /(?:목표주가|목표가|주가\s*전망|수혜주|매수\s*추천|투자\s*전략|전고점.{0,16}(?:뚫을|돌파).{0,16}(?:핵심\s*모멘텀|\d+선))/u,
+    /(?:목표주가|목표가|주가\s*전망|수혜주|매수\s*추천|투자\s*전략|\d+\s*가지\s*이유|찍을\s*수밖에|전고점.{0,20}(?:뚫을|뚫고|돌파))/u,
     /(?:目標株価|株価予想|買い推奨|投資戦略)/u,
   ];
   return patterns.some((pattern) => pattern.test(text));

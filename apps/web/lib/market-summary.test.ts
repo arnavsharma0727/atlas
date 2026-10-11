@@ -72,7 +72,9 @@ describe("market summary evidence contracts", () => {
 
   it("keeps high-confidence stock-pitch copy visible but out of the community overview", () => {
     const pitch = "📈 비메모리 테스트 1위의 귀환! 반도체 수요, 두산테스나 전고점 뚫을 핵심 모멘텀 3선. 두산테스나 주가 전망과 매수 추천.";
+    const secondPitch = "글로벌 1위 장비주의 위엄! 반도체 수요, 피에스케이 전고점 뚫고 20만원 찍을 수밖에 없는 4가지 이유.";
     expect(isLikelyMarketPromotion(pitch)).toBe(true);
+    expect(isLikelyMarketPromotion(secondPitch)).toBe(true);
     expect(isIndependentDiscussionEvidence({ excerpt: pitch })).toBe(false);
     expect(isLikelyMarketPromotion("Semiconductor demand remains uncertain after several inventory changes.")).toBe(false);
     const screened = filterResultsToTopic([result("local:bluesky", "Bluesky", [{
