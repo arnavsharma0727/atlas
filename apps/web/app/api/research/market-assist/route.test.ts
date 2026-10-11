@@ -96,7 +96,7 @@ describe("free-tier market assist", () => {
       expect(prompt).not.toContain("analyst@private.example");
       expect(prompt).toContain("[handle]");
       expect(prompt).toContain("[email]");
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ usSummary: "US sample notes demand.", usCitations: ["C1"], localSummary: "KR sample notes exports.", localCitations: ["C2"], comparison: "Samples differ; evidence is limited.", comparisonCitations: ["C1", "C2"], limitations: ["Not representative"] }) } }] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ usClaims: [{ text: "US sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }], comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: ["Not representative"] }) } }] }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
@@ -113,8 +113,8 @@ describe("free-tier market assist", () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "json_validate_failed", type: "invalid_request_error" } }), { status: 400 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: `Here is the evidence summary:\n\n\`\`\`json\n${JSON.stringify({
-        usSummary: "US sample notes demand.", usCitations: ["C1"], localSummary: "KR sample notes exports.", localCitations: ["C2"],
-        comparison: "Samples differ; evidence is limited.", comparisonCitations: ["C1", "C2"], limitations: [],
+        usClaims: [{ text: "US sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }],
+        comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: [],
       })}\n\`\`\`` } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
@@ -133,8 +133,8 @@ describe("free-tier market assist", () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-      usSummary: "Unsupported statement.", usCitations: ["C99"], localSummary: "No local evidence.", localCitations: [],
-      comparison: "No comparison.", comparisonCitations: [], limitations: [],
+      usClaims: [{ text: "Unsupported statement.", citations: ["C99"] }], localClaims: [],
+      comparisonClaims: [], limitations: [],
     }) } }] }), { status: 200 })));
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,

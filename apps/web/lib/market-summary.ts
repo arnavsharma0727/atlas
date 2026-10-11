@@ -238,25 +238,37 @@ export function normalizeMarketSummary(
 ): MarketSummary | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const passage = (key: string, citationsKey: string, allowed: Set<string>, mustCite: boolean): SummaryPassage | null => {
-    const text = typeof record[key] === "string" ? record[key].trim().slice(0, 900) : "";
-    if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text)) return null;
-    const citations = Array.isArray(record[citationsKey])
-      ? [...new Set((record[citationsKey] as unknown[]).filter((id): id is string => typeof id === "string" && allowed.has(id)))].slice(0, 8)
-      : [];
-    if (mustCite && !citations.length) return null;
+  const passage = (key: string, allowed: Set<string>): SummaryPassage | null => {
+    const rawClaims = record[key];
+    if (!Array.isArray(rawClaims) || rawClaims.length < 1 || rawClaims.length > 4) return null;
+    const claims: Array<{ text: string; citations: string[] }> = [];
+    for (const rawClaim of rawClaims) {
+      if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return null;
+      const claim = rawClaim as Record<string, unknown>;
+      const text = typeof claim.text === "string" ? claim.text.trim().slice(0, 400) : "";
+      if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text)) return null;
+      const citations = Array.isArray(claim.citations)
+        ? [...new Set(claim.citations.filter((id): id is string => typeof id === "string" && allowed.has(id)))].slice(0, 8)
+        : [];
+      // Reject the whole output if a factual claim is uncited or its cited IDs
+      // do not resolve to evidence actually submitted for this summary.
+      if (!citations.length) return null;
+      claims.push({ text, citations });
+    }
+    const text = claims.map(({ text: claimText }) => claimText).join(" ").slice(0, 900);
+    const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))].slice(0, 8);
     return { text, citations };
   };
 
   const submittedIds = new Set([...available.us, ...available.local]);
   const usSummary = available.us.size
-    ? passage("usSummary", "usCitations", available.us, true)
+    ? passage("usClaims", available.us)
     : { text: "No text-bearing records were submitted for the baseline overview. Check source status below; this does not show that discussion is absent.", citations: [] };
   const localSummary = available.local.size
-    ? passage("localSummary", "localCitations", available.local, true)
+    ? passage("localClaims", available.local)
     : { text: "No text-bearing records were submitted for this selected language/community overview. Check source status below; this does not show that discussion is absent.", citations: [] };
   const comparison = available.us.size && available.local.size
-    ? passage("comparison", "comparisonCitations", submittedIds, true)
+    ? passage("comparisonClaims", submittedIds)
     : { text: "A comparison is not available because one or both sides returned no text-bearing records. The available source results are not a like-for-like sample.", citations: [...submittedIds].slice(0, 4) };
   if (!usSummary || !localSummary || !comparison) return null;
 

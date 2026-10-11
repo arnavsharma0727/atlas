@@ -173,9 +173,9 @@ describe("market summary evidence contracts", () => {
 
   it("accepts only citations present in the corresponding submitted evidence group", () => {
     const summary = normalizeMarketSummary({
-      usSummary: "The English-language records mention supply constraints.", usCitations: ["C1", "C99"],
-      localSummary: "The selected-language records discuss prices.", localCitations: ["C2"],
-      comparison: "These samples are not directly comparable.", comparisonCitations: ["C1", "C2"],
+      usClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1", "C99"] }],
+      localClaims: [{ text: "The selected-language records discuss prices.", citations: ["C2"] }],
+      comparisonClaims: [{ text: "These samples are not directly comparable.", citations: ["C1", "C2"] }],
       limitations: ["Not representative"],
     }, { us: new Set(["C1"]), local: new Set(["C2"]) });
     expect(summary?.usSummary.citations).toEqual(["C1"]);
@@ -184,9 +184,9 @@ describe("market summary evidence contracts", () => {
 
   it("uses deterministic non-claiming text for a side with no submitted evidence", () => {
     const summary = normalizeMarketSummary({
-      usSummary: "Investors universally expect growth.", usCitations: [],
-      localSummary: "Local view", localCitations: ["C2"],
-      comparison: "The two groups disagree.", comparisonCitations: ["C2"],
+      usClaims: [{ text: "Investors universally expect growth.", citations: ["C1"] }],
+      localClaims: [{ text: "Local view", citations: ["C2"] }],
+      comparisonClaims: [{ text: "The two groups disagree.", citations: ["C2"] }],
       limitations: [],
     }, { us: new Set(), local: new Set(["C2"]) });
     expect(summary?.usSummary.text).toContain("No text-bearing records were submitted");
@@ -197,10 +197,32 @@ describe("market summary evidence contracts", () => {
 
   it("rejects unsupported or uncited passages when evidence was supplied", () => {
     const value = {
-      usSummary: "The sample proves investors are bullish.", usCitations: [],
-      localSummary: "No records were returned.", localCitations: [],
-      comparison: "Not comparable.", comparisonCitations: [], limitations: [],
+      usClaims: [{ text: "The sample proves investors are bullish.", citations: [] }],
+      localClaims: [], comparisonClaims: [], limitations: [],
     };
     expect(normalizeMarketSummary(value, { us: new Set(["C1"]), local: new Set() })).toBeNull();
+  });
+
+  it("rejects an uncited sentence even when another claim in the same overview is cited", () => {
+    const summary = normalizeMarketSummary({
+      usClaims: [
+        { text: "One sourced claim.", citations: ["C1"] },
+        { text: "An unsupported factual claim.", citations: [] },
+      ],
+      localClaims: [{ text: "Local evidence.", citations: ["C2"] }],
+      comparisonClaims: [{ text: "Comparison.", citations: ["C1", "C2"] }],
+      limitations: [],
+    }, { us: new Set(["C1"]), local: new Set(["C2"]) });
+    expect(summary).toBeNull();
+  });
+
+  it("limits claim count and rejects cross-group citations on side-specific views", () => {
+    const summary = normalizeMarketSummary({
+      usClaims: [{ text: "Wrong side citation.", citations: ["C2"] }],
+      localClaims: [{ text: "Local evidence.", citations: ["C2"] }],
+      comparisonClaims: [{ text: "Comparison.", citations: ["C1", "C2"] }],
+      limitations: [],
+    }, { us: new Set(["C1"]), local: new Set(["C2"]) });
+    expect(summary).toBeNull();
   });
 });
