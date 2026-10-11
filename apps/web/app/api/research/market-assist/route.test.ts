@@ -45,6 +45,37 @@ describe("free-tier market assist", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("excludes mismatched and unverified languages from a localized Groq request", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const requestBody = JSON.parse(String(init?.body));
+      const userPrompt = requestBody.messages.find((message: { role: string }) => message.role === "user").content;
+      expect(userPrompt).toContain("\"excerpt\":\"수출 시장 수요가 증가했다\"");
+      expect(userPrompt).not.toContain("This English market demand increased");
+      expect(userPrompt).not.toContain("unmapped language ID");
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        usClaims: [{ text: "Baseline evidence notes demand.", citations: ["C1"] }],
+        localClaims: [{ text: "Korean evidence notes exports.", citations: ["C2"] }],
+        comparisonClaims: [{ text: "The bounded samples differ.", citations: ["C1", "C2"] }],
+      }) } }] }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
+      evidence: {
+        us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand is increasing.", language: "en" }],
+        local: [
+          { citationId: "C2", source: "Mastodon", title: "Post", excerpt: "수출 시장 수요가 증가했다", language: "ko" },
+          { citationId: "C3", source: "Lemmy", title: "Post", excerpt: "This English market demand increased", language: "en" },
+          { citationId: "C4", source: "Lemmy", title: "Post", excerpt: "A market demand view", language: "Lemmy unmapped language ID 0" },
+        ],
+      },
+    }));
+    expect(response.status).toBe(200);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("does not spend a model request when both evidence groups are empty", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");

@@ -192,7 +192,7 @@ export function selectBalancedEvidence(
 
   for (const result of results) {
     for (const item of result.evidence) {
-      if (expectedLanguage && !hasVerifiedExpectedLanguage(item.language, expectedLanguage)) continue;
+      if (expectedLanguage && !isVerifiedLanguageMatch(item.language, expectedLanguage)) continue;
       const redactedExcerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
       const excerpt = item.linkSharing && redactedExcerpt && !redactedExcerpt.includes("[link]")
         ? `${redactedExcerpt.slice(0, 290).trimEnd()} [link]`
@@ -253,7 +253,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 };
 
 /** A named-language overview only uses records with an understood, matching language label. */
-function hasVerifiedExpectedLanguage(reported: string, expected: string): boolean {
+export function isVerifiedLanguageMatch(reported: string, expected: string): boolean {
   const canonical = (value: string) => {
     const cleaned = value.trim().toLocaleLowerCase().replaceAll("_", "-");
     const named = LANGUAGE_NAMES[cleaned];

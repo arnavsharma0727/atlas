@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketCountry } from "../../../../lib/market-countries";
-import { hasMarketSignalTerms, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
+import { hasMarketSignalTerms, isVerifiedLanguageMatch, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { topicHashtags } from "../../../../lib/topic-hashtags";
 
 export const runtime = "nodejs";
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.action === "summarize") {
-    const evidence = parseEvidence(body.evidence);
+    const evidence = parseEvidence(body.evidence, country.language === "en" ? undefined : country.language);
     if (!evidence) return json({ error: "Invalid evidence payload" }, 400);
     const generated = await groq<Record<string, unknown>>(
       `Summarize only the JSON evidence and topic below. Return JSON only with this shape: {"usClaims":[{"text":"one concise factual claim","citations":["C1"]}],"localClaims":[{"text":"one concise factual claim","citations":["C2"]}],"comparisonClaims":[{"text":"one cautious comparison claim","citations":["C1","C2"]}]}. Each claim must be exactly one sentence and have its own one or more exact citation IDs from the relevant evidence list. Every comparison claim must cite at least one ID from each evidence list. Never combine multiple claims into one item. Use 1-4 claims per non-empty group. Do not add a separate limitations field, citation markers, or URLs inside prose. Say when evidence is sparse or not comparable. Topic: ${JSON.stringify(topic)}. Selected search lens: ${country.languageName} language/community evidence for the ${country.name} selection; this is not a sample of that country's population or investors. Evidence JSON: ${JSON.stringify(evidence)}`,
@@ -175,7 +175,7 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   return null;
 }
 
-function parseEvidence(value: unknown): EvidenceGroups | null {
+function parseEvidence(value: unknown, expectedLocalLanguage?: string): EvidenceGroups | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   const parse = (list: unknown): EvidenceItem[] | null => {
@@ -202,7 +202,12 @@ function parseEvidence(value: unknown): EvidenceGroups | null {
   // bypassing that screen and spending the model call on incidental mentions.
   if (!us || !local || (!us.length && !local.length)) return null;
   if ([...us, ...local].some((item) => !hasMarketSignalTerms(item))) return null;
-  return { us, local };
+  return {
+    us,
+    local: expectedLocalLanguage
+      ? local.filter((item) => isVerifiedLanguageMatch(item.language, expectedLocalLanguage))
+      : local,
+  };
 }
 
 function allow(ip: string) {
