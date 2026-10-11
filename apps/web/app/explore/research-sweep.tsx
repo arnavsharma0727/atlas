@@ -9,6 +9,7 @@ import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
 import { flagRepeatedEvidenceViews, hasMarketSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
 import { inspectQueryClarity } from "../../lib/query-clarity";
+import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
 export default function ResearchSweep({
   initialTopic,
@@ -361,10 +362,6 @@ function SourceResults({ result, citationIds }: { result: ResearchSweepSourceRes
       )}
     </section>
   );
-}
-
-function hasMaterialEvidenceContext(context: string | undefined) {
-  return Boolean(context && /duplicate|not independent|cross-post|marked automated|content warning|preview withheld|possible copy|near-identical/iu.test(context));
 }
 
 function compactPreview(value: string) {

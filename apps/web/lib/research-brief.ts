@@ -24,6 +24,8 @@ export type ResearchEvidence = {
   sourceOperatorLabel?: string;
   /** Ephemeral source preview for in-browser review; strip before adding a citation to a brief. */
   transientPreview?: string;
+  /** True when the public post includes an external URL; linked content may not be the author's own view. */
+  linkSharing?: boolean;
 };
 
 /** Canonical identity for detecting repeated selected links, never publisher ownership. */

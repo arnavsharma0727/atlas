@@ -21,6 +21,28 @@ describe("market summary evidence contracts", () => {
     expect(redactSummaryExcerpt("Shared by (@market.reader), contact analyst@example.org or https://example.org/report.")).toBe("Shared by ([handle]), contact [email] or [link]");
   });
 
+  it("preserves link-sharing provenance while redacting the destination URL for AI", () => {
+    const linked = { ...evidence("linked", "Bluesky", "Revenue rose, according to this article https://publisher.example/story", "bluesky"), linkSharing: true };
+    const selected = selectBalancedEvidence([result("bluesky", "Bluesky", [linked])], new Map([
+      [citationKey("bluesky", "linked"), "C1"],
+    ]));
+    expect(selected).toEqual([expect.objectContaining({
+      citationId: "C1",
+      excerpt: "Revenue rose, according to this article [link]",
+      linkSharing: true,
+    })]);
+    expect(JSON.stringify(selected)).not.toContain("publisher.example");
+  });
+
+  it("adds a redacted link marker when the source HTML link is absent from the visible excerpt", () => {
+    const linked = { ...evidence("mastodon", "Mastodon", "Revenue rose after the announcement.", "mastodon-network"), linkSharing: true };
+    const selected = selectBalancedEvidence([result("mastodon", "Mastodon", [linked])], new Map([
+      [citationKey("mastodon", "mastodon"), "C1"],
+    ]));
+    expect(selected[0].excerpt).toBe("Revenue rose after the announcement. [link]");
+    expect(selected[0].linkSharing).toBe(true);
+  });
+
   it("screens generic lifestyle mentions while recognizing explicit market-language signals", () => {
     expect(hasMarketSignalTerms({ excerpt: "I need a coffee before my shift starts.", language: "English" })).toBe(false);
     expect(hasMarketSignalTerms({ excerpt: "Coffee prices rose as supply tightened and inventories fell.", language: "en" })).toBe(true);

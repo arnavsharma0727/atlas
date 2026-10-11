@@ -68,6 +68,7 @@ export type ResearchSweepSourceResult = {
 
 const STACK_EXCHANGE_REPEAT_WINDOW_MS = 65_000;
 const STACK_EXCHANGE_CACHE_LIMIT = 200;
+const LINKED_POST_CAVEAT = "This post includes an external link; its text may quote or preview linked material and does not establish the author's independent view.";
 const stackExchangeRecentSearches = new Map<string, {
   expiresAt: number;
   result: Promise<ResearchEvidence[]>;
@@ -482,10 +483,14 @@ export async function runResearchSweep(
         url: post.url,
         source: `Lemmy · ${host} / c/${post.community}`,
         evidenceClass: "social discussion" as const,
-        context: `Lemmy ${listingType === "local" ? "locally hosted community" : "federated search"}; instance hosting does not establish poster nationality or residence`,
+        context: [
+          `Lemmy ${listingType === "local" ? "locally hosted community" : "federated search"}; instance hosting does not establish poster nationality or residence`,
+          includesExternalLink(post.transientPreview) ? LINKED_POST_CAVEAT : undefined,
+        ].filter(Boolean).join(" "),
         language: post.languageId === null ? "not provided" : `Lemmy language metadata ID ${post.languageId} (instance-specific; language not mapped)`,
         timeLabel: "Published",
         timeValue: post.publishedAt,
+        linkSharing: includesExternalLink(post.transientPreview),
         attribution: `Lemmy author: ${post.author}`,
         attributionUrl: post.authorUrl ?? post.url,
         // Treat federated instance searches as one Lemmy source class; multiple instances can overlap.
@@ -519,9 +524,11 @@ export async function runResearchSweep(
           post.accountMarkedAutomated
             ? "This account is marked automated by the instance; shown with its source link but omitted from AI discussion synthesis."
             : undefined,
+          includesExternalLink(post.contentHtml) ? LINKED_POST_CAVEAT : undefined,
         ].filter(Boolean).join(" "),
         attribution: `Author: ${post.authorHandle}`,
         attributionUrl: post.authorUrl,
+        linkSharing: includesExternalLink(post.contentHtml),
         // The selected server is the query operator; multiple Mastodon servers are one network class.
         sourceOperatorKey: "mastodon-network",
         sourceOperatorLabel: "Mastodon public instances",
@@ -549,11 +556,13 @@ export async function runResearchSweep(
         sourceOperatorKey: "bluesky",
         sourceOperatorLabel: "Bluesky",
         transientPreview: post.transientPreview,
+        linkSharing: includesExternalLink(post.transientPreview),
         context: [
           post.duplicateCount > 1
             ? `Identical normalized text appeared in ${post.duplicateCount} indexed posts and is shown once. Repeated copies are not independent corroboration; author independence is unverified.`
             : null,
           post.contentWarning,
+          includesExternalLink(post.transientPreview) ? LINKED_POST_CAVEAT : undefined,
         ].filter(Boolean).join(" ") || "Visitor-entered language variants are kept as separate searches and are not translated or pooled; indexed subset, not a complete or representative feed",
         attribution: `Author: @${post.authorHandle}`,
       }));
@@ -650,4 +659,8 @@ function concentratedBylineNote(bylines: string[]) {
   if (maximum / bylines.length < 0.6) return undefined;
   const share = Math.round((maximum / bylines.length) * 100);
   return `Sample composition: one displayed handle appears in ${maximum} of ${bylines.length} unique-text results (${share}%). This flags byline concentration; it does not verify identity or independence.`;
+}
+
+function includesExternalLink(value: string | undefined) {
+  return typeof value === "string" && /(?:https?:\/\/|www\.)|<a\b[^>]*\bhref\s*=\s*["']https?:\/\//iu.test(value);
 }

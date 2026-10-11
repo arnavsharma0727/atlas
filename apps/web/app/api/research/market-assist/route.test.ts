@@ -89,6 +89,8 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("Separate those claims from incidental mentions, lifestyle anecdotes, advertisements, fiction, and promotional content");
       expect(messages[0].content).toContain("a worker mentioning coffee, a café photo, or brewing instructions are not evidence of coffee-market views");
       expect(messages[0].content).toContain("does not establish a market thesis");
+      expect(messages[0].content).toContain("linkSharing:true");
+      expect(messages[0].content).toContain("Do not attribute linked headlines or copied reporting to the poster as their independent opinion");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
       expect(prompt).toContain("semiconductors");
       expect(prompt).not.toContain("https://private.example");
@@ -96,12 +98,13 @@ describe("free-tier market assist", () => {
       expect(prompt).not.toContain("analyst@private.example");
       expect(prompt).toContain("[handle]");
       expect(prompt).toContain("[email]");
+      expect(prompt).toContain("\"linkSharing\":true");
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ usClaims: [{ text: "US sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }], comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: ["Not representative"] }) } }] }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments (@reader), https://private.example/story analyst@private.example", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "Export comments", language: "ko" }] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments (@reader), https://private.example/story analyst@private.example", language: "en", linkSharing: true }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "Export comments", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "US sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });

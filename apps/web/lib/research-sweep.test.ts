@@ -389,7 +389,7 @@ describe("runResearchSweep", () => {
   it("labels focused Mastodon servers as language/community views, never as verified national samples", async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify([{
       id: "77", url: "https://town.voyager.blue/@reader/77", created_at: new Date(NOW - 60_000).toISOString(),
-      visibility: "public", content: "<p>반도체 투자 전망</p>", language: "ko", account: {
+      visibility: "public", content: "<p>반도체 투자 전망 <a href=\"https://example.test/report\">기사</a></p>", language: "ko", account: {
         acct: "reader", url: "https://town.voyager.blue/@reader", bot: false,
       },
     }])));
@@ -400,6 +400,7 @@ describe("runResearchSweep", () => {
     }, fetcher, NOW);
     expect(result.label).toContain("language/community-focused server");
     expect(result.evidence[0].context).toContain("does not verify poster nationality or residence");
+    expect(result.evidence[0].context).toContain("does not establish the author's independent view");
   });
 
   it("requires every focused Mastodon instance to have a selected query", async () => {
@@ -427,7 +428,7 @@ describe("runResearchSweep", () => {
       if (url.hostname === "api.bsky.app") {
         return new Response(JSON.stringify({ posts: [{
           uri: "at://did:plc:reader/app.bsky.feed.post/one",
-          record: { text: "A useful discussion", createdAt: new Date(NOW - 60_000).toISOString(), langs: ["en"] },
+          record: { text: "A useful discussion https://example.test/story", createdAt: new Date(NOW - 60_000).toISOString(), langs: ["en"] },
           author: { handle: "reader.example" },
         }] }));
       }
@@ -447,7 +448,7 @@ describe("runResearchSweep", () => {
             id: 13,
             ap_id: "https://lemmy.world/post/13",
             name: "A community discussion",
-            body: "This post body is transiently previewed, never saved",
+            body: "This post body is transiently previewed, never saved https://example.test/thread",
             published: new Date(NOW - 60_000).toISOString(),
             language_id: 37,
           },
@@ -488,9 +489,11 @@ describe("runResearchSweep", () => {
       sourceOperatorKey: "lemmy-federation",
       sourceOperatorLabel: "Lemmy federated search",
     });
-    expect(results[2].evidence[0]).toMatchObject({ source: "Bluesky public AppView · search 1", transientPreview: "A useful discussion" });
+    expect(results[2].evidence[0]).toMatchObject({ source: "Bluesky public AppView · search 1", transientPreview: "A useful discussion https://example.test/story" });
+    expect(results[2].evidence[0].context).toContain("does not establish the author's independent view");
     expect(results[1].evidence[0].evidenceClass).toBe("social discussion");
-    expect(results[1].evidence[0].transientPreview).toBe("This post body is transiently previewed, never saved");
+    expect(results[1].evidence[0].transientPreview).toBe("This post body is transiently previewed, never saved https://example.test/thread");
+    expect(results[1].evidence[0].context).toContain("does not establish the author's independent view");
     expect(results[1].evidence[0].context ?? "").not.toContain("markets");
     expect(results[2]).toMatchObject({ query: "markets", asOf: new Date(NOW).toISOString() });
     expect(results[3].evidence[0]).toMatchObject({

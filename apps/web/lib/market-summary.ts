@@ -15,6 +15,7 @@ export type ModelEvidence = {
   title: string;
   excerpt: string;
   language: string;
+  linkSharing?: boolean;
 };
 
 const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
@@ -143,7 +144,10 @@ export function selectBalancedEvidence(
   for (const result of results) {
     for (const item of result.evidence) {
       if (expectedLanguage && hasExplicitLanguageMismatch(item.language, expectedLanguage)) continue;
-      const excerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
+      const redactedExcerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
+      const excerpt = item.linkSharing && redactedExcerpt && !redactedExcerpt.includes("[link]")
+        ? `${redactedExcerpt.slice(0, 290).trimEnd()} [link]`
+        : redactedExcerpt;
       const citationId = citationIds.get(citationKey(result.key, item.id));
       if (!excerpt || !citationId || !/^C\d{1,4}$/.test(citationId)) continue;
 
@@ -170,6 +174,7 @@ export function selectBalancedEvidence(
         title: item.evidenceClass === "social discussion" ? "Public discussion post" : item.title.slice(0, 180),
         excerpt,
         language: item.language.slice(0, 24),
+        ...(item.linkSharing ? { linkSharing: true } : {}),
         dedupeKeys: [textKey, recordKey],
       });
       sources.set(operator, group);
