@@ -488,15 +488,22 @@ export async function runResearchSweep(
         language: post.language ?? "not provided",
         timeLabel: "Published",
         timeValue: post.createdAt,
-        context: post.contentWarning
-          ? `Content warning: ${post.contentWarning.slice(0, 200)}; preview withheld, open the original post if appropriate`
-          : "Public hashtag search; server timeline is not a geographic market proxy",
+        context: [
+          post.contentWarning
+            ? `Content warning: ${post.contentWarning.slice(0, 200)}; preview withheld, open the original post if appropriate`
+            : "Public hashtag search; server timeline is not a geographic market proxy",
+          post.accountMarkedAutomated
+            ? "This account is marked automated by the instance; shown with its source link but omitted from AI discussion synthesis."
+            : undefined,
+        ].filter(Boolean).join(" "),
         attribution: `Author: ${post.authorHandle}`,
         attributionUrl: post.authorUrl,
         // The selected server is the query operator; multiple Mastodon servers are one network class.
         sourceOperatorKey: "mastodon-network",
         sourceOperatorLabel: "Mastodon public instances",
-        transientPreview: post.contentWarning ? undefined : mastodonHtmlToTransientText(post.contentHtml),
+        transientPreview: post.contentWarning || post.accountMarkedAutomated
+          ? undefined
+          : mastodonHtmlToTransientText(post.contentHtml),
       })),
       ));
   }

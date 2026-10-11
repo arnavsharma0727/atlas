@@ -210,7 +210,7 @@ export default async function Sources() {
       referenceLabel: "Official Mastodon public-data API guidance",
       additionalReferences: MASTODON_INSTANCES.map(({ host }) => ({ url: `https://${host}/about`, label: `${host} instance policies` })),
       detail:
-        "The current search calls a public hashtag timeline on selected instances, up to 20 newest posts per server. Atlas mechanically turns the entered phrase into the displayed hashtag; this is not arbitrary keyword search, so untagged posts are missed. Public access may be restricted by a server. Excerpts are transient; content warnings suppress previews. Language and server identity do not establish author location or country opinion. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
+        "The current search calls a public hashtag timeline on selected instances, up to 20 newest posts per server. Atlas mechanically turns the entered phrase into the displayed hashtag; this is not arbitrary keyword search, so untagged posts are missed. Public access may be restricted by a server. Excerpts are transient; content warnings suppress previews. Posts from accounts marked as automated remain linkable but are omitted from the AI discussion sample. Language and server identity do not establish author location or country opinion. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
     },
     {
       name: "Lemmy · public federated forum view",

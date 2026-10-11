@@ -28,6 +28,18 @@ try {
 }
 
 try {
+  const response = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
+  const page = await response.text();
+  if (response.ok && page.includes("marked as automated") && page.includes("omitted from the AI discussion sample")) {
+    pass("Mastodon automated-account boundary", "self-declared automated-account posts stay citable but are excluded from AI discussion text");
+  } else {
+    fail("Mastodon automated-account boundary", "the source register does not disclose bot-text handling");
+  }
+} catch (error) {
+  fail("Mastodon automated-account boundary", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const [sourcesResponse, privacyResponse] = await Promise.all([
     fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
     fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),

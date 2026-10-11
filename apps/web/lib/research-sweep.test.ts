@@ -316,6 +316,28 @@ describe("runResearchSweep", () => {
     expect(JSON.stringify(results)).not.toContain("Potentially sensitive post body");
   });
 
+  it("keeps automated Mastodon posts citable but outside the AI's human discussion sample", async () => {
+    const fetcher = vi.fn(async () => Response.json([{
+      id: "16",
+      url: "https://mastodon.social/@marketbot/16",
+      created_at: new Date(NOW - 60_000).toISOString(),
+      visibility: "public",
+      content: "A scheduled market update",
+      spoiler_text: "",
+      language: "en",
+      account: { acct: "marketbot", url: "https://mastodon.social/@marketbot", bot: true },
+    }]));
+    const results = await runResearchSweep("markets", {
+      lemmy: false,
+      mastodon: { hashtag: "markets", instance: "mastodon.social" },
+    }, fetcher, NOW);
+
+    expect(results[0].evidence[0].url).toBe("https://mastodon.social/@marketbot/16");
+    expect(results[0].evidence[0].context).toContain("marked automated");
+    expect(results[0].evidence[0].transientPreview).toBeUndefined();
+    expect(selectBalancedEvidence(results, new Map())).toEqual([]);
+  });
+
   it("searches each approved Mastodon instance separately and preserves source identity", async () => {
     const requested: string[] = [];
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
