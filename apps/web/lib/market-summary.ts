@@ -504,6 +504,10 @@ export function normalizeMarketSummary(
       const numericTokens = extractNumericTokens(text);
       if (numericTokens.length && (!citedEvidence.length || numericTokens.some((token) =>
         !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return null;
+      // A matching number proves only that the submitted post contained it,
+      // not that the number is accurate. Require the model to frame any
+      // numerical social-post assertion as an explicitly unverified claim.
+      if (numericTokens.length && !isExplicitlyAttributedNumericClaim(text)) return null;
       claims.push({ text, citations });
     }
     const claimText = claims.map(({ text: value }) => ensureSentenceEnding(value)).join(" ").slice(0, 900);
@@ -533,6 +537,13 @@ export function normalizeMarketSummary(
 function extractNumericTokens(value: string): string[] {
   return (value.normalize("NFKC").match(/(?<![\p{L}])[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?%?(?![\p{L}])/gu) ?? [])
     .map((token) => token.replaceAll(",", ""));
+}
+
+function isExplicitlyAttributedNumericClaim(value: string): boolean {
+  const text = value.normalize("NFKC");
+  const identifiesSource = /\b(?:post|excerpt|account|author|source|record|comment)\b/iu.test(text);
+  const attributesClaim = /\b(?:claim(?:s|ed)?|say(?:s|ing)?|report(?:s|ed)?|stat(?:e|es|ed)|assert(?:s|ed)?|allege(?:s|d)?|estimate(?:s|d)?|suggest(?:s|ed)?|indicate(?:s|d)?)\b/iu.test(text);
+  return identifiesSource && attributesClaim && /\bunverif(?:ied|iable)\b/iu.test(text);
 }
 
 function isSingleSentence(value: string): boolean {

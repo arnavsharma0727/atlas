@@ -395,7 +395,7 @@ describe("market summary evidence contracts", () => {
   it("attributes model prose as unverified and rejects numeric details absent from cited text", () => {
     const valid = normalizeMarketSummary({
       baselineClaims: [
-        { text: "Silicon wafer demand score was 65.6 in 2026-08.", citations: ["C1"] },
+        { text: "One unverified retrieved post claims a silicon wafer demand score of 65.6 in 2026-08.", citations: ["C1"] },
         { text: "AI chip demand remains strong", citations: ["C1"] },
       ],
       localClaims: [], comparisonClaims: [],
@@ -403,9 +403,17 @@ describe("market summary evidence contracts", () => {
       us: new Set(["C1"]), local: new Set(),
       evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score 65.6."]]), local: new Map() },
     });
-    expect(valid?.usSummary.text).toContain("The cited, unverified material says:");
-    expect(valid?.usSummary.text.match(/The cited, unverified material says:/gu)).toHaveLength(1);
+    expect(valid?.usSummary.text).toContain("One unverified retrieved post claims");
     expect(valid?.usSummary.text).toContain("2026-08. AI chip demand remains strong.");
+
+    const unattributedNumber = normalizeMarketSummary({
+      baselineClaims: [{ text: "Trade statistics show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"] }],
+      localClaims: [], comparisonClaims: [],
+    }, {
+      us: new Set(["C1"]), local: new Set(),
+      evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score 65.6."]]), local: new Map() },
+    });
+    expect(unattributedNumber).toBeNull();
 
     const unsupportedNumber = normalizeMarketSummary({
       baselineClaims: [{ text: "Silicon wafer demand score was 66.5 in 2026-08.", citations: ["C1"] }],

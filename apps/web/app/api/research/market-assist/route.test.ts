@@ -170,6 +170,7 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("Never describe a company as U.S., Korean, or belonging to any country unless the submitted excerpt itself explicitly states that fact");
       expect(messages[0].content).toContain("do not label it U.S.");
       expect(messages[0].content).toContain("a poster's assertion alone only establishes what that poster said");
+      expect(messages[0].content).toContain("Any numerical claim derived from a social post must name the post/account as its source and explicitly call the number unverified");
       expect(messages[0].content).toContain("linkSharing:true");
       expect(messages[0].content).toContain("Do not treat a linked headline or promotion as a community member's independent view");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
@@ -267,6 +268,32 @@ describe("free-tier market assist", () => {
     const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
     expect(retryPrompt).toContain("corrected, compact JSON summary");
     expect(retryPrompt).not.toContain("C99");
+  });
+
+  it("retries numeric social claims that are not explicitly attributed and labels the corrected figure unverified", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        baselineClaims: [{ text: "Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"] }],
+        localClaims: [], comparisonClaims: [],
+      }) } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        baselineClaims: [{ text: "One unverified retrieved post claims a silicon wafer demand score of 65.6 in 2026-08.", citations: ["C1"] }],
+        localClaims: [], comparisonClaims: [],
+      }) } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductor demand", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor materials trade update (2026-08): silicon wafer demand score 65.6.", language: "en" }], local: [] },
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: {
+      text: "One unverified retrieved post claims a silicon wafer demand score of 65.6 in 2026-08.", citations: ["C1"],
+    } } });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
+    expect(retryPrompt).toContain("explicitly frame it as an unverified claim by the cited post/account");
   });
 
   it("rejects model passages with citations that were not included in the request", async () => {
