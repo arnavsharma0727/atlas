@@ -92,7 +92,14 @@ async function groq<T>(prompt: string, systemPrompt?: string): Promise<T | null>
       cache: "no-store",
     });
     if (!response.ok) {
-      console.warn("[market-assist] Groq request failed", { status: response.status });
+      const failure = await response.json().catch(() => null) as { error?: { code?: unknown; type?: unknown; param?: unknown } } | null;
+      const error = failure?.error;
+      console.warn("[market-assist] Groq request failed", {
+        status: response.status,
+        code: typeof error?.code === "string" ? error.code.slice(0, 80) : undefined,
+        type: typeof error?.type === "string" ? error.type.slice(0, 80) : undefined,
+        param: typeof error?.param === "string" ? error.param.slice(0, 80) : undefined,
+      });
       return null;
     }
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
