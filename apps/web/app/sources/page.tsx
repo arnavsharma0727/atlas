@@ -183,7 +183,7 @@ export default async function Sources() {
       secondaryReferenceUrl: "https://www.redditinc.com/policies/data-api-terms",
       secondaryReferenceLabel: "Reddit Data API Terms",
       detail:
-        "Not queried or scraped. Reddit's current developer guidance says its developer tools/APIs are not authorized for research and directs research use to its Reddit for Researchers program. Atlas is a research product, so ordinary Data API credentials or a free quota are not sufficient permission. Reconsider only if Atlas is eligible for and receives the distinct research-program authorization, and its terms can be implemented compliantly.",
+        "Not queried or scraped. Reddit's current developer guidance (reviewed October 2026) says the only official and authorized avenue for research using Reddit data is its Reddit For Researchers program; using the ordinary developer platform or Data API for research violates its policies. The separate free Data API rate allowance does not grant research permission. Atlas would need to qualify for and receive the distinct research-program authorization before using Reddit content, and comply with that program's terms. No Reddit credentials or content are configured.",
     },
     {
       name: "Typst Forum · licensed community discussion",

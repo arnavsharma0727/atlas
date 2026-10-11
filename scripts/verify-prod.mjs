@@ -80,6 +80,24 @@ try {
 }
 
 try {
+  const response = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
+  const page = await response.text();
+  if (
+    response.ok &&
+    page.includes("Reddit · excluded from Atlas research search") &&
+    page.includes("only official and authorized avenue for research using Reddit data") &&
+    page.includes("separate free Data API rate allowance does not grant research permission") &&
+    page.includes("No Reddit credentials or content are configured")
+  ) {
+    pass("Reddit research-policy exclusion", "official Researcher-program requirement is disclosed; no ordinary Data API content is used");
+  } else {
+    fail("Reddit research-policy exclusion", `HTTP ${response.status}; research authorization boundary is missing`);
+  }
+} catch (error) {
+  fail("Reddit research-policy exclusion", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const response = await fetch(`${base}/methodology`, { signal: AbortSignal.timeout(15000) });
   const page = await response.text();
   if (
