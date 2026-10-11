@@ -9,6 +9,8 @@ describe("summary evidence links", () => {
   it("recognizes bare external domains in social text as link-sharing provenance", () => {
     expect(includesExternalLink("Publisher source: news.ikbc.co.kr/article/story")).toBe(true);
     expect(includesExternalLink("More on the topic at BigEarthData.ai")).toBe(true);
+    expect(includesExternalLink("https://stockhandbook.blog/2026/10/05/story")).toBe(true);
+    expect(includesExternalLink("Read the full report at markets.example.shop/semiconductors")).toBe(true);
     expect(includesExternalLink("Semiconductor demand is changing across markets.")).toBe(false);
   });
 

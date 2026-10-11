@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isNearDuplicateExcerpt, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -264,7 +264,7 @@ describe("market summary evidence contracts", () => {
     expect(JSON.stringify(selected)).not.toContain("analyst@private.example");
   });
 
-  it("includes only verified matching languages in the selected-language summary without hiding source results", () => {
+  it("includes only matching or conservatively script-detected language records without hiding source results", () => {
     const english = evidence("en", "Mastodon", "An English market view", "mastodon-network");
     const portuguese = { ...evidence("pt", "Mastodon", "Uma visão do mercado", "mastodon-network"), language: "pt-BR" };
     const unknown = { ...evidence("unknown", "Lemmy", "A forum view with unmapped language metadata", "lemmy-federation"), language: "Lemmy language metadata ID 0 (instance-specific; language not mapped)" };
@@ -277,6 +277,19 @@ describe("market summary evidence contracts", () => {
     expect(selectBalancedEvidence(results, citations, 8, new Set(), "pt").map(({ citationId }) => citationId)).toEqual(["C2"]);
     expect(results[0].evidence).toHaveLength(2);
     expect(results[1].evidence).toHaveLength(1);
+  });
+
+  it.each([
+    ["Korean", "반도체 수요와 시장 전망에 대한 의견입니다", "ko"],
+    ["Japanese", "半導体の需要について市場の意見です", "ja"],
+    ["Hindi", "सेमीकंडक्टर बाजार में मांग और कीमतों पर चर्चा", "hi"],
+  ])("detects %s text when provider language is not supplied", (_label, text, expected) => {
+    expect(matchesLanguageLens("not provided", expected, text)).toBe(true);
+  });
+
+  it("does not override an explicit conflicting language label or guess Latin-script language", () => {
+    expect(matchesLanguageLens("en", "ko", "반도체 수요와 시장 전망에 대한 의견입니다")).toBe(false);
+    expect(matchesLanguageLens("not provided", "fr", "Le marché de la demande évolue")).toBe(false);
   });
 
   it.each([

@@ -262,7 +262,7 @@ export function selectBalancedEvidence(
 
   for (const result of results) {
     for (const item of result.evidence) {
-      if (expectedLanguage && !isVerifiedLanguageMatch(item.language, expectedLanguage)) continue;
+      if (expectedLanguage && !matchesLanguageLens(item.language, expectedLanguage, item.transientPreview ?? item.title)) continue;
       const redactedExcerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
       const excerpt = item.linkSharing && redactedExcerpt && !redactedExcerpt.includes("[link]")
         ? `${redactedExcerpt.slice(0, 290).trimEnd()} [link]`
@@ -343,10 +343,11 @@ const LANGUAGE_NAMES: Record<string, string> = {
   french: "fr", portuguese: "pt", hindi: "hi", spanish: "es",
 };
 
-/** A named-language overview only uses records with an understood, matching language label. */
-export function isVerifiedLanguageMatch(reported: string, expected: string): boolean {
+/** Match provider language labels; use conservative script detection for Korean, Japanese, and Hindi when labels are missing/unmapped. */
+export function matchesLanguageLens(reported: string, expected: string, text = ""): boolean {
   const canonical = (value: string) => {
     const cleaned = value.trim().toLocaleLowerCase().replaceAll("_", "-");
+    if (["", "und", "zxx", "xx", "unknown", "not provided", "unspecified", "n/a"].includes(cleaned)) return null;
     const named = LANGUAGE_NAMES[cleaned];
     if (named) return named;
     if (/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u.test(cleaned)) return cleaned.split("-", 1)[0];
@@ -354,7 +355,17 @@ export function isVerifiedLanguageMatch(reported: string, expected: string): boo
   };
   const actualCode = canonical(reported);
   const expectedCode = canonical(expected);
-  return actualCode !== null && expectedCode !== null && actualCode === expectedCode;
+  if (!expectedCode) return false;
+  if (actualCode !== null) return actualCode === expectedCode;
+  const letters = [...text.normalize("NFKC").matchAll(/\p{L}/gu)].length;
+  if (!letters) return false;
+  const hangul = [...text.matchAll(/[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/gu)].length;
+  const kana = [...text.matchAll(/[\u3040-\u30ff]/gu)].length;
+  const devanagari = [...text.matchAll(/[\u0900-\u097f]/gu)].length;
+  if (expectedCode === "ko") return hangul >= 4 && hangul / letters >= 0.15;
+  if (expectedCode === "ja") return kana >= 2 && kana / letters >= 0.08;
+  if (expectedCode === "hi") return devanagari >= 4 && devanagari / letters >= 0.15;
+  return false;
 }
 
 function normalizeSourceUrl(value: string) {
@@ -453,7 +464,7 @@ export function normalizeMarketSummary(
     : { text: "No text-bearing records were submitted for the baseline overview. Check source status below; this does not show that discussion is absent.", citations: [] };
   const localSummary = available.local.size
     ? passage("localClaims", available.local)
-    : { text: "No records with a verified matching language were submitted for this selected-language/community overview. Check source status and the visible records below; this does not show that discussion is absent.", citations: [] };
+    : { text: "No records passed the selected-language matching rule for this language/community overview. Check source status and the visible records below; this does not show that discussion is absent.", citations: [] };
   const comparison = available.us.size && available.local.size
     ? passage("comparisonClaims", submittedIds, true)
     : { text: "A comparison is not available because one or both sides returned no text-bearing records. The available source results are not a like-for-like sample.", citations: [...submittedIds].slice(0, 4) };
