@@ -88,7 +88,8 @@ export async function searchLemmyPosts(
     type_: "Posts",
     sort: "New",
     limit: String(MAX_RESULTS),
-    listing_type: listingType,
+    // Lemmy serializes this API enum in PascalCase; lowercase values return 400.
+    listing_type: listingType === "local" ? "Local" : "All",
   }).toString();
   const response = await fetcher(endpoint, { headers: { accept: "application/json" } });
   if (response.status === 401 || response.status === 403) {

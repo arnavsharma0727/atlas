@@ -42,14 +42,14 @@ describe("Lemmy public discussion search", () => {
     expect(requestUrl.origin).toBe("https://lemmy.world");
     expect(requestUrl.searchParams.get("q")).toBe("central bank");
     expect(requestUrl.searchParams.get("limit")).toBe("20");
-    expect(requestUrl.searchParams.get("listing_type")).toBe("all");
+    expect(requestUrl.searchParams.get("listing_type")).toBe("All");
   });
 
   it("can query only communities hosted on the selected server", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ posts: [item()] }), { status: 200 }));
     const posts = await searchLemmyPosts("central bank", "lemmy.world", fetchMock, now, "local");
     expect(posts).toHaveLength(1);
-    expect(new URL(fetchMock.mock.calls[0][0] as URL).searchParams.get("listing_type")).toBe("local");
+    expect(new URL(fetchMock.mock.calls[0][0] as URL).searchParams.get("listing_type")).toBe("Local");
   });
 
   it("filters removed, deleted, future, stale, and non-HTTPS records", async () => {

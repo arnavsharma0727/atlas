@@ -588,8 +588,8 @@ describe("runResearchSweep", () => {
       lemmyLocalInstances: ["jlai.lu"],
     }, fetcher, NOW);
     expect(requested.map((url) => [url.hostname, url.searchParams.get("listing_type")])).toEqual([
-      ["lemmy.world", "all"],
-      ["jlai.lu", "local"],
+      ["lemmy.world", "All"],
+      ["jlai.lu", "Local"],
     ]);
     expect(results.map(({ label }) => label)).toEqual([
       "Lemmy · lemmy.world · federated search",
