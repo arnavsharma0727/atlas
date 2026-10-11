@@ -67,6 +67,10 @@ Run: 2026-10-11 08:23 UTC, via the local Atlas server endpoint, query `semicondu
 
 Run: 2026-10-11 08:28 UTC against `https://signal-scout-xi-ruby.vercel.app` after commit `f403515` was pushed to `main` and the deployment updated. The production verifier passed all 21 checks, including public routes, protected operational endpoints, and the new source APIs. Its live query `electric vehicles` returned 12 Crossref records and 10 arXiv records with title/URL fields. A separate live `semiconductor` request returned HTTP 200 from The Conversation (six editions, zero title matches) and Global Voices (twelve editions, zero title matches); the `/sources` register displayed all three providers plus Crossref and arXiv. Successful empty results are not evidence of topic absence. This verifies deployment and bounded endpoint operation only—not relevance precision, recall, coverage, representativeness, or the 8/10 quality bar.
 
+### Manual rendered-result spot check
+
+Run: 2026-10-11 07:13 UTC, read-only inspection of an already-rendered production search for `coffee` with the Brazil/Portuguese lens. The summary's cited observations corresponded to casual/lifestyle excerpts, but the retrieved record set also included fiction, advertisements, affiliate promotions, and exact federated Lemmy copies. This is a useful failure case: topical mention alone is not a fundamental-research market view. Commit `e3fb4d9` strengthened the summarizer instructions with a concrete coffee example and requires it to say when evidence does not establish a market thesis. The prompt and tests verify the instruction is present; no post-deployment live model response has yet been used to establish that the model reliably follows it.
+
 ## Failure and product checks
 
 - Automated test simulation: a Bluesky HTTP 429 is labeled unavailable while a successful zero-result Wikimedia response remains complete. This verifies partial-failure handling; it is not a live outage test.
