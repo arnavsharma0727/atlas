@@ -307,7 +307,9 @@ function sameCountrySummary(summary: MarketSummary): MarketSummary {
 }
 
 function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }) {
-  return <>{passage.text}{passage.citations.map((id) => <a key={id} className="overview-citation-ref" href={`#citation-${id}`} aria-label={`Open supporting source ${id}`}>{id}</a>)}</>;
+  // Keep the overview readable; citation IDs remain attached to the validated
+  // passage and are presented together in the source register below.
+  return <>{passage.text}</>;
 }
 
 function SourceResults({ result, citationIds }: { result: ResearchSweepSourceResult; citationIds: Map<string, string> }) {

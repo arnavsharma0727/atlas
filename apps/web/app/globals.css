@@ -106,8 +106,7 @@ summary{line-height:1.5}
 .perspective-card ul{margin:8px 0 0;padding:0;list-style:none}
 .perspective-card li+li{margin-top:9px;border-top:1px solid #303750;padding-top:9px}
 .perspective-card li>p{margin:0;color:#e0e3ec;font-size:12px;line-height:1.65;overflow-wrap:anywhere}
-.overview-citation-ref,.source-citation-ref{display:inline-flex;align-items:center;margin-left:6px;border:1px solid #53607f;border-radius:999px;padding:1px 5px;color:#f2c69d;font-size:9px;font-weight:700;line-height:1.4;vertical-align:middle}
-.source-citation-ref{margin:0 7px 0 0}
+.source-citation-ref{display:inline-flex;align-items:center;margin:0 7px 0 0;border:1px solid #53607f;border-radius:999px;padding:1px 5px;color:#f2c69d;font-size:9px;font-weight:700;line-height:1.4;vertical-align:middle}
 .source-results li[id]{scroll-margin-top:18px}
 .perspective-card li>.perspective-empty,.perspective-empty,.perspective-no-global{margin:5px 0 0;color:#aab0c3;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
 .perspective-no-global{padding:12px;border:1px dashed #424a65}
