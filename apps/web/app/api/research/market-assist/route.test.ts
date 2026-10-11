@@ -49,6 +49,7 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("When excerpts explicitly disagree, describe both positions");
       expect(messages[0].content).toContain("do not invent counterevidence");
       expect(messages[0].content).toContain("Separate those claims from incidental mentions, lifestyle anecdotes, advertisements, fiction, and promotional content");
+      expect(messages[0].content).toContain("a worker mentioning coffee, a café photo, or brewing instructions are not evidence of coffee-market views");
       expect(messages[0].content).toContain("does not establish a market thesis");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
       expect(prompt).toContain("semiconductors");
