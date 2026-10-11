@@ -71,9 +71,22 @@ export function hasTopicSignalTerms(excerpt: string, topic: string): boolean {
   return topicTerms.some(matches);
 }
 
-/** Linked posts are surfaced as source material but cannot establish independent commentary. */
-export function isIndependentDiscussionEvidence(item: Pick<ModelEvidence, "linkSharing">): boolean {
-  return item.linkSharing !== true;
+/** High-confidence stock-pitch patterns are visible source material, not independent community views. */
+export function isLikelyMarketPromotion(value: string): boolean {
+  const text = value.normalize("NFKC");
+  const patterns = [
+    /\b(?:top|best)\s+\d+\s+(?:stocks?|shares?)\s+(?:to\s+)?buy\b/iu,
+    /\b\d+\s+(?:reasons|ways)\b.{0,60}\b(?:buy|stock|shares?|profit|rally)\b/iu,
+    /\b(?:price target|target price|stock forecast|stock prediction|buy recommendation|guaranteed returns?)\b/iu,
+    /(?:목표주가|목표가|주가\s*전망|수혜주|매수\s*추천|투자\s*전략|전고점.{0,16}(?:뚫을|돌파).{0,16}(?:핵심\s*모멘텀|\d+선))/u,
+    /(?:目標株価|株価予想|買い推奨|投資戦略)/u,
+  ];
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+/** Linked or high-confidence promotional posts are surfaced but cannot support the overview. */
+export function isIndependentDiscussionEvidence(item: { linkSharing?: boolean; excerpt?: string }): boolean {
+  return item.linkSharing !== true && !isLikelyMarketPromotion(item.excerpt ?? "");
 }
 
 /** Filter displayed records by the phrase actually used for each search lens, preserving raw API counts. */
@@ -86,7 +99,13 @@ export function filterResultsToTopic(
     const topic = result.key.startsWith("local:") ? localTopic : baselineTopic;
     const evidence = result.evidence.filter((item) =>
       hasTopicSignalTerms(`${item.title} ${item.transientPreview ?? ""}`, topic),
-    );
+    ).map((item) => {
+      if (item.evidenceClass !== "social discussion" || !isLikelyMarketPromotion(`${item.title} ${item.transientPreview ?? ""}`)) return item;
+      return {
+        ...item,
+        context: [item.context, "This excerpt matches a high-confidence stock-promotion/clickbait phrase screen; it remains visible but is excluded from the AI overview."].filter(Boolean).join(" "),
+      };
+    });
     const newlyExcluded = result.evidence.length - evidence.length;
     return {
       ...result,

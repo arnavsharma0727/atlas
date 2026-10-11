@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isNearDuplicateExcerpt, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -68,6 +68,17 @@ describe("market summary evidence contracts", () => {
     expect(isIndependentDiscussionEvidence({ linkSharing: true })).toBe(false);
     expect(isIndependentDiscussionEvidence({ linkSharing: false })).toBe(true);
     expect(isIndependentDiscussionEvidence({})).toBe(true);
+  });
+
+  it("keeps high-confidence stock-pitch copy visible but out of the community overview", () => {
+    const pitch = "📈 비메모리 테스트 1위의 귀환! 반도체 수요, 두산테스나 전고점 뚫을 핵심 모멘텀 3선. 두산테스나 주가 전망과 매수 추천.";
+    expect(isLikelyMarketPromotion(pitch)).toBe(true);
+    expect(isIndependentDiscussionEvidence({ excerpt: pitch })).toBe(false);
+    expect(isLikelyMarketPromotion("Semiconductor demand remains uncertain after several inventory changes.")).toBe(false);
+    const screened = filterResultsToTopic([result("local:bluesky", "Bluesky", [{
+      ...evidence("pitch", "Bluesky", pitch), title: pitch,
+    }])], "semiconductors", "반도체 수요");
+    expect(screened[0].evidence[0].context).toContain("stock-promotion/clickbait");
   });
 
   it("keeps linked posts in results but screens them out of summary evidence", () => {
