@@ -37,7 +37,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
   for (const result of results) {
     for (const item of result.evidence) {
       const operator = item.sourceOperatorKey ?? item.source;
-      const recordKey = `${operator}\u0000url\u0000${item.url}`;
+      const recordKey = `url\u0000${normalizeSourceUrl(item.url)}`;
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textKey = text ? `${operator}\u0000text\u0000${text}` : "";
       if (text) {
@@ -62,7 +62,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
     let repeated = 0;
     const evidence = result.evidence.map((item) => {
       const operator = item.sourceOperatorKey ?? item.source;
-      const recordViewsForItem = recordViews.get(`${operator}\u0000url\u0000${item.url}`);
+      const recordViewsForItem = recordViews.get(`url\u0000${normalizeSourceUrl(item.url)}`);
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textViewsForItem = textViews.get(`${operator}\u0000text\u0000${text}`);
       const nearDuplicate = nearDuplicateItems.has(`${result.key}\u0000${item.id}`);
@@ -116,7 +116,7 @@ export function selectBalancedEvidence(
       const operator = item.sourceOperatorKey ?? item.source;
       const normalizedText = excerpt.normalize("NFKC").replace(/\s+/g, " ").toLocaleLowerCase();
       const textKey = `${operator}\u0000text\u0000${normalizedText}`;
-      const recordKey = `${operator}\u0000url\u0000${item.url}`;
+      const recordKey = `url\u0000${normalizeSourceUrl(item.url)}`;
       if (seenText.has(textKey) || seenRecords.has(recordKey) || excludedKeys.has(textKey) || excludedKeys.has(recordKey)) continue;
       const nearMatches = seenNearDuplicateText.get(operator) ?? [];
       if (nearMatches.some((text) => isNearDuplicateExcerpt(normalizedText, text))) continue;
@@ -153,6 +153,21 @@ export function selectBalancedEvidence(
     if (!added) break;
   }
   return selected.map(({ dedupeKeys: _dedupeKeys, ...item }) => item);
+}
+
+function normalizeSourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    url.hostname = url.hostname.toLocaleLowerCase().replace(/^www\./u, "");
+    url.hash = "";
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(?:utm_.+|fbclid|gclid|ref|source)$/iu.test(key)) url.searchParams.delete(key);
+    }
+    url.pathname = url.pathname.replace(/\/+$/u, "") || "/";
+    return url.toString();
+  } catch {
+    return value.trim();
+  }
 }
 
 /** Conservative copy detection: long excerpts need >=90% shingle overlap (5-token or 4-character CJK). */

@@ -34,6 +34,22 @@ describe("market summary evidence contracts", () => {
     expect(second.sourceNote).toContain("not independent evidence");
   });
 
+  it("deduplicates the same DOI across independent metadata providers", () => {
+    const doi = "https://doi.org/10.1234/shared-paper.1";
+    const crossref = { ...evidence("doi-a", "Crossref", "A scholarly record", "crossref"), url: doi };
+    const openalex = { ...evidence("doi-b", "OpenAlex", "The same scholarly record", "openalex"), url: "https://DOI.org/10.1234/shared-paper.1?utm_source=atlas#metadata" };
+    const results = flagRepeatedEvidenceViews([
+      result("crossref", "Crossref", [crossref]),
+      result("openalex", "OpenAlex", [openalex]),
+    ]);
+    expect(results[1].evidence[0].context).toContain("Same source URL appears in 2 query/server views");
+    const citations = new Map([
+      [citationKey("crossref", "doi-a"), "C1"],
+      [citationKey("openalex", "doi-b"), "C2"],
+    ]);
+    expect(selectBalancedEvidence(results, citations)).toHaveLength(1);
+  });
+
   it("flags and excludes only long, near-identical copies from model evidence while keeping both citations visible", () => {
     const firstText = "Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. This remains uncertain.";
     const secondText = firstText.replace("This remains uncertain.", "The outlook remains uncertain.");
