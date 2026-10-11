@@ -117,10 +117,13 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("Separate those claims from incidental mentions, lifestyle anecdotes, advertisements, fiction, and promotional content");
       expect(messages[0].content).toContain("a worker mentioning coffee, a café photo, or brewing instructions are not evidence of coffee-market views");
       expect(messages[0].content).toContain("does not establish a market thesis");
+      expect(messages[0].content).toContain("Never describe either set as what a country's investors, consumers, residents, or population think");
       expect(messages[0].content).toContain("linkSharing:true");
       expect(messages[0].content).toContain("Do not attribute linked headlines or copied reporting to the poster as their independent opinion");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
       expect(prompt).toContain("semiconductors");
+      expect(prompt).toContain("Selected search lens: Korean language/community evidence for the South Korea selection");
+      expect(prompt).toContain("not a sample of that country's population or investors");
       expect(prompt).not.toContain("https://private.example");
       expect(prompt).not.toContain("@reader");
       expect(prompt).not.toContain("analyst@private.example");
