@@ -506,7 +506,7 @@ export function normalizeMarketSummary(
         !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return null;
       claims.push({ text, citations });
     }
-    const claimText = claims.map(({ text: value }) => value).join(" ").slice(0, 900);
+    const claimText = claims.map(({ text: value }) => ensureSentenceEnding(value)).join(" ").slice(0, 900);
     const allClaimsAttributed = claims.every(({ text: value }) => /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(value));
     const text = allClaimsAttributed ? claimText : `The cited, unverified material says: ${claimText}`;
     const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))].slice(0, 8);
@@ -538,4 +538,9 @@ function extractNumericTokens(value: string): string[] {
 function isSingleSentence(value: string): boolean {
   const segments = new Intl.Segmenter(undefined, { granularity: "sentence" }).segment(value);
   return [...segments].filter(({ segment }) => segment.trim().length > 0).length === 1;
+}
+
+function ensureSentenceEnding(value: string): string {
+  const text = value.trim();
+  return /[.!?…。！？]["'’”)}\]]*$/u.test(text) ? text : `${text}.`;
 }

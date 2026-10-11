@@ -396,7 +396,7 @@ describe("market summary evidence contracts", () => {
     const valid = normalizeMarketSummary({
       baselineClaims: [
         { text: "Silicon wafer demand score was 65.6 in 2026-08.", citations: ["C1"] },
-        { text: "AI chip demand remains strong.", citations: ["C1"] },
+        { text: "AI chip demand remains strong", citations: ["C1"] },
       ],
       localClaims: [], comparisonClaims: [],
     }, {
@@ -405,6 +405,7 @@ describe("market summary evidence contracts", () => {
     });
     expect(valid?.usSummary.text).toContain("The cited, unverified material says:");
     expect(valid?.usSummary.text.match(/The cited, unverified material says:/gu)).toHaveLength(1);
+    expect(valid?.usSummary.text).toContain("2026-08. AI chip demand remains strong.");
 
     const unsupportedNumber = normalizeMarketSummary({
       baselineClaims: [{ text: "Silicon wafer demand score was 66.5 in 2026-08.", citations: ["C1"] }],
