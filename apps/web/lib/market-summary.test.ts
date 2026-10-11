@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
+import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -295,6 +295,14 @@ describe("market summary evidence contracts", () => {
       { source: "Mastodon · mastodon.social via mastodon.social" },
     ])).toEqual({ excerptCount: 4, platformLabels: ["Bluesky", "Lemmy", "Mastodon"] });
     expect(summarizeEvidenceBreadth([])).toEqual({ excerptCount: 0, platformLabels: [] });
+  });
+
+  it("warns when an overview has no evidence or only one platform", () => {
+    expect(evidenceBreadthWarning({ excerptCount: 0, platformLabels: [] })).toContain("cannot be assessed");
+    expect(evidenceBreadthWarning({ excerptCount: 5, platformLabels: ["Bluesky"] })).toBe(
+      "Single-platform sample (Bluesky); this is not a cross-community view.",
+    );
+    expect(evidenceBreadthWarning({ excerptCount: 5, platformLabels: ["Bluesky", "Lemmy"] })).toBeNull();
   });
 
   it("includes only matching or conservatively script-detected language records without hiding source results", () => {

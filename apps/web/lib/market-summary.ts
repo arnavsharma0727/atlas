@@ -31,6 +31,17 @@ export function summarizeEvidenceBreadth(evidence: readonly Pick<ModelEvidence, 
   return { excerptCount: evidence.length, platformLabels: [...labels].filter(Boolean).sort((a, b) => a.localeCompare(b)) };
 }
 
+/** Keep a one-source summary from reading like a cross-community result. */
+export function evidenceBreadthWarning(breadth: EvidenceBreadth): string | null {
+  if (breadth.platformLabels.length === 0) {
+    return "No text-bearing excerpts passed the overview filters for this side; its cross-community view cannot be assessed.";
+  }
+  if (breadth.platformLabels.length === 1) {
+    return `Single-platform sample (${breadth.platformLabels[0]}); this is not a cross-community view.`;
+  }
+  return null;
+}
+
 const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
   en: /\b(?:market|demand|supply|price|pricing|sales|revenue|margin|inventory|stock|share|invest(?:or|ing|ment)?|bullish|bearish|earnings|profit|loss|tariff|export|import|production|yield|harvest|commodity|futures|valuation|customer churn|market share|interest rates?|bond yields?|supply chain|order book|capital expenditure|guidance|cash flow|dividend|debt|equity)\b/iu,
   pt: /\b(?:mercado|demanda|oferta|preço|preços|vendas|receita|faturamento|margem|estoque|ações|investimento|investidor|lucro|prejuízo|tarifa|exportação|importação|produção|safra|commodit\w*|futuro|cotação|taxa de juros|câmbio|bolsa de valores|rendimento|dividendo|capitalização)\b/iu,

@@ -7,7 +7,7 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, selectBalancedEvidence, summarizeEvidenceBreadth, type EvidenceBreadth, type MarketSummary, type ModelEvidence } from "../../lib/market-summary";
+import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, selectBalancedEvidence, summarizeEvidenceBreadth, type EvidenceBreadth, type MarketSummary, type ModelEvidence } from "../../lib/market-summary";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
@@ -237,11 +237,13 @@ export default function ResearchSweep({
               <article>
                 <h4>Baseline search · language varies by provider</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.baseline)}</p>
+                {summaryBreadth && evidenceBreadthWarning(summaryBreadth.baseline) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.baseline)}</p>}
                 <p><SummaryPassageText passage={summary.usSummary} /></p>
               </article>
               <article>
                 <h4>{searchedCountry.name} selection · {searchedCountry.languageName} search lens</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
+                {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
                 <p><SummaryPassageText passage={summary.localSummary} /></p>
               </article>
             </div>

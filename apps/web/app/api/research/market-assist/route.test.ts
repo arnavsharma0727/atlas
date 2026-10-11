@@ -111,6 +111,19 @@ describe("free-tier market assist", () => {
     expect(await response.json()).toEqual({ mode: "unavailable", reason: "rate-limited" });
   });
 
+  it("preserves the original phrase and labels translation fallback when Groq is rate-limited", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "private provider detail" } }), { status: 429 })));
+    const response = await POST(makeRequest({ action: "prepare", topic: "semiconductor demand", country: "KR", aiEnabled: true }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      mode: "english-fallback",
+      query: "semiconductor demand",
+      reason: "rate-limited",
+    });
+  });
+
   it("distinguishes Atlas's own per-client request limit from a provider limit", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
