@@ -183,10 +183,12 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("Never describe a company as U.S., Korean, or belonging to any country unless the submitted excerpt itself explicitly states that fact");
       expect(messages[0].content).toContain("do not label it U.S.");
       expect(messages[0].content).toContain("a poster's assertion alone only establishes what that poster said");
-      expect(messages[0].content).toContain("Any numerical claim derived from a social post must name the post/account as its source and explicitly call the number unverified");
+      expect(messages[0].content).toContain("Prefer qualitative wording; any number in the summary must exactly appear in its cited excerpt");
       expect(messages[0].content).toContain("linkSharing:true");
       expect(messages[0].content).toContain("Do not treat a linked headline or promotion as a community member's independent view");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
+      expect(prompt).toContain("Use exactly one claim for each non-empty evidence group");
+      expect(prompt).toContain("Include a number only when the exact figure appears in the cited excerpt");
       expect(prompt).toContain("semiconductors");
       expect(prompt).toContain("Selected search lens: Korean language/community evidence for the South Korea selection");
       expect(prompt).toContain("not a sample of that country's population or investors");
