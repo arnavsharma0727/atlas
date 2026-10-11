@@ -184,7 +184,7 @@ describe("market summary evidence contracts", () => {
     expect(JSON.stringify(selected)).not.toContain("analyst@private.example");
   });
 
-  it("excludes explicit language mismatches from the selected-language summary without hiding source results", () => {
+  it("includes only verified matching languages in the selected-language summary without hiding source results", () => {
     const english = evidence("en", "Mastodon", "An English market view", "mastodon-network");
     const portuguese = { ...evidence("pt", "Mastodon", "Uma visão do mercado", "mastodon-network"), language: "pt-BR" };
     const unknown = { ...evidence("unknown", "Lemmy", "A forum view with unmapped language metadata", "lemmy-federation"), language: "Lemmy language metadata ID 0 (instance-specific; language not mapped)" };
@@ -194,8 +194,9 @@ describe("market summary evidence contracts", () => {
       [citationKey("local:mastodon", "pt"), "C2"],
       [citationKey("local:lemmy", "unknown"), "C3"],
     ]);
-    expect(selectBalancedEvidence(results, citations, 8, new Set(), "pt").map(({ citationId }) => citationId)).toEqual(["C2", "C3"]);
+    expect(selectBalancedEvidence(results, citations, 8, new Set(), "pt").map(({ citationId }) => citationId)).toEqual(["C2"]);
     expect(results[0].evidence).toHaveLength(2);
+    expect(results[1].evidence).toHaveLength(1);
   });
 
   it.each([

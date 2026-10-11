@@ -192,7 +192,7 @@ export function selectBalancedEvidence(
 
   for (const result of results) {
     for (const item of result.evidence) {
-      if (expectedLanguage && hasExplicitLanguageMismatch(item.language, expectedLanguage)) continue;
+      if (expectedLanguage && !hasVerifiedExpectedLanguage(item.language, expectedLanguage)) continue;
       const redactedExcerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
       const excerpt = item.linkSharing && redactedExcerpt && !redactedExcerpt.includes("[link]")
         ? `${redactedExcerpt.slice(0, 290).trimEnd()} [link]`
@@ -252,8 +252,8 @@ const LANGUAGE_NAMES: Record<string, string> = {
   french: "fr", portuguese: "pt", hindi: "hi", spanish: "es",
 };
 
-/** Provider language labels may be missing or instance-local; only exclude explicit, understood mismatches. */
-function hasExplicitLanguageMismatch(reported: string, expected: string): boolean {
+/** A named-language overview only uses records with an understood, matching language label. */
+function hasVerifiedExpectedLanguage(reported: string, expected: string): boolean {
   const canonical = (value: string) => {
     const cleaned = value.trim().toLocaleLowerCase().replaceAll("_", "-");
     const named = LANGUAGE_NAMES[cleaned];
@@ -263,7 +263,7 @@ function hasExplicitLanguageMismatch(reported: string, expected: string): boolea
   };
   const actualCode = canonical(reported);
   const expectedCode = canonical(expected);
-  return actualCode !== null && expectedCode !== null && actualCode !== expectedCode;
+  return actualCode !== null && expectedCode !== null && actualCode === expectedCode;
 }
 
 function normalizeSourceUrl(value: string) {
@@ -343,7 +343,7 @@ export function normalizeMarketSummary(
     : { text: "No text-bearing records were submitted for the baseline overview. Check source status below; this does not show that discussion is absent.", citations: [] };
   const localSummary = available.local.size
     ? passage("localClaims", available.local)
-    : { text: "No text-bearing records were submitted for this selected language/community overview. Check source status below; this does not show that discussion is absent.", citations: [] };
+    : { text: "No records with a verified matching language were submitted for this selected-language/community overview. Check source status and the visible records below; this does not show that discussion is absent.", citations: [] };
   const comparison = available.us.size && available.local.size
     ? passage("comparisonClaims", submittedIds, true)
     : { text: "A comparison is not available because one or both sides returned no text-bearing records. The available source results are not a like-for-like sample.", citations: [...submittedIds].slice(0, 4) };
