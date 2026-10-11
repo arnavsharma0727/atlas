@@ -17,6 +17,28 @@ export type ModelEvidence = {
   language: string;
 };
 
+const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
+  en: /\b(?:market|demand|supply|price|pricing|sales|revenue|margin|inventory|stock|share|invest(?:or|ing|ment)?|bullish|bearish|earnings|profit|loss|tariff|export|import|production|yield|harvest|commodity|futures|valuation|customer churn|market share)\b/iu,
+  pt: /\b(?:mercado|demanda|oferta|preço|preços|vendas|receita|margem|estoque|ações|investimento|investidor|lucro|tarifa|exportação|importação|produção|safra|commodit\w*|futuro|cotação)\b/iu,
+  es: /\b(?:mercado|demanda|oferta|precio|precios|ventas|ingresos|margen|inventario|acciones|inversión|inversor|beneficio|arancel|exportación|importación|producción|cosecha|materias primas|futuros|cotización)\b/iu,
+  fr: /\b(?:marché|demande|offre|prix|ventes|revenu|marge|stock|actions|investissement|investisseur|bénéfice|tarif|exportation|importation|production|récolte|matières premières|contrats à terme|valorisation)\b/iu,
+  de: /\b(?:markt|nachfrage|angebot|preis|preise|umsatz|marge|lagerbestand|aktie|investition|investor|gewinn|zoll|export|import|produktion|ernte|rohstoff|terminmarkt|bewertung)\b/iu,
+  ko: /(?:시장|수요|공급|가격|매출|마진|재고|주가|주식|투자|실적|이익|관세|수출|수입|생산|수확|원자재|선물|밸류에이션)/u,
+  ja: /(?:市場|需要|供給|価格|売上|利益|在庫|株価|株式|投資|業績|関税|輸出|輸入|生産|収穫|原材料|先物|評価額)/u,
+  hi: /(?:बाज़ार|बाजार|मांग|आपूर्ति|कीमत|बिक्री|राजस्व|मुनाफ़ा|मुनाफा|शेयर|निवेश|लाभ|टैरिफ़|निर्यात|आयात|उत्पादन|फ़सल|फसल|कमोडिटी)/u,
+};
+
+/**
+ * Conservative lexical screen for discussion snippets sent to AI. It is not
+ * a semantic relevance classifier: a match is only a minimum vocabulary gate.
+ */
+export function hasMarketSignalTerms(item: Pick<ModelEvidence, "excerpt" | "language">): boolean {
+  const normalizedLanguage = item.language.trim().toLocaleLowerCase().split(/[-_]/u, 1)[0];
+  const language = LANGUAGE_NAMES[normalizedLanguage] ?? normalizedLanguage;
+  const matcher = MARKET_SIGNAL_TERMS[language];
+  return matcher ? matcher.test(item.excerpt) : Object.values(MARKET_SIGNAL_TERMS).some((candidate) => candidate.test(item.excerpt));
+}
+
 /** Remove direct links, emails, and @handles before a short discussion excerpt is sent to the model. */
 export function redactSummaryExcerpt(value: string): string {
   return value.normalize("NFKC")

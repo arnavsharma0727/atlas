@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flagRepeatedEvidenceViews, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { flagRepeatedEvidenceViews, hasMarketSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -19,6 +19,15 @@ function evidence(id: string, source: string, excerpt: string, operator = source
 describe("market summary evidence contracts", () => {
   it("redacts embedded links, emails, and handles from excerpts before model submission", () => {
     expect(redactSummaryExcerpt("Shared by (@market.reader), contact analyst@example.org or https://example.org/report.")).toBe("Shared by ([handle]), contact [email] or [link]");
+  });
+
+  it("screens generic lifestyle mentions while recognizing explicit market-language signals", () => {
+    expect(hasMarketSignalTerms({ excerpt: "I need a coffee before my shift starts.", language: "English" })).toBe(false);
+    expect(hasMarketSignalTerms({ excerpt: "Coffee prices rose as supply tightened and inventories fell.", language: "en" })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: "O preço do café caiu após a safra recorde.", language: "pt-BR" })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: "커피 수요와 원자재 가격이 상승했다.", language: "ko" })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: "The smell of coffee fills the room.", language: "Lemmy language ID 0" })).toBe(false);
+    expect(hasMarketSignalTerms({ excerpt: "시장 수요가 증가했다.", language: "Lemmy language ID 0" })).toBe(true);
   });
 
   it("flags overlapping provider views without reducing their returned record counts", () => {

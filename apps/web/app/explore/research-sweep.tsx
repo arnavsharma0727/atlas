@@ -7,7 +7,7 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { flagRepeatedEvidenceViews, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
+import { flagRepeatedEvidenceViews, hasMarketSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 
 export default function ResearchSweep({
@@ -26,6 +26,7 @@ export default function ResearchSweep({
   const [localQueryMethod, setLocalQueryMethod] = useState<"researcher" | "translated" | "original" | "baseline">("baseline");
   const [results, setResults] = useState<ResearchSweepSourceResult[]>([]);
   const [summary, setSummary] = useState<MarketSummary | null>(null);
+  const [screenedOutCounts, setScreenedOutCounts] = useState<{ baseline: number; selected: number } | null>(null);
   const [summaryMode, setSummaryMode] = useState<"ai" | "evidence" | "unavailable">("evidence");
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,6 +54,7 @@ export default function ResearchSweep({
     setSearchedQuery(topic);
     setSearchedCountryCode(activeCountryCode);
     setSummary(null);
+    setScreenedOutCounts(null);
     setResults([]);
     setError("");
     onSearchTopic(topic);
@@ -124,10 +126,18 @@ export default function ResearchSweep({
       const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && !key.startsWith("the-conversation:"));
       const localEvidenceResults = markedResults.filter(({ key }) => key.startsWith("local:") && key !== "local:global-voices" && !key.startsWith("local:the-conversation:"));
       const includedEvidenceKeys = new Set<string>();
-      const evidenceForAi = {
+      const candidateEvidence = {
         us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys),
         local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language),
       };
+      const evidenceForAi = {
+        us: candidateEvidence.us.filter(hasMarketSignalTerms),
+        local: candidateEvidence.local.filter(hasMarketSignalTerms),
+      };
+      setScreenedOutCounts({
+        baseline: candidateEvidence.us.length - evidenceForAi.us.length,
+        selected: candidateEvidence.local.length - evidenceForAi.local.length,
+      });
       const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
         ? await requestMarketAssist({ action: "summarize", topic, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
         : { mode: "unavailable", query: "", hashtags: [], summary: null };
@@ -229,6 +239,7 @@ export default function ResearchSweep({
               <p><SummaryPassageText passage={summary.comparison} /></p>
             </article>
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
+            <p className="market-summary-caveat">AI input: {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens excerpts were excluded by a conservative market-language screen. This screen can miss relevant posts and does not itself prove relevance.</p>
             <p className="market-summary-caveat">For the selected-language overview, records with provider-reported language that clearly differs from the selected language are left out of AI input but remain visible below. Missing or instance-specific language labels cannot be verified.</p>
             <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives an English-language filter only when the query fits the provider limit; Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}
@@ -272,7 +283,7 @@ async function requestMarketAssist(input: { action: "prepare"; topic: string; co
 function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, local: ReturnType<typeof selectBalancedEvidence>, country: string, sameCountry: boolean, failureReason?: string): MarketSummary {
   const summarize = (items: ReturnType<typeof selectBalancedEvidence>, label: string) => items.length
     ? { text: `This evidence overview does not infer a shared opinion; inspect the selected ${label} records below.`, citations: items.slice(0, 3).map(({ citationId }) => citationId) }
-    : { text: `No text-bearing records were selected for this ${label} overview. Check each source status below; an empty sample does not show that discussion is absent.`, citations: [] };
+    : { text: `No excerpts passed Atlas’s conservative market-language screen for this ${label} overview. Matching source records remain below; the screen can miss relevant discussion, and this is not evidence that discussion is absent.`, citations: [] };
   return {
     usSummary: summarize(us, "baseline search"),
     localSummary: sameCountry
