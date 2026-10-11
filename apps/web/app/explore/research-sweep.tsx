@@ -315,7 +315,7 @@ function aiFailureMessage(reason: string) {
     case "rate-limited": return "The free AI provider reported a usage limit; this local overview is shown instead.";
     case "request-limited": return "Atlas's AI request limit was reached; this local overview is shown instead.";
     case "timeout": return "The AI provider did not respond in time; this local overview is shown instead.";
-    case "citation-validation": return "The AI response did not pass Atlas citation checks; this local overview is shown instead.";
+    case "citation-validation": return "The AI response did not pass Atlas's citation, evidence, or numeric-claim checks; this non-claiming local overview is shown instead.";
     case "invalid-response": return "The AI provider returned an unusable response; this local overview is shown instead.";
     case "network-error": return "Atlas could not reach the AI provider; this local overview is shown instead.";
     default: return "The AI provider is temporarily unavailable; this local overview is shown instead.";
