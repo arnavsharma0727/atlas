@@ -83,6 +83,19 @@ describe("market summary evidence contracts", () => {
     expect(screened[0].evidence[0].context).toContain("stock-promotion/clickbait");
   });
 
+  it.each([
+    ["German", "Garantierte Rendite und Kaufempfehlung für diese Aktien.", "Der Marktausblick bleibt unsicher und die Nachfrage entwickelt sich unterschiedlich."],
+    ["French", "Rendement garanti et recommandation d'achat pour ces actions.", "La demande du marché reste incertaine malgré une amélioration de l'offre."],
+    ["Spanish", "Rentabilidad garantizada y recomendación de compra para estas acciones.", "La demanda del mercado sigue incierta y los precios varían."],
+    ["Portuguese", "Rentabilidade garantida e recomendação de compra destas ações.", "A demanda do mercado continua incerta e os preços variam."],
+    ["Hindi", "गारंटीड रिटर्न और शेयर खरीदने की सिफारिश।", "बाज़ार में मांग और कीमतों को लेकर अनिश्चितता है।"],
+  ])("screens explicit %s stock-promotion phrases without flagging neutral market discussion", (_language, pitch, discussion) => {
+    expect(isLikelyMarketPromotion(pitch)).toBe(true);
+    expect(isLikelyMarketPromotion(discussion)).toBe(false);
+    expect(isIndependentDiscussionEvidence({ excerpt: pitch })).toBe(false);
+    expect(isIndependentDiscussionEvidence({ excerpt: discussion })).toBe(true);
+  });
+
   it("does not treat posts explicitly attributed to a publisher as independent views", () => {
     const repost = "SK Group Chairman Chey Tae-won stated that capacity needs to expand. Source: The Korea Herald";
     expect(isAttributedReportShare(repost)).toBe(true);
