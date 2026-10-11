@@ -258,7 +258,7 @@ export default function ResearchSweep({
               <p>Original links and provider-specific coverage, collected below the summary.</p>
             </header>
             <div className="market-results-grid">
-              {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} citationIds={citationIds} />)}
+              {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} citationIds={citationIds} summaryCitationIds={new Set([...summary.usSummary.citations, ...summary.localSummary.citations, ...summary.comparison.citations])} />)}
             </div>
           </section>
           <p className="search-limits">Public API results are incomplete samples. They can omit content, overlap across federated servers, and reflect platform/language selection. An AI summary describes only the retrieved sample; inspect original sources before drawing conclusions. <a href="/sources">How sources work</a> · <a href="/privacy">Privacy</a>.</p>
@@ -321,15 +321,21 @@ function sameCountrySummary(summary: MarketSummary): MarketSummary {
   };
 }
 
-function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }) {
-  // Keep the overview readable; citation IDs remain attached to the validated
-  // passage and are presented together in the source register below.
-  return <>{passage.text}</>;
+export function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }) {
+  // Keep the overview readable while letting a researcher jump directly to
+  // each source record supporting this passage in the consolidated register.
+  return <>{passage.text}{passage.citations.length > 0 && (
+    <span className="summary-citations" aria-label="Evidence sources">
+      {" "}Evidence: {passage.citations.map((citationId, index) => (
+        <span key={citationId}>{index > 0 ? ", " : ""}<a href={`#citation-${citationId}`} aria-label={`Open source ${citationId}`}>{citationId}</a></span>
+      ))}
+    </span>
+  )}</>;
 }
 
-function SourceResults({ result, evidence, returnedCount, duplicateCount, citationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; citationIds: Map<string, string> }) {
+function SourceResults({ result, evidence, returnedCount, duplicateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
   const [showAll, setShowAll] = useState(false);
-  const items = showAll ? evidence : evidence.slice(0, 8);
+  const items = visibleSummaryEvidence(evidence, showAll, result.key, citationIds, summaryCitationIds);
   const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
   const statusLabel = result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? `Partial coverage · ${countsLabel}` : countsLabel;
   return (
@@ -371,6 +377,18 @@ function SourceResults({ result, evidence, returnedCount, duplicateCount, citati
       )}
     </section>
   );
+}
+
+export function visibleSummaryEvidence(
+  evidence: ResearchSweepSourceResult["evidence"],
+  showAll: boolean,
+  resultKey: string,
+  citationIds: Map<string, string>,
+  summaryCitationIds: Set<string>,
+) {
+  if (showAll) return evidence;
+  const citedItems = evidence.filter((item) => summaryCitationIds.has(citationIds.get(citationKey(resultKey, item.id)) ?? ""));
+  return [...new Map([...evidence.slice(0, 8), ...citedItems].map((item) => [item.id, item])).values()];
 }
 
 function compactPreview(value: string) {

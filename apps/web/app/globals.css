@@ -162,6 +162,9 @@ summary{line-height:1.5}
 .market-summary-columns p,.market-summary-comparison p{margin:0;color:#e0e3ec;font-size:13px;line-height:1.7;overflow-wrap:anywhere;white-space:pre-wrap}
 .market-summary-comparison{margin-top:12px;border-top-color:#8d96ad}
 .market-summary-caveat{margin:13px 0 0;color:#bdc3d4;font-size:11px;line-height:1.6}
+.summary-citations{white-space:normal;font-size:.78em;color:#c0c5d5}
+.summary-citations a{color:#ffd0a8;text-decoration:underline;text-underline-offset:2px}
+.summary-citations a:focus-visible{outline:2px solid #ffd0a8;outline-offset:2px}
 .market-summary-limitations{margin:8px 0 0;padding-left:18px;color:#f0c776;font-size:11px;line-height:1.6}
 .search-loading,.search-error{display:flex;align-items:center;justify-content:center;gap:8px;width:min(100%,900px);margin:24px auto;color:#c0c5d5;font-size:13px}
 .search-loading strong{font-weight:650;color:#fff}
