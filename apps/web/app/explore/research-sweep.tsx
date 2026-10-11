@@ -128,17 +128,16 @@ export default function ResearchSweep({
       const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && !key.startsWith("the-conversation:"));
       const localEvidenceResults = markedResults.filter(({ key }) => key.startsWith("local:") && key !== "local:global-voices" && !key.startsWith("local:the-conversation:"));
       const includedEvidenceKeys = new Set<string>();
+      let baselineScreenedOut = 0;
+      let selectedScreenedOut = 0;
       const candidateEvidence = {
-        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys),
-        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language),
+        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys, undefined, hasMarketSignalTerms, () => baselineScreenedOut++),
+        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language, hasMarketSignalTerms, () => selectedScreenedOut++),
       };
-      const evidenceForAi = {
-        us: candidateEvidence.us.filter(hasMarketSignalTerms),
-        local: candidateEvidence.local.filter(hasMarketSignalTerms),
-      };
+      const evidenceForAi = candidateEvidence;
       setScreenedOutCounts({
-        baseline: candidateEvidence.us.length - evidenceForAi.us.length,
-        selected: candidateEvidence.local.length - evidenceForAi.local.length,
+        baseline: baselineScreenedOut,
+        selected: selectedScreenedOut,
       });
       const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
         ? await requestMarketAssist({ action: "summarize", topic, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
@@ -241,7 +240,7 @@ export default function ResearchSweep({
               <p><SummaryPassageText passage={summary.comparison} /></p>
             </article>
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
-            <p className="market-summary-caveat">AI input: {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens excerpts were excluded by a conservative market-language screen. This screen can miss relevant posts and does not itself prove relevance.</p>
+            <p className="market-summary-caveat">Before source balancing and the eight-excerpt cap, the conservative market-language screen excluded {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens candidate excerpts. This screen can miss relevant posts and does not itself prove relevance.</p>
             <p className="market-summary-caveat">The selected-language AI overview uses only records with an understood, matching provider language label. Mismatched, missing, or instance-specific language labels stay visible in the source list but are excluded from that overview.</p>
             <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives an English-language filter only when the query fits the provider limit; Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}

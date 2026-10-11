@@ -184,6 +184,8 @@ export function selectBalancedEvidence(
   limit = 8,
   excludedKeys = new Set<string>(),
   expectedLanguage?: string,
+  isEligible: (evidence: ModelEvidence) => boolean = () => true,
+  onIneligible?: () => void,
 ): ModelEvidence[] {
   const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[] }>>();
   const seenText = new Set<string>();
@@ -216,16 +218,20 @@ export function selectBalancedEvidence(
       nearMatches.push(normalizedText);
       seenNearDuplicateText.set(operator, nearMatches);
 
-      const group = sources.get(operator) ?? [];
-      group.push({
+      const modelEvidence: ModelEvidence = {
         citationId,
         source: item.source.slice(0, 80),
         title: item.evidenceClass === "social discussion" ? "Public discussion post" : item.title.slice(0, 180),
         excerpt,
         language: item.language.slice(0, 24),
         ...(item.linkSharing ? { linkSharing: true } : {}),
-        dedupeKeys: [textKey, recordKey],
-      });
+      };
+      if (!isEligible(modelEvidence)) {
+        onIneligible?.();
+        continue;
+      }
+      const group = sources.get(operator) ?? [];
+      group.push({ ...modelEvidence, dedupeKeys: [textKey, recordKey] });
       sources.set(operator, group);
     }
   }

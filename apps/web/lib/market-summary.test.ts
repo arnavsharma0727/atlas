@@ -82,6 +82,27 @@ describe("market summary evidence contracts", () => {
     expect(hasMarketSignalTerms({ excerpt: "시장 수요가 증가했다.", language: "Lemmy language ID 0" })).toBe(true);
   });
 
+  it("applies the market-language screen before the balanced eight-item cap", () => {
+    let excluded = 0;
+    const irrelevant = Array.from({ length: 8 }, (_, index) => evidence(`lifestyle-${index}`, "Bluesky", `A morning cup feels cozy on day ${index}.`, "bluesky"));
+    const relevantA = evidence("market-a", "Bluesky", "Coffee demand and prices are rising.", "bluesky");
+    const relevantB = evidence("market-b", "Mastodon", "Coffee supply tightened as prices increased.", "mastodon-network");
+    const rows = [
+      result("bluesky", "Bluesky", [...irrelevant, relevantA]),
+      result("mastodon", "Mastodon", [relevantB]),
+    ];
+    const citations = new Map([
+      ...irrelevant.map((item) => [citationKey("bluesky", item.id), `C${Number(item.id.split("-")[1]) + 1}`] as const),
+      [citationKey("bluesky", "market-a"), "C20"],
+      [citationKey("mastodon", "market-b"), "C21"],
+    ]);
+    const selected = selectBalancedEvidence(
+      rows, citations, 2, new Set(), undefined, hasMarketSignalTerms, () => excluded++,
+    );
+    expect(selected.map(({ citationId }) => citationId)).toEqual(["C20", "C21"]);
+    expect(excluded).toBe(8);
+  });
+
   it.each([
     ["en", "Bond yields rose as interest rates changed.", "I drink coffee before work."],
     ["pt-BR", "A taxa de juros caiu e o câmbio mudou.", "Tomo café todas as manhãs."],
