@@ -246,18 +246,43 @@ describe("free-tier market assist", () => {
     expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toMatchObject({ reasoning_effort: "low", max_completion_tokens: 1400 });
   });
 
+  it("retries a structurally valid but citation-invalid draft without relaxing evidence checks", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        baselineClaims: [{ text: "Semiconductor demand is rising.", citations: ["C99"] }], localClaims: [], comparisonClaims: [],
+      }) } }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        baselineClaims: [{ text: "One retrieved post says semiconductor demand remains uncertain.", citations: ["C1"] }], localClaims: [], comparisonClaims: [],
+      }) } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand remains uncertain.", language: "en" }], local: [] },
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { citations: ["C1"], text: "One retrieved post says semiconductor demand remains uncertain." } } });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
+    expect(retryPrompt).toContain("corrected, compact JSON summary");
+    expect(retryPrompt).not.toContain("C99");
+  });
+
   it("rejects model passages with citations that were not included in the request", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
       baselineClaims: [{ text: "Unsupported statement.", citations: ["C99"] }], localClaims: [],
       comparisonClaims: [], limitations: [],
-    }) } }] }), { status: 200 })));
+    }) } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
       evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand remains uncertain.", language: "en" }], local: [] },
     }));
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation" });
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });
