@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { MARKET_COUNTRIES, marketCountry } from "../../lib/market-countries";
 import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
-import { MASTODON_INSTANCES } from "../../lib/mastodon-public";
 import { runResearchSweep, ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
@@ -25,39 +24,39 @@ export default function ResearchSweep({
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [consentOpen, setConsentOpen] = useState(false);
-  const [termsReviewed, setTermsReviewed] = useState(false);
-  const [consentAccepted, setConsentAccepted] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
-  const [pendingTopic, setPendingTopic] = useState("");
   const citationIds = buildCitationIds(results);
   const country = marketCountry(countryCode);
-  const activeLemmyHosts = countryCode === "US"
-    ? ["lemmy.world" as const]
-    : [...new Set(["lemmy.world" as const, ...country.lemmyInstances, ...LEMMY_INSTANCES.map(({ host }) => host)])];
-  const activeMastodonHosts = countryCode === "US"
-    ? ["mastodon.social" as const]
-    : [...new Set(["mastodon.social" as const, ...country.mastodonInstances])];
 
   useEffect(() => {
     if (initialTopic) setQuery(initialTopic);
   }, [initialTopic]);
 
+  useEffect(() => {
+    try {
+      setAiConsent(window.localStorage.getItem("atlas-ai-summary-opt-in-v1") === "true");
+    } catch {
+      // Keep AI summaries opt-in when browser storage is unavailable.
+    }
+  }, []);
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading) return;
     const topic = query.trim();
-    if (!consentAccepted) {
-      setPendingTopic(topic);
-      setTermsReviewed(false);
-      setConsentOpen(true);
-      return;
-    }
     void search(topic, aiConsent);
   }
 
+  function changeAiConsent(enabled: boolean) {
+    setAiConsent(enabled);
+    try {
+      window.localStorage.setItem("atlas-ai-summary-opt-in-v1", String(enabled));
+    } catch {
+      // The choice still applies to this page session.
+    }
+  }
+
   async function search(topic: string, allowAi: boolean) {
-    setConsentOpen(false);
     setLoading(true);
     setSearched(true);
     setSummary(null);
@@ -159,7 +158,7 @@ export default function ResearchSweep({
           required
         />
         <label className="sr-only" htmlFor="market-country">Country language lens</label>
-        <select id="market-country" className="market-country-select" value={countryCode} onChange={(event) => { setCountryCode(event.target.value); setConsentAccepted(false); }}>
+        <select id="market-country" className="market-country-select" value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>
           {MARKET_COUNTRIES.map((item) => <option value={item.code} key={item.code}>{item.name}</option>)}
         </select>
         <button className="btn btn-primary market-search-button" type="submit" disabled={loading}>
@@ -168,35 +167,14 @@ export default function ResearchSweep({
       </form>
 
       <p className="market-attribution">By: Arnav Sharma UVA30&apos;</p>
-
-      {consentOpen && (
-        <div className="source-consent-backdrop" role="presentation">
-          <section className="source-consent-dialog" role="dialog" aria-modal="true" aria-labelledby="source-consent-title">
-            <h2 id="source-consent-title">Review public-source terms</h2>
-            <p>Atlas will send your topic and its translated search phrase to public APIs. Selected Lemmy and Mastodon instances receive these searches directly; their results are transient and are not saved by Atlas.</p>
-            <div className="source-consent-links">
-              <strong>Lemmy instance terms and privacy</strong>
-              {LEMMY_INSTANCES.filter(({ host }) => activeLemmyHosts.includes(host)).map((instance) => <a key={instance.host} href={instance.legalUrl} target="_blank" rel="noreferrer">{instance.host} · Terms</a>)}
-              {LEMMY_INSTANCES.filter(({ host }) => activeLemmyHosts.includes(host)).map((instance) => <a key={`${instance.host}-privacy`} href={instance.privacyUrl} target="_blank" rel="noreferrer">{instance.host} · Privacy</a>)}
-              <strong>Mastodon instance information and rules</strong>
-              {MASTODON_INSTANCES.filter(({ host }) => activeMastodonHosts.includes(host)).map(({ host }) => <a key={host} href={`https://${host}/about`} target="_blank" rel="noreferrer">{host} · About and server rules</a>)}
-            <a href="https://docs.joinmastodon.org/client/public/" target="_blank" rel="noreferrer">Mastodon public-data API guidance</a>
-            </div>
-            <label className="source-consent-check source-ai-consent">
-              <input type="checkbox" checked={aiConsent} onChange={(event) => setAiConsent(event.target.checked)} />
-              Optional: send the topic and up to 16 short source excerpts to Groq’s AI service for translation and a summary. This requires a Groq API key on the server, uses Groq Free-tier limits, and sends excerpts to Groq. No URLs or author handles are sent. Groq says inference prompts are not retained by default, though usage metadata is retained. <a href="https://console.groq.com/docs/your-data" target="_blank" rel="noreferrer">Data handling</a> · <a href="https://console.groq.com/docs/billing-faqs" target="_blank" rel="noreferrer">Free vs paid plan details</a>.
-            </label>
-            <label className="source-consent-check">
-              <input type="checkbox" checked={termsReviewed} onChange={(event) => setTermsReviewed(event.target.checked)} />
-              I reviewed the listed Lemmy terms/privacy and Mastodon instance information/rules and understand these public posts are incomplete samples, not country-wide opinion.
-            </label>
-            <div className="source-consent-actions">
-              <button type="button" onClick={() => setConsentOpen(false)}>Cancel</button>
-              <button type="button" disabled={!termsReviewed} onClick={() => { setConsentAccepted(true); void search(pendingTopic, aiConsent); }}>Continue search</button>
-            </div>
-          </section>
-        </div>
-      )}
+      <div className="search-data-note">
+        <label className="search-ai-toggle">
+          <input type="checkbox" checked={aiConsent} onChange={(event) => changeAiConsent(event.target.checked)} />
+          <span>AI summary</span>
+        </label>
+        <span>{aiConsent ? "Topic goes to public search APIs; AI also sends up to 16 short excerpts to Groq. No source links or author handles." : "Topic goes to public search APIs; the overview is assembled locally."}</span>
+        <a href="/sources">Sources &amp; data use</a>
+      </div>
 
       {searched && !loading && <p className="country-lens-note">Country lens: {country.name} · {country.languageName} communities, using the phrase as entered. Enter it in {country.languageName} for better local-language matches. Server or language does not verify a poster&apos;s location.</p>}
       {searched && loading && <div className="search-loading" role="status"><span className="search-spinner" aria-hidden="true" /> Searching live public sources and preparing the {country.name} comparison for <strong>“{query}”</strong>…</div>}
