@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketCountry } from "../../../../lib/market-countries";
 import { normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
+import { topicHashtags } from "../../../../lib/topic-hashtags";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,14 +46,20 @@ export async function POST(request: NextRequest) {
   if (!allow(ip)) return json({ error: "AI request limit reached. Try again in a minute.", reason: "request-limited" }, 429, { "Retry-After": "60" });
 
   if (body.action === "prepare") {
-    if (country.language === "en") return json({ mode: "localized", query: topic, hashtags: hashtags(topic) });
+    if (country.language === "en") return json({ mode: "localized", query: topic, hashtags: topicHashtags(topic) });
     const generated = await groq<{ query?: unknown; hashtags?: unknown }>(
       `Translate this short market search phrase into natural ${country.languageName} for public forum search. Preserve company/product names and tickers. Return JSON only: {"query":"translated phrase","hashtags":["1-3 short tags without #"]}. Do not add facts or opinions. Phrase: ${JSON.stringify(topic)}`,
     );
     const prepared = generated.value;
     const query = typeof prepared?.query === "string" ? prepared.query.trim().slice(0, 100) : "";
-    const tags = Array.isArray(prepared?.hashtags) ? prepared.hashtags.filter((v): v is string => typeof v === "string").map((v) => v.replace(/^#+/, "").slice(0, 50)).filter((v) => /^[\p{L}\p{N}_-]{1,50}$/u.test(v)).slice(0, 3) : [];
-    return json({ mode: query ? "localized" : "english-fallback", query: query || topic, hashtags: tags.length ? tags : hashtags(topic), ...(!query ? { reason: generated.reason ?? "invalid-response" } : {}) });
+    const tags = Array.isArray(prepared?.hashtags)
+      ? prepared.hashtags.filter((v): v is string => typeof v === "string")
+        .map((v) => v.replace(/^#+/, "").slice(0, 50))
+        .filter((v, index, values) => /^[\p{L}\p{N}_-]{1,50}$/u.test(v) &&
+          values.findIndex((candidate) => candidate.normalize("NFKC").toLocaleLowerCase() === v.normalize("NFKC").toLocaleLowerCase()) === index)
+        .slice(0, 3)
+      : [];
+    return json({ mode: query ? "localized" : "english-fallback", query: query || topic, hashtags: tags.length ? tags : topicHashtags(topic), ...(!query ? { reason: generated.reason ?? "invalid-response" } : {}) });
   }
 
   if (body.action === "summarize") {
@@ -184,11 +191,6 @@ function parseEvidence(value: unknown): EvidenceGroups | null {
   };
   const us = parse(record.us); const local = parse(record.local);
   return us && local ? { us, local } : null;
-}
-
-function hashtags(topic: string) {
-  const value = topic.trim().split(/\s+/).map((part) => part.replace(/[^\p{L}\p{N}_-]/gu, "")).filter(Boolean).map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1)).join("").slice(0, 50);
-  return /^[\p{L}\p{N}_-]{1,50}$/u.test(value) ? [value] : [];
 }
 
 function allow(ip: string) {

@@ -29,9 +29,26 @@ describe("market summary evidence contracts", () => {
       result("lemmy:b", "Lemmy B", [repeated]),
     ]);
     expect(first.evidence).toHaveLength(1);
-    expect(first.sourceNote).toContain("1 of 1 returned records also appear");
+    expect(first.sourceNote).toContain("Possible duplication: 1 of 1 returned records");
     expect(first.evidence[0].context).toContain("Same source URL appears in 2 query/server views");
-    expect(second.sourceNote).toContain("not independent evidence");
+    expect(second.sourceNote).toContain("not independent corroboration");
+  });
+
+  it("marks and excludes long exact cross-platform copies from independent summary evidence", () => {
+    const sharedText = "Investors described a rapid increase in memory-chip demand across several major cloud customers, while warning that export rules and inventory levels could change the outlook over the next two quarters. They said order visibility remains uneven and pricing may depend on supply additions.";
+    const bluesky = evidence("post-a", "Bluesky", sharedText, "bluesky");
+    const mastodon = evidence("post-b", "Mastodon", sharedText, "mastodon-network");
+    const input = [result("bluesky", "Bluesky", [bluesky]), result("mastodon", "Mastodon", [mastodon])];
+    const flagged = flagRepeatedEvidenceViews(input);
+    expect(flagged[1].evidence[0].context).toContain("across multiple source operators");
+    const citations = new Map([
+      [citationKey("bluesky", "post-a"), "C1"],
+      [citationKey("mastodon", "post-b"), "C2"],
+    ]);
+    expect(selectBalancedEvidence(flagged, citations)).toHaveLength(1);
+    expect(selectBalancedEvidence([result("one", "A", [evidence("a", "A", "I agree.", "operator-a")]), result("two", "B", [evidence("b", "B", "I agree.", "operator-b")])], new Map([
+      [citationKey("one", "a"), "C1"], [citationKey("two", "b"), "C2"],
+    ]))).toHaveLength(2);
   });
 
   it("deduplicates the same DOI across independent metadata providers", () => {
@@ -90,6 +107,30 @@ describe("market summary evidence contracts", () => {
     expect(JSON.stringify(selected)).not.toContain("private-handle");
     expect(JSON.stringify(selected)).not.toContain("@member123");
     expect(JSON.stringify(selected)).not.toContain("analyst@private.example");
+  });
+
+  it("excludes explicit language mismatches from the selected-language summary without hiding source results", () => {
+    const english = evidence("en", "Mastodon", "An English market view", "mastodon-network");
+    const portuguese = { ...evidence("pt", "Mastodon", "Uma visão do mercado", "mastodon-network"), language: "pt-BR" };
+    const unknown = { ...evidence("unknown", "Lemmy", "A forum view with unmapped language metadata", "lemmy-federation"), language: "Lemmy language metadata ID 0 (instance-specific; language not mapped)" };
+    const results = [result("local:mastodon", "Mastodon", [english, portuguese]), result("local:lemmy", "Lemmy", [unknown])];
+    const citations = new Map([
+      [citationKey("local:mastodon", "en"), "C1"],
+      [citationKey("local:mastodon", "pt"), "C2"],
+      [citationKey("local:lemmy", "unknown"), "C3"],
+    ]);
+    expect(selectBalancedEvidence(results, citations, 8, new Set(), "pt").map(({ citationId }) => citationId)).toEqual(["C2", "C3"]);
+    expect(results[0].evidence).toHaveLength(2);
+  });
+
+  it.each([
+    ["en", "English"], ["ko", "Korean"], ["ja", "Japanese"], ["de", "German"],
+    ["fr", "French"], ["pt", "Portuguese"], ["hi", "Hindi"], ["es", "Spanish"],
+  ])("accepts language code %s for provider label %s", (expected, reported) => {
+    const item = { ...evidence("localized", "Bluesky", "A market view"), language: reported };
+    const rows = [result("local:bluesky", "Bluesky", [item])];
+    const citations = new Map([[citationKey("local:bluesky", "localized"), "C1"]]);
+    expect(selectBalancedEvidence(rows, citations, 8, new Set(), expected)).toHaveLength(1);
   });
 
   it("never sends headline-only expert-analysis records to the discussion summarizer", () => {

@@ -28,6 +28,8 @@ export type LemmyPost = {
   transientPreview?: string;
 };
 
+export type LemmyListingType = "all" | "local";
+
 export type LemmyView = {
   host: LemmyInstance;
   query: string;
@@ -69,6 +71,7 @@ export async function searchLemmyPosts(
   host: LemmyInstance,
   fetcher: typeof fetch = fetch,
   now = Date.now(),
+  listingType: LemmyListingType = "all",
 ): Promise<LemmyPost[]> {
   const term = query.trim();
   if (term.length < 2 || term.length > 100) {
@@ -77,6 +80,7 @@ export async function searchLemmyPosts(
   if (!LEMMY_INSTANCES.some((instance) => instance.host === host)) {
     throw new Error("Choose a supported public Lemmy instance.");
   }
+  if (listingType !== "all" && listingType !== "local") throw new Error("Choose a supported Lemmy listing type.");
 
   const endpoint = new URL(`https://${host}/api/v3/search`);
   endpoint.search = new URLSearchParams({
@@ -84,6 +88,7 @@ export async function searchLemmyPosts(
     type_: "Posts",
     sort: "New",
     limit: String(MAX_RESULTS),
+    listing_type: listingType,
   }).toString();
   const response = await fetcher(endpoint, { headers: { accept: "application/json" } });
   if (response.status === 401 || response.status === 403) {

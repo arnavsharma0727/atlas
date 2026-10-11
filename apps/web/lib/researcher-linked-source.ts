@@ -1,5 +1,6 @@
 import type { LeadSourceDocument } from "./research-lead-submission";
 import { reviewedLinkSourceForUrl } from "./news-source-operators";
+import { MASTODON_INSTANCE_HOSTS } from "./mastodon-public";
 
 export type ResearcherLinkedCitationInput = {
   id: string;
@@ -17,7 +18,6 @@ const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const LINK_ONLY_REPORT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const STACK_EXCHANGE_LICENSE = "CC BY-SA 4.0";
 const STACK_EXCHANGE_LICENSE_URL = "https://creativecommons.org/licenses/by-sa/4.0/";
-const MASTODON_HOSTS = new Set(["mastodon.social", "mastodon.online", "mstdn.jp", "mastodon.world"]);
 const LEMMY_HOSTS = new Set(["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu", "sopuli.xyz", "sh.itjust.works"]);
 const STACK_EXCHANGE_SITES: Record<string, { host: string; label: string }> = {
   economics: { host: "economics.stackexchange.com", label: "Economics Stack Exchange" },
@@ -220,7 +220,7 @@ function isProviderPermalink(provider: string, url: URL) {
   if (provider === "bluesky")
     return url.hostname === "bsky.app" && /^\/profile\/[^/]+\/post\/[^/]+\/?$/.test(url.pathname);
   if (provider === "mastodon")
-    return MASTODON_HOSTS.has(url.hostname) && /^\/(?:@[^/]+\/\d+|web\/statuses\/\d+)\/?$/.test(url.pathname);
+    return MASTODON_INSTANCE_HOSTS.has(url.hostname) && /^\/(?:@[^/]+\/\d+|web\/statuses\/\d+)\/?$/.test(url.pathname);
   if (provider === "lemmy")
     return LEMMY_HOSTS.has(url.hostname) && /^\/post\/\d+\/?$/.test(url.pathname);
   if (provider === "stackexchange")

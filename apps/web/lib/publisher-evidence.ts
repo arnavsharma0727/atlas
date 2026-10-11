@@ -2,6 +2,7 @@ import type { ResearchEvidence } from "./research-brief";
 import { isReviewedStackExchangeSiteHost } from "./researcher-linked-source";
 import { isEligibleStackExchangeQuestion } from "./source-policy";
 import { reviewedLinkSourceForUrl } from "./news-source-operators";
+import { MASTODON_INSTANCE_HOSTS } from "./mastodon-public";
 
 type StoredPublisherRow = {
   id: string;
@@ -111,7 +112,7 @@ export function toPublisherEvidence(
     } else if (meta.citationProvider === "mastodon" &&
         meta.researcherLinkedOnly === true && meta.postBodyDiscarded === true &&
         meta.transientPreviewDiscarded === true &&
-        ["mastodon.social", "mastodon.online", "mstdn.jp", "mastodon.world"].includes(host) &&
+        MASTODON_INSTANCE_HOSTS.has(host) &&
         /^\/(?:@[^/]+\/\d+|web\/statuses\/\d+)\/?$/.test(url.pathname)) {
       evidenceClass = "social discussion";
       sourceOperatorKey = "mastodon-network";

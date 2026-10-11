@@ -224,6 +224,22 @@ describe("reviewed publisher evidence", () => {
     expect(toPublisherEvidence({ ...row, source_url: "https://bsky.app.evil.example/profile/a/post/b" }, now)).toBeNull();
   });
 
+  it("renders a link-only citation from a configured language/community Mastodon server", () => {
+    const row = {
+      id: "external-mastodon-1", source_type: "researcher-linked-source", source_name: "Mastodon · piaille.fr",
+      source_domain: "piaille.fr", language_code: "fr", title_original: "Public post by @reader",
+      source_url: "https://piaille.fr/@reader/12345", published_at: recent,
+      raw_metadata_json: {
+        citationProvider: "mastodon", attribution: "Author: @reader",
+        researcherLinkedOnly: true, postBodyDiscarded: true, transientPreviewDiscarded: true,
+      },
+    };
+    expect(toPublisherEvidence(row, now)).toMatchObject({
+      evidenceClass: "social discussion", sourceOperatorKey: "mastodon-network",
+      context: expect.stringContaining("no post text"),
+    });
+  });
+
   it("renders a provider-verified Stack Exchange citation with CC BY-SA attribution", () => {
     const row = {
       id: "external-se-1", source_type: "researcher-linked-source", source_name: "Politics Stack Exchange",

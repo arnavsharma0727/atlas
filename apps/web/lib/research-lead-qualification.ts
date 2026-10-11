@@ -1,5 +1,6 @@
 import { isReviewedStackExchangeSiteHost } from "./researcher-linked-source";
 import { reviewedLinkSourceForUrl } from "./news-source-operators";
+import { MASTODON_INSTANCE_HOSTS } from "./mastodon-public";
 
 type EvidenceSource = {
   source_type: string | null;
@@ -62,8 +63,7 @@ export function knownSourceOperator(source: EvidenceSource): string | null {
         return reviewed.key;
     }
     if (metadata.citationProvider === "bluesky" && domain === "bsky.app") return "bluesky";
-    if (metadata.citationProvider === "mastodon" &&
-        ["mastodon.social", "mastodon.online", "mstdn.jp", "mastodon.world"].includes(domain))
+    if (metadata.citationProvider === "mastodon" && MASTODON_INSTANCE_HOSTS.has(domain))
       return "mastodon-network";
     if (metadata.citationProvider === "lemmy" &&
         ["lemmy.world", "discuss.tchncs.de", "feddit.org", "feddit.uk", "jlai.lu", "sopuli.xyz", "sh.itjust.works"].includes(domain))

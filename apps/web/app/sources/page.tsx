@@ -208,9 +208,12 @@ export default async function Sources() {
       onDemand: true,
       referenceUrl: "https://docs.joinmastodon.org/client/public/",
       referenceLabel: "Official Mastodon public-data API guidance",
-      additionalReferences: MASTODON_INSTANCES.map(({ host }) => ({ url: `https://${host}/about`, label: `${host} instance policies` })),
+      additionalReferences: [
+        { url: "https://joinmastodon.org/servers", label: "Official Mastodon server directory" },
+        ...MASTODON_INSTANCES.map(({ host }) => ({ url: `https://${host}/about`, label: `${host} instance policies` })),
+      ],
       detail:
-        "The current search calls a public hashtag timeline on selected instances, up to 20 newest posts per server. Atlas mechanically turns the entered phrase into the displayed hashtag; this is not arbitrary keyword search, so untagged posts are missed. Public access may be restricted by a server. Excerpts are transient; content warnings suppress previews. Posts from accounts marked as automated remain linkable but are omitted from the AI discussion sample. Language and server identity do not establish author location or country opinion. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
+        "The current search calls a public hashtag timeline on selected instances, accepting only posts from the last 30 days and up to 20 newest API items for each of up to three separately queried topic tags per instance. This is not arbitrary keyword search: untagged posts and posts without those tags are missed, while broad tags can add noise. Korean-, Japanese-, German-, French-, Brazilian Portuguese-, and Spanish-language/community-focused servers are selected for those views; server membership does not establish author nationality or residence, and India has no reviewed local-focused server configured. Public access may be restricted by a server. Excerpts are transient; content warnings suppress previews. Posts from accounts marked as automated remain linkable but are omitted from the AI discussion sample. Language and server identity do not establish author location or country opinion. No account or in-app terms affirmation is required; server terms and privacy links are provided below for review.",
     },
     {
       name: "Lemmy · public federated forum view",

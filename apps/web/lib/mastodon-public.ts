@@ -84,8 +84,15 @@ export const MASTODON_INSTANCES = [
   { host: "mastodon.online", label: "mastodon.online" },
   { host: "mstdn.jp", label: "mstdn.jp" },
   { host: "mastodon.world", label: "mastodon.world" },
+  { host: "town.voyager.blue", label: "town.voyager.blue · Korean-language community" },
+  { host: "troet.cafe", label: "troet.cafe · German-language community" },
+  { host: "piaille.fr", label: "piaille.fr · French-language community" },
+  { host: "masto.es", label: "masto.es · Spanish-language community" },
+  { host: "organica.social", label: "organica.social · Brazilian Portuguese community" },
 ] as const;
 export type MastodonInstance = (typeof MASTODON_INSTANCES)[number]["host"];
+export const MASTODON_INSTANCE_HOSTS: ReadonlySet<string> = new Set(MASTODON_INSTANCES.map(({ host }) => host));
+const MAX_POST_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Read the instance's public trending-tag suggestions; no posts or trend data are retained. */
 export async function fetchTrendingHashtags(
@@ -188,6 +195,7 @@ export async function searchPublicHashtag(
       !createdAt ||
       !Number.isFinite(createdAt.getTime()) ||
       createdAt.getTime() > now ||
+      now - createdAt.getTime() > MAX_POST_AGE_MS ||
       !acct ||
       typeof post.content !== "string"
     ) return [];

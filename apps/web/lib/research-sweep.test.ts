@@ -366,6 +366,61 @@ describe("runResearchSweep", () => {
     ]);
   });
 
+  it("runs at most three distinct Mastodon topic tags per instance as separately auditable views", async () => {
+    const requested: string[] = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      requested.push(String(input));
+      return new Response("[]");
+    });
+    const results = await runResearchSweep("Nvidia earnings", {
+      lemmy: false,
+      mastodonQueries: [
+        { hashtag: "Nvidia", instance: "mastodon.social" },
+        { hashtag: "earnings", instance: "mastodon.social" },
+      ],
+    }, fetcher, NOW);
+    expect(requested).toHaveLength(2);
+    expect(results.map(({ key, label, query }) => [key, label, query])).toEqual([
+      ["mastodon:mastodon.social:nvidia", "Mastodon · mastodon.social · #Nvidia", "#Nvidia"],
+      ["mastodon:mastodon.social:earnings", "Mastodon · mastodon.social · #earnings", "#earnings"],
+    ]);
+  });
+
+  it("labels focused Mastodon servers as language/community views, never as verified national samples", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify([{
+      id: "77", url: "https://town.voyager.blue/@reader/77", created_at: new Date(NOW - 60_000).toISOString(),
+      visibility: "public", content: "<p>반도체 투자 전망</p>", language: "ko", account: {
+        acct: "reader", url: "https://town.voyager.blue/@reader", bot: false,
+      },
+    }])));
+    const [result] = await runResearchSweep("semiconductor", {
+      globalVoices: false, lemmy: false, lemmyTermsAccepted: false,
+      mastodonQueries: [{ hashtag: "반도체", instance: "town.voyager.blue" }],
+      mastodonLocalInstances: ["town.voyager.blue"], mastodonTermsAccepted: true,
+    }, fetcher, NOW);
+    expect(result.label).toContain("language/community-focused server");
+    expect(result.evidence[0].context).toContain("does not verify poster nationality or residence");
+  });
+
+  it("requires every focused Mastodon instance to have a selected query", async () => {
+    const fetcher = vi.fn();
+    await expect(runResearchSweep("topic", {
+      globalVoices: false, lemmy: false, lemmyTermsAccepted: false,
+      mastodonQueries: [{ hashtag: "topic", instance: "mastodon.social" }],
+      mastodonLocalInstances: ["town.voyager.blue"], mastodonTermsAccepted: true,
+    }, fetcher, NOW)).rejects.toThrow("must also have a selected hashtag search");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("rejects repeated Mastodon tags and more than three tags on one server before fetching", async () => {
+    const fetcher = vi.fn();
+    const base = ["one", "two", "three", "four"].map((hashtag) => ({ hashtag, instance: "mastodon.social" }));
+    await expect(runResearchSweep("topic", { lemmy: false, mastodonQueries: base.slice(0, 3) }, fetcher, NOW)).resolves.toHaveLength(3);
+    await expect(runResearchSweep("topic", { lemmy: false, mastodonQueries: base }, fetcher, NOW)).rejects.toThrow("up to three distinct");
+    await expect(runResearchSweep("topic", { lemmy: false, mastodonQueries: [base[0], { ...base[0], hashtag: "#ONE" }] }, fetcher, NOW)).rejects.toThrow("up to three distinct");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
   it("searches selected providers in parallel and preserves provider-specific labels and classes", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
@@ -491,6 +546,35 @@ describe("runResearchSweep", () => {
       ["lemmy:lemmy.world", "Lemmy · lemmy.world / c/world"],
       ["lemmy:discuss.tchncs.de", "Lemmy · discuss.tchncs.de / c/world"],
     ]);
+  });
+
+  it("distinguishes locally hosted community results from the federated search view", async () => {
+    const requested: URL[] = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      requested.push(new URL(String(input)));
+      return new Response(JSON.stringify({ posts: [] }));
+    });
+    const results = await runResearchSweep("markets", {
+      lemmy: true,
+      lemmyInstances: ["lemmy.world", "jlai.lu"],
+      lemmyLocalInstances: ["jlai.lu"],
+    }, fetcher, NOW);
+    expect(requested.map((url) => [url.hostname, url.searchParams.get("listing_type")])).toEqual([
+      ["lemmy.world", "all"],
+      ["jlai.lu", "local"],
+    ]);
+    expect(results.map(({ label }) => label)).toEqual([
+      "Lemmy · lemmy.world · federated search",
+      "Lemmy · jlai.lu · locally hosted communities",
+    ]);
+  });
+
+  it("rejects local Lemmy views that were not selected for the search", async () => {
+    await expect(runResearchSweep("markets", {
+      lemmy: true,
+      lemmyInstances: ["lemmy.world"],
+      lemmyLocalInstances: ["jlai.lu"],
+    }, vi.fn(), NOW)).rejects.toThrow("Local Lemmy views must be selected");
   });
 
   it("queries all six reviewed public instances independently within one bounded sweep", async () => {

@@ -63,6 +63,17 @@ describe("free-tier market assist", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("returns bounded per-word Mastodon tags for an English topic without calling Groq", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({ action: "prepare", topic: "Nvidia earnings and supply chain", country: "US", aiEnabled: true }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ hashtags: ["Nvidia"] });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("returns an AI summary from source excerpts without exposing source URLs", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");

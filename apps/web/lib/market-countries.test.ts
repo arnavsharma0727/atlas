@@ -8,13 +8,26 @@ describe("market country search lenses", () => {
   });
 
   it("maps localized markets only to configured and supported public instances", () => {
-    expect(marketCountry("JP")).toMatchObject({ language: "ja", lemmyInstances: ["lemmy.world"], mastodonInstances: ["mstdn.jp"] });
+    expect(marketCountry("JP")).toMatchObject({ language: "ja", lemmyInstances: ["lemmy.world"], mastodonInstances: ["mstdn.jp"], mastodonLocalInstances: ["mstdn.jp"] });
     expect(marketCountry("JP").stackExchangeSites).toEqual(["ja.stackoverflow"]);
     expect(marketCountry("BR").stackExchangeSites).toEqual(["pt.stackoverflow"]);
     expect(marketCountry("ES").stackExchangeSites).toEqual(["es.stackoverflow"]);
     expect(marketCountry("KR").stackExchangeSites).toBeUndefined();
+    expect(marketCountry("KR").mastodonLocalInstances).toEqual(["town.voyager.blue"]);
     expect(marketCountry("DE").lemmyInstances).toEqual(["discuss.tchncs.de", "feddit.org"]);
+    expect(marketCountry("DE").lemmyLocalInstances).toEqual(["discuss.tchncs.de", "feddit.org"]);
     expect(marketCountry("FR").lemmyInstances).toEqual(["jlai.lu"]);
+    expect(marketCountry("FR").lemmyLocalInstances).toEqual(["jlai.lu"]);
+    expect(marketCountry("DE").mastodonLocalInstances).toEqual(["troet.cafe"]);
+    expect(marketCountry("FR").mastodonLocalInstances).toEqual(["piaille.fr"]);
+    expect(marketCountry("ES").mastodonLocalInstances).toEqual(["masto.es"]);
+    expect(marketCountry("BR").mastodonLocalInstances).toEqual(["organica.social"]);
+    for (const code of ["US", "KR", "JP", "BR", "IN", "ES"]) {
+      expect(marketCountry(code).lemmyLocalInstances ?? []).toEqual([]);
+    }
+    for (const code of ["US", "IN"]) {
+      expect(marketCountry(code).mastodonLocalInstances ?? []).toEqual([]);
+    }
     expect(() => marketCountry("XX")).toThrow("supported country");
   });
 });

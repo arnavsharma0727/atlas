@@ -2,8 +2,9 @@ import { searchBlueskyPosts } from "./bluesky-public";
 import { withFetchTimeout } from "./fetch-with-timeout";
 import type { GlobalVoicesEditionResult } from "./global-voices-search";
 import { DISCUSSION_COMMUNITIES, getStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-topic-search";
-import { LEMMY_INSTANCES, LemmyInstance, searchLemmyPosts } from "./lemmy-public";
+import { LEMMY_INSTANCES, LemmyInstance, LemmyListingType, searchLemmyPosts } from "./lemmy-public";
 import { MASTODON_INSTANCES, mastodonHtmlToTransientText, searchPublicHashtag } from "./mastodon-public";
+import type { MastodonInstance } from "./mastodon-public";
 import { WIKIMEDIA_TALK_WIKIS, searchWikimediaTalk } from "./wikimedia-talk";
 import type { TheConversationSearchEdition } from "./the-conversation-search";
 import type { ResearchEvidence } from "./research-brief";
@@ -32,6 +33,8 @@ export type ResearchSweepSelection = {
   stackExchangeQueries?: readonly { site: string; query: string }[];
   lemmy: boolean;
   lemmyInstances?: readonly LemmyInstance[];
+  /** Locally hosted communities on these instances; distinct from their federated search. */
+  lemmyLocalInstances?: readonly LemmyInstance[];
   /** Visitor-supplied local-language query for each selected instance; never translated or pooled. */
   lemmyQueries?: readonly { host: LemmyInstance; query: string }[];
   /** Deprecated compatibility field; no extra provider-terms affirmation is required. */
@@ -39,6 +42,8 @@ export type ResearchSweepSelection = {
   mastodon?: { hashtag: string; instance: string };
   /** Per-instance hashtag searches; instances remain independently labeled and bounded. */
   mastodonQueries?: readonly { hashtag: string; instance: string }[];
+  /** Country/language-focused communities; their membership is not verified by poster location. */
+  mastodonLocalInstances?: readonly MastodonInstance[];
   /** Deprecated compatibility field; no extra provider-terms affirmation is required. */
   mastodonTermsAccepted?: boolean;
   bluesky?: boolean;
@@ -113,10 +118,14 @@ export async function runResearchSweep(
     throw new Error("Use a different phrase for each Bluesky language search.");
   }
   const lemmyInstances = selection.lemmyInstances ?? [LEMMY_INSTANCES[0].host];
+  const lemmyLocalInstances = new Set(selection.lemmyLocalInstances ?? []);
   if (selection.lemmy && (!lemmyInstances.length || lemmyInstances.some(
     (host) => !LEMMY_INSTANCES.some((instance) => instance.host === host),
     ) || lemmyInstances.length > LEMMY_INSTANCES.length)) {
     throw new Error(`Choose one to ${LEMMY_INSTANCES.length} listed public Lemmy instances.`);
+  }
+  if (selection.lemmy && [...lemmyLocalInstances].some((host) => !lemmyInstances.includes(host))) {
+    throw new Error("Local Lemmy views must be selected instances in this search.");
   }
   if (selection.lemmy && selection.lemmyQueries) {
     if (selection.lemmyQueries.length !== new Set(lemmyInstances).size ||
@@ -127,16 +136,24 @@ export async function runResearchSweep(
     }
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
+  const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
   if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
     throw new Error("Choose a listed Wikimedia language edition.");
   }
-  if (mastodonQueries.length > MASTODON_INSTANCES.length || new Set(mastodonQueries.map(({ instance }) => instance)).size !== mastodonQueries.length || mastodonQueries.some(({ hashtag, instance }) =>
+  const mastodonQueryKeys = mastodonQueries.map(({ hashtag, instance }) => `${instance}\u0000${hashtag.trim().replace(/^#+/, "").normalize("NFKC").toLocaleLowerCase()}`);
+  const mastodonQueriesPerInstance = new Map<string, number>();
+  for (const { instance } of mastodonQueries) mastodonQueriesPerInstance.set(instance, (mastodonQueriesPerInstance.get(instance) ?? 0) + 1);
+  if (mastodonQueries.length > MASTODON_INSTANCES.length * 3 || new Set(mastodonQueryKeys).size !== mastodonQueryKeys.length || mastodonQueries.some(({ hashtag, instance }) =>
     !MASTODON_INSTANCES.some(({ host }) => host === instance) || !/^[\p{L}\p{N}_-]{1,50}$/u.test(hashtag.trim().replace(/^#+/, "")),
-  )) {
-    throw new Error("Choose up to four listed Mastodon servers and valid hashtags.");
+  ) || [...mastodonQueriesPerInstance.values()].some((count) => count > 3)) {
+    throw new Error("Choose up to three distinct valid hashtags per listed Mastodon server.");
+  }
+  if (selection.mastodonLocalInstances && [...mastodonLocalInstances].some((host) =>
+    !mastodonQueries.some((item) => item.instance === host))) {
+    throw new Error("A local Mastodon community must also have a selected hashtag search.");
   }
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
   const conversationTasks: Promise<ResearchSweepSourceResult[]>[] = [];
@@ -456,14 +473,17 @@ export async function runResearchSweep(
   if (selection.lemmy) {
     for (const host of new Set(lemmyInstances)) {
       const term = selection.lemmyQueries?.find((item) => item.host === host)?.query.trim() ?? query;
-      tasks.push(capture(`lemmy:${host}`, `Lemmy · ${host}`, term, asOf, "Recent posts within 7 days; up to 20 per server view", async () =>
-      (await searchLemmyPosts(term, host, boundedFetch, now)).map((post) => ({
+      const listingType: LemmyListingType = lemmyLocalInstances.has(host) ? "local" : "all";
+      const viewLabel = listingType === "local" ? "locally hosted communities" : "federated search";
+      tasks.push(capture(`lemmy:${host}`, `Lemmy · ${host} · ${viewLabel}`, term, asOf, "Recent posts within 7 days; up to 20 per server view", async () =>
+      (await searchLemmyPosts(term, host, boundedFetch, now, listingType)).map((post) => ({
         id: `lemmy:${post.url}`,
         title: post.title,
         url: post.url,
         source: `Lemmy · ${host} / c/${post.community}`,
         evidenceClass: "social discussion" as const,
-        language: post.languageId === null ? "not provided" : `Lemmy language id ${post.languageId}`,
+        context: `Lemmy ${listingType === "local" ? "locally hosted community" : "federated search"}; instance hosting does not establish poster nationality or residence`,
+        language: post.languageId === null ? "not provided" : `Lemmy language metadata ID ${post.languageId} (instance-specific; language not mapped)`,
         timeLabel: "Published",
         timeValue: post.publishedAt,
         attribution: `Lemmy author: ${post.author}`,
@@ -478,7 +498,11 @@ export async function runResearchSweep(
   }
   for (const { hashtag, instance } of mastodonQueries) {
     const server = MASTODON_INSTANCES.find(({ host }) => host === instance)!;
-    tasks.push(capture(`mastodon:${instance}`, `Mastodon · ${server.label}`, `#${hashtag}`, asOf, "Up to 20 newest public hashtag posts", async () =>
+    const sameServerQueryCount = mastodonQueriesPerInstance.get(instance) ?? 1;
+    const resultKey = sameServerQueryCount === 1 ? `mastodon:${instance}` : `mastodon:${instance}:${hashtag.toLocaleLowerCase()}`;
+    const localCommunity = mastodonLocalInstances.has(instance);
+    const communityLabel = localCommunity ? " · language/community-focused server" : "";
+    tasks.push(capture(resultKey, `Mastodon · ${server.label}${communityLabel} · #${hashtag}`, `#${hashtag}`, asOf, "Public hashtag posts from the last 30 days; up to 20 API items per tag", async () =>
       (await searchPublicHashtag(hashtag, boundedFetch, now, server.host)).map((post) => ({
         id: `mastodon:${post.url}`,
         title: `Public post by @${post.authorHandle}`,
@@ -491,7 +515,7 @@ export async function runResearchSweep(
         context: [
           post.contentWarning
             ? `Content warning: ${post.contentWarning.slice(0, 200)}; preview withheld, open the original post if appropriate`
-            : "Public hashtag search; server timeline is not a geographic market proxy",
+            : `Public hashtag #${hashtag} search; ${localCommunity ? "this server's language/community focus does not verify poster nationality or residence" : "server timeline is not a geographic market proxy"}`,
           post.accountMarkedAutomated
             ? "This account is marked automated by the instance; shown with its source link but omitted from AI discussion synthesis."
             : undefined,

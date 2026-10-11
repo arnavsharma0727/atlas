@@ -121,6 +121,11 @@ describe("researcher-linked social citation gate", () => {
     }, id, now)?.raw_metadata_json).toMatchObject({ citationProvider: "mastodon" });
     expect(prepareResearcherLinkedSource({
       ...valid,
+      id: "mastodon:community-post",
+      url: "https://piaille.fr/@reader/12345",
+    }, id, now)?.raw_metadata_json).toMatchObject({ citationProvider: "mastodon" });
+    expect(prepareResearcherLinkedSource({
+      ...valid,
       id: "lemmy:https://lemmy.world/post/123",
       url: "https://lemmy.world/post/123",
       title: "A community discussion",

@@ -2,6 +2,12 @@
 
 This is a dated operational spot-check, not a benchmark of representativeness, predictive value, or investment performance. It records counts only; no post text or author handles were copied into the report.
 
+GDELT recheck: 2026-10-11 09:30 UTC. One bounded, keyless DOC API request for `semiconductors` over seven days returned HTTP 429 and a non-JSON body. No retry was attempted. GDELT remains excluded; one request succeeding in a future spot-check would still need repeated reliability checks before reactivation.
+
+Mastodon community-server discovery: 2026-10-11 09:34 UTC. Direct public hashtag requests (five-row probe cap) returned recent French rows on `piaille.fr` (`#semiconducteurs`, newest Oct 2), Spanish rows on `masto.es` (`#semiconductores`, newest Oct 8), and German rows on `troet.cafe` (`#Halbleiter`, newest Oct 9). `town.voyager.blue` returned Korean-language `#반도체` rows, newest July 7, so those records are stale under the new 30-day adapter cutoff and will not be surfaced. This is an endpoint/language spot-check only—not proof of resident nationality, representativeness, semantic relevance, or independent authorship. Each newly selected server has source-specific terms/privacy links in `/sources`; providers may later restrict access.
+
+Brazilian Portuguese community-server discovery: 2026-10-11 09:38 UTC. `organica.social` returned HTTP 200 and five public `#ibovespa` items, newest Oct 10, with Portuguese language metadata. It is included as a Portuguese-language community view, not a verified resident sample. The same host's `#semicondutores` results were English-language, illustrating that instance and tag do not guarantee localized content. `mastodon.com.br` returned a mixed-language `#ações` sample but its more specific `#ibovespa` sample was stale; `masto.donte.com.br` returned HTTP 422 for these public tag requests, so neither is configured. One India-focused candidate (`india.goonj.xyz`) returned HTTP 429 during follow-up probes and its earlier market-specific hashtag samples were stale; it remains excluded pending more reliable live checks. Direct provider probes are bounded and no posts or author handles are retained in this note. Discovery context: [Brazilian Mastodon instance activity index](https://mastodon.br-linux.org/instancias/).
+
 ## Live public API sample
 
 Run: 2026-10-11 07:45 UTC. The queries below were sent directly to the public provider adapters. `complete` means the API request succeeded; it does not mean the returned items are representative or that the query is semantically unambiguous.
@@ -16,7 +22,21 @@ Run: 2026-10-11 07:45 UTC. The queries below were sent directly to the public pr
 | Mastodon public hashtag timeline, `#semiconductor`, `mastodon.social` | Complete | 20 | The adapter returned its 20-post cap. Hashtag-only coverage misses untagged discussion. |
 | Mastodon public hashtag timeline, `#반도체`, `mastodon.social` | Complete | 20 | A Korean hashtag returned records, but the instance and language do not verify contributor geography. |
 
+The later community-server spot-check above demonstrates why endpoint existence is not enough: the Korean-language community's sampled hashtag was stale, and is excluded by the adapter's 30-day freshness rule. A source may be enabled for a lens without yielding accepted results for a particular query.
+
 The responses are provider-specific and not comparable as raw counts: Bluesky searches indexed text, Lemmy searches forum posts, and Mastodon searches a hashtag timeline. Their ranking, membership, freshness, and ceilings differ.
+
+### Mastodon multi-tag smoke check
+
+Run: 2026-10-11 09:29 UTC, direct public requests to `mastodon.social` using the same hashtag-timeline endpoint as Atlas. These are raw provider counts, not Atlas-accepted evidence counts. The check validates endpoint availability and demonstrates why each tag must remain visible; it does not assess topical precision or geographic representation.
+
+| Tag | HTTP | Raw rows | Newest provider timestamp | Language mix in returned rows |
+| --- | --- | ---: | --- | --- |
+| `#Nvidia` | 200 | 20 (cap) | 2026-10-11 07:44 UTC | 11 English, 4 German, 2 Catalan, 1 each Czech, Lithuanian, Ukrainian |
+| `#earnings` | 200 | 20 (cap) | 2026-10-10 15:00 UTC | 18 English, 1 Dutch, 1 Lithuanian |
+| `#supply` | 200 | 20 (cap) | 2026-10-08 07:58 UTC | 12 English, 8 German |
+
+All three tags reached the API cap, while the broader `#supply` tag returned older material. This supports separate query labels and a broad-tag noise caveat; these records must not be interpreted as Nvidia-related unless the original content confirms relevance.
 
 ### Supplemental Lemmy-instance check
 

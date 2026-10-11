@@ -32,6 +32,7 @@ export function redactSummaryExcerpt(value: string): string {
 export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]): ResearchSweepSourceResult[] {
   const recordViews = new Map<string, Set<string>>();
   const textViews = new Map<string, Set<string>>();
+  const crossOperatorTextViews = new Map<string, Map<string, Set<string>>>();
   const nearDuplicateItems = new Set<string>();
   const textItemsByOperator = new Map<string, Array<{ resultKey: string; itemKey: string; text: string }>>();
   for (const result of results) {
@@ -41,6 +42,13 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textKey = text ? `${operator}\u0000text\u0000${text}` : "";
       if (text) {
+        if (text.length >= 80) {
+          const operators = crossOperatorTextViews.get(text) ?? new Map<string, Set<string>>();
+          const views = operators.get(operator) ?? new Set<string>();
+          views.add(`${result.key}\u0000${item.id}`);
+          operators.set(operator, views);
+          crossOperatorTextViews.set(text, operators);
+        }
         const rows = textItemsByOperator.get(operator) ?? [];
         rows.push({ resultKey: result.key, itemKey: `${result.key}\u0000${item.id}`, text });
         textItemsByOperator.set(operator, rows);
@@ -65,19 +73,23 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
       const recordViewsForItem = recordViews.get(`url\u0000${normalizeSourceUrl(item.url)}`);
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textViewsForItem = textViews.get(`${operator}\u0000text\u0000${text}`);
+      const crossOperatorViews = text.length >= 80 ? crossOperatorTextViews.get(text) : undefined;
+      const crossOperatorDuplicate = (crossOperatorViews?.size ?? 0) > 1;
       const nearDuplicate = nearDuplicateItems.has(`${result.key}\u0000${item.id}`);
       const otherViews = Math.max(recordViewsForItem?.size ?? 0, textViewsForItem?.size ?? 0) - 1;
-      if (otherViews < 1 && !nearDuplicate) return item;
+      if (otherViews < 1 && !nearDuplicate && !crossOperatorDuplicate) return item;
       repeated += 1;
       const reason = recordViewsForItem && recordViewsForItem.size > 1
         ? `Same source URL appears in ${recordViewsForItem.size} query/server views; repeated appearances are not independent evidence.`
-        : textViewsForItem && textViewsForItem.size > 1
+        : crossOperatorDuplicate
+          ? "Exact long-form text appears across multiple source operators; it may be cross-posted and is not independent corroboration."
+          : textViewsForItem && textViewsForItem.size > 1
           ? `Exact normalized text appears in ${textViewsForItem.size} query/server views; repeated appearances are not independent corroboration.`
           : "Near-identical long-form text appears in another record from the same source network; treat it as a possible copy, not independent corroboration.";
       return { ...item, context: [item.context, reason].filter(Boolean).join(" ") };
     });
     const overlapNote = repeated
-      ? `Overlap: ${repeated} of ${result.evidence.length} returned records also appear in another query/server view; repeated appearances are not independent evidence.`
+      ? `Possible duplication: ${repeated} of ${result.evidence.length} returned records duplicate or closely resemble other evidence; copies are not independent corroboration.`
       : undefined;
     return {
       ...result,
@@ -99,6 +111,7 @@ export function selectBalancedEvidence(
   citationIds: Map<string, string>,
   limit = 8,
   excludedKeys = new Set<string>(),
+  expectedLanguage?: string,
 ): ModelEvidence[] {
   const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[] }>>();
   const seenText = new Set<string>();
@@ -107,6 +120,7 @@ export function selectBalancedEvidence(
 
   for (const result of results) {
     for (const item of result.evidence) {
+      if (expectedLanguage && hasExplicitLanguageMismatch(item.language, expectedLanguage)) continue;
       const excerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
       const citationId = citationIds.get(citationKey(result.key, item.id));
       if (!excerpt || !citationId || !/^C\d{1,4}$/.test(citationId)) continue;
@@ -115,7 +129,9 @@ export function selectBalancedEvidence(
       // extra weight in an AI summary. Only exact normalized text is collapsed.
       const operator = item.sourceOperatorKey ?? item.source;
       const normalizedText = excerpt.normalize("NFKC").replace(/\s+/g, " ").toLocaleLowerCase();
-      const textKey = `${operator}\u0000text\u0000${normalizedText}`;
+      const textKey = normalizedText.length >= 80
+        ? `cross-operator-text\u0000${normalizedText}`
+        : `${operator}\u0000text\u0000${normalizedText}`;
       const recordKey = `url\u0000${normalizeSourceUrl(item.url)}`;
       if (seenText.has(textKey) || seenRecords.has(recordKey) || excludedKeys.has(textKey) || excludedKeys.has(recordKey)) continue;
       const nearMatches = seenNearDuplicateText.get(operator) ?? [];
@@ -153,6 +169,25 @@ export function selectBalancedEvidence(
     if (!added) break;
   }
   return selected.map(({ dedupeKeys: _dedupeKeys, ...item }) => item);
+}
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  english: "en", korean: "ko", japanese: "ja", german: "de",
+  french: "fr", portuguese: "pt", hindi: "hi", spanish: "es",
+};
+
+/** Provider language labels may be missing or instance-local; only exclude explicit, understood mismatches. */
+function hasExplicitLanguageMismatch(reported: string, expected: string): boolean {
+  const canonical = (value: string) => {
+    const cleaned = value.trim().toLocaleLowerCase().replaceAll("_", "-");
+    const named = LANGUAGE_NAMES[cleaned];
+    if (named) return named;
+    if (/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u.test(cleaned)) return cleaned.split("-", 1)[0];
+    return null;
+  };
+  const actualCode = canonical(reported);
+  const expectedCode = canonical(expected);
+  return actualCode !== null && expectedCode !== null && actualCode !== expectedCode;
 }
 
 function normalizeSourceUrl(value: string) {

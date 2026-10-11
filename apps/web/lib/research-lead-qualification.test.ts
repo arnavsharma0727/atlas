@@ -36,6 +36,7 @@ describe("research lead source-operator gate", () => {
     };
     expect(knownSourceOperator({ source_type: "researcher-linked-source", source_domain: "bsky.app", raw_metadata_json: { ...metadata, citationProvider: "bluesky" } })).toBe("bluesky");
     expect(knownSourceOperator({ source_type: "researcher-linked-source", source_domain: "mastodon.social", raw_metadata_json: { ...metadata, citationProvider: "mastodon" } })).toBe("mastodon-network");
+    expect(knownSourceOperator({ source_type: "researcher-linked-source", source_domain: "piaille.fr", raw_metadata_json: { ...metadata, citationProvider: "mastodon" } })).toBe("mastodon-network");
     expect(knownSourceOperator({ source_type: "researcher-linked-source", source_domain: "unknown.example", raw_metadata_json: { ...metadata, citationProvider: "mastodon" } })).toBeNull();
     expect(knownSourceOperator({ source_type: "researcher-linked-source", source_domain: "bsky.app", raw_metadata_json: { ...metadata, citationProvider: "bluesky", postBodyDiscarded: false } })).toBeNull();
   });

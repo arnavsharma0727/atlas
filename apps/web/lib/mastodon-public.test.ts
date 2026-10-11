@@ -52,6 +52,15 @@ describe("searchPublicHashtag", () => {
     });
   });
 
+  it("drops Mastodon items older than the 30-day freshness window", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      post,
+      { ...post, id: "stale", created_at: "2026-08-30T00:00:00.000Z" },
+    ]), { status: 200 }));
+    const results = await searchPublicHashtag("markets", fetchMock, Date.parse("2026-10-01T00:00:00Z"));
+    expect(results.map(({ id }) => id)).toEqual(["123"]);
+  });
+
   it("rejects invalid hashtags without making a request", async () => {
     const fetchMock = vi.fn();
     await expect(searchPublicHashtag("bad/tag", fetchMock)).rejects.toThrow("1–50 letters");
@@ -63,6 +72,16 @@ describe("searchPublicHashtag", () => {
     await expect(searchPublicHashtag("economics", fetchMock, Date.now(), "attacker.example" as never))
       .rejects.toThrow("Choose a supported public Mastodon server");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("permits the reviewed Brazilian Portuguese instance through the bounded public endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      { ...post, url: "https://organica.social/@reader/123", language: "pt", created_at: "2026-10-10T00:00:00.000Z" },
+    ]), { status: 200 }));
+    const results = await searchPublicHashtag("ibovespa", fetchMock, Date.parse("2026-10-11T00:00:00Z"), "organica.social");
+    expect(new URL(fetchMock.mock.calls[0][0]).hostname).toBe("organica.social");
+    expect(results).toHaveLength(1);
+    expect(results[0].language).toBe("pt");
   });
 
   it("does not try to authenticate when public access is disabled", async () => {
