@@ -12,6 +12,8 @@ Additional source screen: 2026-10-11. One bounded search request to `forum.value
 
 India Mastodon follow-up: 2026-10-11 09:53 UTC. `india.goonj.xyz`'s public instance metadata identifies it as India-focused and English-language, and its public API now returned HTTP 200. However, a five-item `#stockmarket` timeline sample contained only statuses originating from other federated servers; the five newest `#nifty` and `#sensex` samples were older than Atlas's 30-day cutoff. The fresh records therefore do not establish an India-local market conversation, and the stale specific tags would be filtered. Goonj remains excluded from the India-local source set; no posts or handles are retained in this report.
 
+Production follow-up: 2026-10-11 09:54 UTC, commit `84fdd4d`. The 25-check production verifier initially received HTTP 503 from the optional OpenAlex metadata route (24/25 checks passed). One immediate bounded retry returned HTTP 200 with a valid empty `works` array. No root cause was identified; this is evidence of intermittent availability, not a confirmed OpenAlex quota or service incident. Crossref and arXiv completed in the same verifier run.
+
 ## Live public API sample
 
 Run: 2026-10-11 07:45 UTC. The queries below were sent directly to the public provider adapters. `complete` means the API request succeeded; it does not mean the returned items are representative or that the query is semantically unambiguous.
