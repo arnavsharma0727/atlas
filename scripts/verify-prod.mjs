@@ -79,6 +79,22 @@ try {
   fail("OpenAlex free-source disclosure", error instanceof Error ? error.message : "request failed");
 }
 
+try {
+  const response = await fetch(`${base}/methodology`, { signal: AbortSignal.timeout(15000) });
+  const page = await response.text();
+  if (
+    response.ok && page.includes("conservative market-language screen") &&
+    page.includes("each comparison claim must cite both sides") &&
+    page.includes("Citation validation does not establish") && page.includes("inspect the original record")
+  ) {
+    pass("summary market-screen and evidence policy", "methodology describes the lexical gate, its evidence citations, and limits");
+  } else {
+    fail("summary market-screen and evidence policy", `HTTP ${response.status}; required summary safeguards were not found`);
+  }
+} catch (error) {
+  fail("summary market-screen and evidence policy", error instanceof Error ? error.message : "request failed");
+}
+
 for (const route of ["/about", "/briefs", "/candidates", "/companies", "/companies/NVDA", "/coverage", "/divergences/example", "/login", "/watchlists"]) {
   try {
     const response = await fetch(`${base}${route}`, { redirect: "manual", signal: AbortSignal.timeout(15000) });
