@@ -30,6 +30,20 @@ describe("market summary evidence contracts", () => {
     expect(hasMarketSignalTerms({ excerpt: "시장 수요가 증가했다.", language: "Lemmy language ID 0" })).toBe(true);
   });
 
+  it.each([
+    ["en", "Bond yields rose as interest rates changed.", "I drink coffee before work."],
+    ["pt-BR", "A taxa de juros caiu e o câmbio mudou.", "Tomo café todas as manhãs."],
+    ["es", "El tipo de cambio cayó y subió la rentabilidad.", "Tomo café cada mañana."],
+    ["fr", "Le chiffre d’affaires a progressé malgré la baisse du cours boursier.", "J’aime le café au petit déjeuner."],
+    ["de", "Der Aktienkurs stieg; die Rendite blieb stabil.", "Ich trinke morgens Kaffee."],
+    ["ko", "시가총액과 영업이익이 증가했다.", "매일 아침 커피를 마신다."],
+    ["ja", "時価総額と営業利益が増加した。", "毎朝コーヒーを飲む。"],
+    ["hi", "शेयर बाज़ार में ब्याज दर और लाभांश पर चर्चा हुई।", "मैं हर सुबह चाय पीता हूँ।"],
+  ])("recognizes ordinary market vocabulary but not lifestyle text in %s", (language, relevant, lifestyle) => {
+    expect(hasMarketSignalTerms({ excerpt: relevant, language })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: lifestyle, language })).toBe(false);
+  });
+
   it("flags overlapping provider views without reducing their returned record counts", () => {
     const original = evidence("a", "Lemmy", "same public post", "lemmy-federation");
     const repeated = { ...evidence("b", "Lemmy", "SAME PUBLIC POST", "lemmy-federation"), url: original.url };

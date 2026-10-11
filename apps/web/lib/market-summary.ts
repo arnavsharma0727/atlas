@@ -18,14 +18,14 @@ export type ModelEvidence = {
 };
 
 const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
-  en: /\b(?:market|demand|supply|price|pricing|sales|revenue|margin|inventory|stock|share|invest(?:or|ing|ment)?|bullish|bearish|earnings|profit|loss|tariff|export|import|production|yield|harvest|commodity|futures|valuation|customer churn|market share)\b/iu,
-  pt: /\b(?:mercado|demanda|oferta|preço|preços|vendas|receita|margem|estoque|ações|investimento|investidor|lucro|tarifa|exportação|importação|produção|safra|commodit\w*|futuro|cotação)\b/iu,
-  es: /\b(?:mercado|demanda|oferta|precio|precios|ventas|ingresos|margen|inventario|acciones|inversión|inversor|beneficio|arancel|exportación|importación|producción|cosecha|materias primas|futuros|cotización)\b/iu,
-  fr: /\b(?:marché|demande|offre|prix|ventes|revenu|marge|stock|actions|investissement|investisseur|bénéfice|tarif|exportation|importation|production|récolte|matières premières|contrats à terme|valorisation)\b/iu,
-  de: /\b(?:markt|nachfrage|angebot|preis|preise|umsatz|marge|lagerbestand|aktie|investition|investor|gewinn|zoll|export|import|produktion|ernte|rohstoff|terminmarkt|bewertung)\b/iu,
-  ko: /(?:시장|수요|공급|가격|매출|마진|재고|주가|주식|투자|실적|이익|관세|수출|수입|생산|수확|원자재|선물|밸류에이션)/u,
-  ja: /(?:市場|需要|供給|価格|売上|利益|在庫|株価|株式|投資|業績|関税|輸出|輸入|生産|収穫|原材料|先物|評価額)/u,
-  hi: /(?:बाज़ार|बाजार|मांग|आपूर्ति|कीमत|बिक्री|राजस्व|मुनाफ़ा|मुनाफा|शेयर|निवेश|लाभ|टैरिफ़|निर्यात|आयात|उत्पादन|फ़सल|फसल|कमोडिटी)/u,
+  en: /\b(?:market|demand|supply|price|pricing|sales|revenue|margin|inventory|stock|share|invest(?:or|ing|ment)?|bullish|bearish|earnings|profit|loss|tariff|export|import|production|yield|harvest|commodity|futures|valuation|customer churn|market share|interest rates?|bond yields?|supply chain|order book|capital expenditure|guidance|cash flow|dividend|debt|equity)\b/iu,
+  pt: /\b(?:mercado|demanda|oferta|preço|preços|vendas|receita|faturamento|margem|estoque|ações|investimento|investidor|lucro|prejuízo|tarifa|exportação|importação|produção|safra|commodit\w*|futuro|cotação|taxa de juros|câmbio|bolsa de valores|rendimento|dividendo|capitalização)\b/iu,
+  es: /\b(?:mercado|demanda|oferta|precio|precios|ventas|ingresos|margen|inventario|acciones|inversión|inversor|beneficio|pérdida|arancel|exportación|importación|producción|cosecha|materias primas|futuros|cotización|tipo de cambio|tasa de interés|bolsa de valores|rentabilidad|dividendo|capitalización)\b/iu,
+  fr: /\b(?:marché|demande|offre|prix|ventes|revenu|chiffre d['’]affaires|marge|stock|actions|investissement|investisseur|bénéfice|perte|tarif|exportation|importation|production|récolte|matières premières|contrats à terme|valorisation|taux d'intérêt|cours boursier|rendement|dividende|capitalisation)\b/iu,
+  de: /\b(?:markt|nachfrage|angebot|preis|preise|umsatz|marge|lagerbestand|aktie|investition|investor|gewinn|verlust|zoll|export|import|produktion|ernte|rohstoff|terminmarkt|bewertung|aktienkurs|börsenkurs|zinssatz|rendite|dividende|marktkapitalisierung|cashflow|auftragsbestand)\b/iu,
+  ko: /(?:시장|수요|공급|가격|매출|마진|재고|주가|주식|투자|실적|이익|손실|관세|수출|수입|생산|수확|원자재|선물|밸류에이션|시가총액|영업이익|배당|금리|환율|주주|공급망|가이던스)/u,
+  ja: /(?:市場|需要|供給|価格|売上|利益|在庫|株価|株式|投資|業績|関税|輸出|輸入|生産|収穫|原材料|先物|評価額|時価総額|株主|営業利益|配当|金利|為替|供給網|売上高|業績予想)/u,
+  hi: /(?:बाज़ार|बाजार|मांग|आपूर्ति|कीमत|बिक्री|राजस्व|मुनाफ़ा|मुनाफा|शेयर|निवेश|लाभ|नुकसान|टैरिफ़|टैरिफ|निर्यात|आयात|उत्पादन|फ़सल|फसल|कमोडिटी|ब्याज दर|विनिमय दर|शेयर बाज़ार|शेयर बाजार|बाज़ार पूंजीकरण|बाजार पूंजीकरण|लाभांश|आपूर्ति श्रृंखला|मूल्यांकन)/u,
 };
 
 /**
