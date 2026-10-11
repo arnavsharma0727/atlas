@@ -1,10 +1,35 @@
 import { describe, expect, it, vi } from "vitest";
 import { runResearchSweep } from "./research-sweep";
-import { selectBalancedEvidence } from "./market-summary";
+import { hasMarketSignalTerms, selectBalancedEvidence } from "./market-summary";
+import { citationKey } from "./perspective-snapshot";
 
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("uses a body-less Lemmy market-post title as transient AI evidence without duplicating it in the source preview", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      post: {
+        id: 31,
+        ap_id: "https://lemmy.world/post/31",
+        name: "Chip demand rises as inventory tightens",
+        body: "",
+        published: new Date(NOW - 60_000).toISOString(),
+        language_id: 37,
+      },
+      creator: { name: "Member", actor_id: "https://lemmy.world/u/member" },
+      community: { name: "economy" },
+    }] }));
+    const [result] = await runResearchSweep("chip demand", { lemmy: true, lemmyInstances: ["lemmy.world"] }, fetcher, NOW);
+    const item = result.evidence[0];
+    expect(item).toMatchObject({ title: "Chip demand rises as inventory tightens", transientPreview: "Chip demand rises as inventory tightens" });
+    expect(item.context).toContain("post title is the only transient discussion excerpt");
+    expect(hasMarketSignalTerms({ excerpt: item.transientPreview!, language: item.language })).toBe(true);
+    expect(selectBalancedEvidence([result], new Map([[citationKey(result.key, item.id), "C1"]]))).toEqual([
+      expect.objectContaining({ citationId: "C1", excerpt: "Chip demand rises as inventory tightens", title: "Public discussion post" }),
+    ]);
+    expect(item.transientPreview).not.toBeUndefined();
+  });
+
   it("keeps MANA crowd forecasts separate from discussion summaries", async () => {
     const fetcher = vi.fn(async () => Response.json([{
       id: "market-1",

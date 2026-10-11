@@ -485,18 +485,20 @@ export async function runResearchSweep(
         evidenceClass: "social discussion" as const,
         context: [
           `Lemmy ${listingType === "local" ? "locally hosted community" : "federated search"}; instance hosting does not establish poster nationality or residence`,
-          includesExternalLink(post.transientPreview) ? LINKED_POST_CAVEAT : undefined,
+          !post.transientPreview ? "No post body was returned; the post title is the only transient discussion excerpt available." : undefined,
+          includesExternalLink(post.transientPreview ?? post.title) ? LINKED_POST_CAVEAT : undefined,
         ].filter(Boolean).join(" "),
         language: post.languageId === null ? "not provided" : `Lemmy language metadata ID ${post.languageId} (instance-specific; language not mapped)`,
         timeLabel: "Published",
         timeValue: post.publishedAt,
-        linkSharing: includesExternalLink(post.transientPreview),
+        linkSharing: includesExternalLink(post.transientPreview ?? post.title),
         attribution: `Lemmy author: ${post.author}`,
         attributionUrl: post.authorUrl ?? post.url,
         // Treat federated instance searches as one Lemmy source class; multiple instances can overlap.
         sourceOperatorKey: "lemmy-federation",
         sourceOperatorLabel: "Lemmy federated search",
-        transientPreview: post.transientPreview,
+        // A link post may have no body; its own title is still transient primary evidence.
+        transientPreview: post.transientPreview ?? post.title,
       })),
       ));
     }

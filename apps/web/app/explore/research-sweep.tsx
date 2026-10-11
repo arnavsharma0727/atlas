@@ -347,7 +347,7 @@ function SourceResults({ result, evidence, returnedCount, duplicateCount, citati
               <span className="source-citation-ref">{citationIds.get(citationKey(result.key, item.id))}</span>
               <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
               {(item.evidenceClass === "crowd forecast" || hasMaterialEvidenceContext(item.context)) && <p className={item.evidenceClass === "crowd forecast" ? "source-context-note source-context-note--forecast" : "source-context-note"}>{item.context}</p>}
-              {item.transientPreview && <p className="source-preview" lang={languageTag(item.language)}>{compactPreview(item.transientPreview)}</p>}
+              {item.transientPreview && item.transientPreview !== item.title && <p className="source-preview" lang={languageTag(item.language)}>{compactPreview(item.transientPreview)}</p>}
               <p className="source-meta">{item.evidenceClass} · {item.source} · {item.language} · {item.timeLabel.toLowerCase()} <time dateTime={item.timeValue}>{new Date(item.timeValue).toISOString().replace("T", " ").replace(".000Z", " UTC")}</time></p>
               {item.attribution && <p className="source-meta">Attribution: {item.attributionUrl
                 ? <a href={item.attributionUrl} target="_blank" rel="noreferrer">{item.attribution}</a>
