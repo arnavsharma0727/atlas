@@ -210,6 +210,20 @@ describe("free-tier market assist", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("rejects URL-free posts explicitly attributed to a publisher at the server boundary", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Semiconductor demand is rising. Source: The Korea Herald", language: "en" }], local: [] },
+    }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "Invalid evidence payload" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("retries Groq JSON validation failures once and still validates Atlas citations", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");

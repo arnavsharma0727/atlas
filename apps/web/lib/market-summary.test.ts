@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -81,6 +81,16 @@ describe("market summary evidence contracts", () => {
       ...evidence("pitch", "Bluesky", pitch), title: pitch,
     }])], "semiconductors", "반도체 수요");
     expect(screened[0].evidence[0].context).toContain("stock-promotion/clickbait");
+  });
+
+  it("does not treat posts explicitly attributed to a publisher as independent views", () => {
+    const repost = "SK Group Chairman Chey Tae-won stated that capacity needs to expand. Source: The Korea Herald";
+    expect(isAttributedReportShare(repost)).toBe(true);
+    expect(isIndependentDiscussionEvidence({ excerpt: repost })).toBe(false);
+    const screened = filterResultsToTopic([result("bluesky", "Bluesky", [{
+      ...evidence("repost", "Bluesky", repost), title: "Semiconductor demand and capacity",
+    }])], "semiconductors");
+    expect(screened[0].evidence[0].context).toContain("explicitly attributes its material to a publisher");
   });
 
   it("keeps linked posts in results but screens them out of summary evidence", () => {
@@ -298,6 +308,14 @@ describe("market summary evidence contracts", () => {
     ["Hindi", "सेमीकंडक्टर बाजार में मांग और कीमतों पर चर्चा", "hi"],
   ])("detects %s text when provider language is not supplied", (_label, text, expected) => {
     expect(matchesLanguageLens("not provided", expected, text)).toBe(true);
+    expect(languageLensMatchMethod("not provided", expected, text)).toBe("script-detection");
+  });
+
+  it("records script-based language attribution on the original source card", () => {
+    const text = "반도체 수요와 시장 전망에 대한 의견입니다";
+    const local = { ...evidence("ko", "Bluesky", text), title: "반도체 수요", language: "not provided" };
+    const screened = filterResultsToTopic([result("local:bluesky", "Bluesky", [local])], "semiconductors", "반도체 수요", "ko");
+    expect(screened[0].evidence[0].context).toContain("matched the selected ko language lens by script only");
   });
 
   it("does not override an explicit conflicting language label or guess Latin-script language", () => {

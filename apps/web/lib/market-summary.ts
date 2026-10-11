@@ -84,9 +84,15 @@ export function isLikelyMarketPromotion(value: string): boolean {
   return patterns.some((pattern) => pattern.test(text));
 }
 
-/** Linked or high-confidence promotional posts are surfaced but cannot support the overview. */
+/** Explicit publisher attribution marks a social excerpt as a report/share, not an independent view. */
+export function isAttributedReportShare(value: string): boolean {
+  return /(?:\bsource\s*:\s*|\bvia\s*:\s*|\breported\s+by\s*:\s*|出典\s*[:：]|출처\s*[:：])[^\s,;]{2,80}/iu.test(value);
+}
+
+/** Linked, explicitly attributed, or high-confidence promotional posts cannot support the overview. */
 export function isIndependentDiscussionEvidence(item: { linkSharing?: boolean; excerpt?: string }): boolean {
-  return item.linkSharing !== true && !isLikelyMarketPromotion(item.excerpt ?? "");
+  const excerpt = item.excerpt ?? "";
+  return item.linkSharing !== true && !isLikelyMarketPromotion(excerpt) && !isAttributedReportShare(excerpt);
 }
 
 /** Filter displayed records by the phrase actually used for each search lens, preserving raw API counts. */
@@ -94,16 +100,29 @@ export function filterResultsToTopic(
   results: ResearchSweepSourceResult[],
   baselineTopic: string,
   localTopic = baselineTopic,
+  expectedLocalLanguage?: string,
 ): ResearchSweepSourceResult[] {
   return results.map((result) => {
     const topic = result.key.startsWith("local:") ? localTopic : baselineTopic;
     const evidence = result.evidence.filter((item) =>
       hasTopicSignalTerms(`${item.title} ${item.transientPreview ?? ""}`, topic),
     ).map((item) => {
-      if (item.evidenceClass !== "social discussion" || !isLikelyMarketPromotion(`${item.title} ${item.transientPreview ?? ""}`)) return item;
+      const copy = `${item.title} ${item.transientPreview ?? ""}`;
+      const isPromotion = isLikelyMarketPromotion(copy);
+      const isReportShare = isAttributedReportShare(copy);
+      const detectedLanguage = result.key.startsWith("local:") && expectedLocalLanguage
+        ? languageLensMatchMethod(item.language, expectedLocalLanguage, item.transientPreview ?? item.title)
+        : null;
+      if ((item.evidenceClass !== "social discussion" || (!isPromotion && !isReportShare)) && detectedLanguage !== "script-detection") return item;
       return {
         ...item,
-        context: [item.context, "This excerpt matches a high-confidence stock-promotion/clickbait phrase screen; it remains visible but is excluded from the AI overview."].filter(Boolean).join(" "),
+        context: [item.context, detectedLanguage === "script-detection"
+          ? `Provider language was missing or unmapped; this excerpt matched the selected ${expectedLocalLanguage} language lens by script only. This does not establish poster location or nationality.`
+          : undefined, isPromotion
+          ? "This excerpt matches a high-confidence stock-promotion/clickbait phrase screen; it remains visible but is excluded from the AI overview."
+          : isReportShare
+            ? "This post explicitly attributes its material to a publisher; it remains visible but is excluded as an independent community view."
+            : undefined].filter(Boolean).join(" "),
       };
     });
     const newlyExcluded = result.evidence.length - evidence.length;
@@ -363,7 +382,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 };
 
 /** Match provider language labels; use conservative script detection for Korean, Japanese, and Hindi when labels are missing/unmapped. */
-export function matchesLanguageLens(reported: string, expected: string, text = ""): boolean {
+export function languageLensMatchMethod(reported: string, expected: string, text = ""): "provider-label" | "script-detection" | null {
   const canonical = (value: string) => {
     const cleaned = value.trim().toLocaleLowerCase().replaceAll("_", "-");
     if (["", "und", "zxx", "xx", "unknown", "not provided", "unspecified", "n/a"].includes(cleaned)) return null;
@@ -374,17 +393,22 @@ export function matchesLanguageLens(reported: string, expected: string, text = "
   };
   const actualCode = canonical(reported);
   const expectedCode = canonical(expected);
-  if (!expectedCode) return false;
-  if (actualCode !== null) return actualCode === expectedCode;
+  if (!expectedCode) return null;
+  if (actualCode !== null) return actualCode === expectedCode ? "provider-label" : null;
   const letters = [...text.normalize("NFKC").matchAll(/\p{L}/gu)].length;
-  if (!letters) return false;
+  if (!letters) return null;
   const hangul = [...text.matchAll(/[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/gu)].length;
   const kana = [...text.matchAll(/[\u3040-\u30ff]/gu)].length;
   const devanagari = [...text.matchAll(/[\u0900-\u097f]/gu)].length;
-  if (expectedCode === "ko") return hangul >= 4 && hangul / letters >= 0.15;
-  if (expectedCode === "ja") return kana >= 2 && kana / letters >= 0.08;
-  if (expectedCode === "hi") return devanagari >= 4 && devanagari / letters >= 0.15;
-  return false;
+  if (expectedCode === "ko" && hangul >= 4 && hangul / letters >= 0.15) return "script-detection";
+  if (expectedCode === "ja" && kana >= 2 && kana / letters >= 0.08) return "script-detection";
+  if (expectedCode === "hi" && devanagari >= 4 && devanagari / letters >= 0.15) return "script-detection";
+  return null;
+}
+
+/** Match an understood provider label or a supported script-based language lens. */
+export function matchesLanguageLens(reported: string, expected: string, text = ""): boolean {
+  return languageLensMatchMethod(reported, expected, text) !== null;
 }
 
 function normalizeSourceUrl(value: string) {
