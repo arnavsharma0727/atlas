@@ -58,6 +58,27 @@ describe("free-tier market assist", () => {
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "US sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
   });
 
+  it("retries Groq JSON validation failures once and still validates Atlas citations", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "json_validate_failed", type: "invalid_request_error" } }), { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        usSummary: "US sample notes demand.", usCitations: ["C1"], localSummary: "KR sample notes exports.", localCitations: ["C2"],
+        comparison: "Samples differ; evidence is limited.", comparisonCitations: ["C1", "C2"], limitations: [],
+      }) } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand comments", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Post", excerpt: "Export comments", language: "ko" }] },
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { citations: ["C1"] }, localSummary: { citations: ["C2"] } } });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toHaveProperty("response_format");
+    expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).not.toHaveProperty("response_format");
+  });
+
   it("rejects model passages with citations that were not included in the request", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");

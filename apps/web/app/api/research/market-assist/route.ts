@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
   return json({ error: "Unsupported action" }, 400);
 }
 
-async function groq<T>(prompt: string, systemPrompt?: string): Promise<T | null> {
+async function groq<T>(prompt: string, systemPrompt?: string, jsonMode = true): Promise<T | null> {
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -84,7 +84,7 @@ async function groq<T>(prompt: string, systemPrompt?: string): Promise<T | null>
           ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
           { role: "user", content: prompt },
         ],
-        response_format: { type: "json_object" },
+        ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
         temperature: 0.2,
         max_completion_tokens: 700,
       }),
@@ -100,6 +100,10 @@ async function groq<T>(prompt: string, systemPrompt?: string): Promise<T | null>
         type: typeof error?.type === "string" ? error.type.slice(0, 80) : undefined,
         param: typeof error?.param === "string" ? error.param.slice(0, 80) : undefined,
       });
+      if (jsonMode && response.status === 400 && error?.code === "json_validate_failed") {
+        console.warn("[market-assist] Retrying once without Groq JSON mode; response validation remains enforced by Atlas");
+        return groq<T>(prompt, systemPrompt, false);
+      }
       return null;
     }
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
