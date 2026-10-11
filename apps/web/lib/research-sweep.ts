@@ -667,6 +667,9 @@ function concentratedBylineNote(bylines: string[]) {
   return `Sample composition: one displayed handle appears in ${maximum} of ${bylines.length} unique-text results (${share}%). This flags byline concentration; it does not verify identity or independence.`;
 }
 
-function includesExternalLink(value: string | undefined) {
-  return typeof value === "string" && /(?:https?:\/\/|www\.)|<a\b[^>]*\bhref\s*=\s*["']https?:\/\//iu.test(value);
+export function includesExternalLink(value: string | undefined) {
+  return typeof value === "string" && (
+    /(?:https?:\/\/|www\.)|<a\b[^>]*\bhref\s*=\s*["']https?:\/\//iu.test(value)
+    || /(?:^|[\s(])[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.(?:com|net|org|io|ai|co|news|gov|edu|biz|kr|jp|de|fr|uk|in|br|es)\b(?:[/:?#][^\s<]*)?/iu.test(value)
+  );
 }

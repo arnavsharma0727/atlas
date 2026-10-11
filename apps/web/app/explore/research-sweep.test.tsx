@@ -2,9 +2,16 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SummaryPassageText, visibleSummaryEvidence } from "./research-sweep";
+import { includesExternalLink } from "../../lib/research-sweep";
 import { citationKey } from "../../lib/perspective-snapshot";
 
 describe("summary evidence links", () => {
+  it("recognizes bare external domains in social text as link-sharing provenance", () => {
+    expect(includesExternalLink("Publisher source: news.ikbc.co.kr/article/story")).toBe(true);
+    expect(includesExternalLink("More on the topic at BigEarthData.ai")).toBe(true);
+    expect(includesExternalLink("Semiconductor demand is changing across markets.")).toBe(false);
+  });
+
   it("links each passage's validated citations to the consolidated source register", () => {
     const html = renderToStaticMarkup(createElement(SummaryPassageText, {
       passage: { text: "The retrieved posts discuss supply conditions.", citations: ["C1", "C4"] },

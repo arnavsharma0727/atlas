@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketCountry } from "../../../../lib/market-countries";
-import { hasMarketSignalTerms, hasTopicSignalTerms, isVerifiedLanguageMatch, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
+import { hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isVerifiedLanguageMatch, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { topicHashtags } from "../../../../lib/topic-hashtags";
 
 export const runtime = "nodejs";
@@ -203,11 +203,11 @@ function parseEvidence(value: unknown, baselineTopic: string, localTopic: string
   // Browser filtering improves UX; this prevents a direct request from
   // bypassing that screen and spending the model call on incidental mentions.
   if (!us || !local || (!us.length && !local.length)) return null;
-  if (us.some((item) => !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, baselineTopic))) return null;
+  if (us.some((item) => !isIndependentDiscussionEvidence(item) || !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, baselineTopic))) return null;
   const matchingLocalLanguage = expectedLocalLanguage
     ? local.filter((item) => isVerifiedLanguageMatch(item.language, expectedLocalLanguage))
     : local;
-  if (matchingLocalLanguage.some((item) => !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, localTopic))) return null;
+  if (matchingLocalLanguage.some((item) => !isIndependentDiscussionEvidence(item) || !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, localTopic))) return null;
   return {
     us,
     local: matchingLocalLanguage,

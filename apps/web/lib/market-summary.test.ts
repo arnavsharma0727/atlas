@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -62,6 +62,23 @@ describe("market summary evidence contracts", () => {
       linkSharing: true,
     })]);
     expect(JSON.stringify(selected)).not.toContain("publisher.example");
+  });
+
+  it("does not treat externally linked posts as independent AI-summary evidence", () => {
+    expect(isIndependentDiscussionEvidence({ linkSharing: true })).toBe(false);
+    expect(isIndependentDiscussionEvidence({ linkSharing: false })).toBe(true);
+    expect(isIndependentDiscussionEvidence({})).toBe(true);
+  });
+
+  it("keeps linked posts in results but screens them out of summary evidence", () => {
+    const linked = { ...evidence("linked", "Bluesky", "Semiconductor demand rose. news.example.com/story"), linkSharing: true };
+    const rows = [result("bluesky", "Bluesky", [linked])];
+    const citations = new Map([[citationKey("bluesky", "linked"), "C1"]]);
+    let screenedOut = 0;
+
+    expect(rows[0].evidence).toHaveLength(1);
+    expect(selectBalancedEvidence(rows, citations, 8, new Set(), undefined, isIndependentDiscussionEvidence, () => screenedOut++)).toEqual([]);
+    expect(screenedOut).toBe(1);
   });
 
   it("adds a redacted link marker when the source HTML link is absent from the visible excerpt", () => {

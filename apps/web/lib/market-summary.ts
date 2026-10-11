@@ -71,6 +71,11 @@ export function hasTopicSignalTerms(excerpt: string, topic: string): boolean {
   return topicTerms.some(matches);
 }
 
+/** Linked posts are surfaced as source material but cannot establish independent commentary. */
+export function isIndependentDiscussionEvidence(item: Pick<ModelEvidence, "linkSharing">): boolean {
+  return item.linkSharing !== true;
+}
+
 /** Filter displayed records by the phrase actually used for each search lens, preserving raw API counts. */
 export function filterResultsToTopic(
   results: ResearchSweepSourceResult[],
