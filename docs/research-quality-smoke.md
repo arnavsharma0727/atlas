@@ -63,12 +63,16 @@ Crossref returned 12 DOI-linked records whose publication dates passed the adapt
 
 Run: 2026-10-11 08:23 UTC, via the local Atlas server endpoint, query `semiconductor`. The public API request completed and the adapter returned five records. All links passed the `arxiv.org/abs/` host/path check; the returned objects contained no abstract or author fields. This is a technical integration check of one query, not a measure of arXiv coverage or the quality of the papers.
 
+### Production release check
+
+Run: 2026-10-11 08:28 UTC against `https://signal-scout-xi-ruby.vercel.app` after commit `f403515` was pushed to `main` and the deployment updated. The production verifier passed all 21 checks, including public routes, protected operational endpoints, and the new source APIs. Its live query `electric vehicles` returned 12 Crossref records and 10 arXiv records with title/URL fields. A separate live `semiconductor` request returned HTTP 200 from The Conversation (six editions, zero title matches) and Global Voices (twelve editions, zero title matches); the `/sources` register displayed all three providers plus Crossref and arXiv. Successful empty results are not evidence of topic absence. This verifies deployment and bounded endpoint operation only—not relevance precision, recall, coverage, representativeness, or the 8/10 quality bar.
+
 ## Failure and product checks
 
 - Automated test simulation: a Bluesky HTTP 429 is labeled unavailable while a successful zero-result Wikimedia response remains complete. This verifies partial-failure handling; it is not a live outage test.
 - Automated tests also cover selected language lenses, exact query snapshots, explicit user query alternatives, CC BY-SA title-only Stack Exchange evidence, attribution, overlap flags, source-status distinctions, and citation validation.
 - Stack Exchange repeated identical phrase/site searches are reused for 65 seconds in the current browser session. The adapter honors API-provided backoff and surfaces the latest `quota_remaining` value returned by the API. This local cache is not a shared, cross-user quota coordinator.
-- Production smoke check on 2026-10-11: 19/19 checks passed for the existing deployed app's public routes, search-first landing, retired-route redirects, and protected operational endpoints. This working-tree change set has not been deployed; the check did not issue a paid-model call or certify live search completeness.
+- Production smoke check on 2026-10-11: 21/21 checks passed after commit `f403515` was deployed. It verified the search-first landing, source register, retired-route redirects, protected operational endpoints, and live Crossref/arXiv query responses. No paid-model call was made, and the check does not certify live search completeness.
 
 ## Remaining validation limits
 
