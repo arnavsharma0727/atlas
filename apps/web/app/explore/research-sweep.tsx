@@ -124,6 +124,13 @@ export default function ResearchSweep({
       {searched && <h1 id="search-title" className="sr-only">Search results for {query}</h1>}
 
       <form id="market-query-form" onSubmit={submit} className={`market-search-form ${searched ? "market-search-form--compact" : ""}`}>
+        <div className="market-country-control">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="market-globe-icon"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18M5.6 6.5h12.8M5.6 17.5h12.8" /></svg>
+          <label className="sr-only" htmlFor="market-country">Country language lens</label>
+          <select id="market-country" className="market-country-select" value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>
+            {MARKET_COUNTRIES.map((item) => <option value={item.code} key={item.code}>{item.name}</option>)}
+          </select>
+        </div>
         <label className="sr-only" htmlFor="market-query">Search a market interest</label>
         <input
           id="market-query"
@@ -136,23 +143,12 @@ export default function ResearchSweep({
           autoComplete="off"
           required
         />
-        <label className="sr-only" htmlFor="market-country">Country language lens</label>
-        <select id="market-country" className="market-country-select" value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>
-          {MARKET_COUNTRIES.map((item) => <option value={item.code} key={item.code}>{item.name}</option>)}
-        </select>
-        <button className="btn btn-primary market-search-button" type="submit" disabled={loading}>
-          {!loading && <svg aria-hidden="true" viewBox="0 0 20 20" className="market-search-icon"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>}
-          <span>{loading ? "Searching…" : "Search"}</span>
+        <button className="btn market-search-button" type="submit" aria-label={loading ? "Searching" : "Search"} disabled={loading}>
+          {loading ? <span className="market-search-loading-label">…</span> : <svg aria-hidden="true" viewBox="0 0 20 20" className="market-search-icon"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>}
         </button>
       </form>
 
       <p className="market-attribution">By: <a href="https://www.linkedin.com/in/arnavsharma0727/" target="_blank" rel="noreferrer">Arnav Sharma UVA30’</a></p>
-      <div className="search-data-note">
-        <span>Search automatically creates an AI summary when available. The topic and up to 16 short public excerpts are sent to Groq; source links and author handles are excluded. AI may be unavailable if the operator has not enabled it or free usage limits are reached. <a href="/privacy">Privacy details</a>.</span>
-        <nav className="search-policy-links" aria-label="Search and data policies">
-          <a href="/sources">Sources</a><a href="/methodology">Methodology</a><a href="/privacy">Privacy</a>
-        </nav>
-      </div>
 
       {searched && !loading && <p className="country-lens-note">Country lens: {country.name} · {country.languageName} communities, using the phrase as entered. Enter it in {country.languageName} for better local-language matches. Server or language does not verify a poster&apos;s location.</p>}
       {searched && loading && <div className="search-loading" role="status"><span className="search-spinner" aria-hidden="true" /> Searching live public sources and preparing the {country.name} comparison for <strong>“{query}”</strong>…</div>}
