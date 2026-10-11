@@ -187,7 +187,7 @@ export function selectBalancedEvidence(
   isEligible: (evidence: ModelEvidence) => boolean = () => true,
   onIneligible?: () => void,
 ): ModelEvidence[] {
-  const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[] }>>();
+  const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[]; authorKey?: string }>>();
   const seenText = new Set<string>();
   const seenRecords = new Set<string>();
   const seenNearDuplicateText = new Map<string, string[]>();
@@ -230,27 +230,44 @@ export function selectBalancedEvidence(
         onIneligible?.();
         continue;
       }
+      // A prolific account must not occupy most of one provider's small
+      // synthesis sample. This key is used only for selection and never sent
+      // to the summarizer; unknown attribution remains uncapped.
+      const authorKey = item.evidenceClass === "social discussion"
+        ? item.attributionUrl?.trim().toLocaleLowerCase() || (item.attribution?.trim()
+          ? `${operator}\u0000${item.attribution.trim().toLocaleLowerCase()}`
+          : undefined)
+        : undefined;
       const group = sources.get(operator) ?? [];
-      group.push({ ...modelEvidence, dedupeKeys: [textKey, recordKey] });
+      group.push({ ...modelEvidence, dedupeKeys: [textKey, recordKey], authorKey });
       sources.set(operator, group);
     }
   }
 
-  const selected: Array<ModelEvidence & { dedupeKeys: string[] }> = [];
+  const selected: Array<ModelEvidence & { dedupeKeys: string[]; authorKey?: string }> = [];
+  const selectedAuthors = new Set<string>();
   const buckets = [...sources.values()];
   while (selected.length < limit) {
     let added = false;
     for (const bucket of buckets) {
-      const item = bucket.shift();
+      let itemIndex = bucket.findIndex(({ authorKey }) => !authorKey || !selectedAuthors.has(authorKey));
+      // Discard remaining same-author posts from this source bucket rather
+      // than cycling them back into the sample on a later round.
+      if (itemIndex < 0) {
+        bucket.length = 0;
+        continue;
+      }
+      const item = bucket.splice(itemIndex, 1)[0];
       if (!item) continue;
       selected.push(item);
+      if (item.authorKey) selectedAuthors.add(item.authorKey);
       item.dedupeKeys.forEach((key) => excludedKeys.add(key));
       added = true;
       if (selected.length === limit) break;
     }
     if (!added) break;
   }
-  return selected.map(({ dedupeKeys: _dedupeKeys, ...item }) => item);
+  return selected.map(({ dedupeKeys: _dedupeKeys, authorKey: _authorKey, ...item }) => item);
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -345,7 +362,7 @@ export function normalizeMarketSummary(
 
   const submittedIds = new Set([...available.us, ...available.local]);
   const usSummary = available.us.size
-    ? passage("usClaims", available.us)
+    ? passage("baselineClaims", available.us)
     : { text: "No text-bearing records were submitted for the baseline overview. Check source status below; this does not show that discussion is absent.", citations: [] };
   const localSummary = available.local.size
     ? passage("localClaims", available.local)

@@ -103,6 +103,22 @@ describe("market summary evidence contracts", () => {
     expect(excluded).toBe(8);
   });
 
+  it("limits a prolific account to one excerpt per provider in each overview", () => {
+    const repeatedAuthor = [
+      { ...evidence("author-1", "Bluesky", "Semiconductor demand is accelerating.", "bluesky"), attribution: "Author: @one-account", attributionUrl: "https://bsky.app/profile/one-account" },
+      { ...evidence("author-2", "Bluesky", "Semiconductor supply is tightening.", "bluesky"), attribution: "Author: @one-account", attributionUrl: "https://bsky.app/profile/one-account" },
+    ];
+    const otherAuthor = { ...evidence("author-3", "Bluesky", "Chip inventory is falling.", "bluesky"), attribution: "Author: @another-account", attributionUrl: "https://bsky.app/profile/another-account" };
+    const citations = new Map([
+      [citationKey("bluesky", "author-1"), "C1"],
+      [citationKey("bluesky", "author-2"), "C2"],
+      [citationKey("bluesky", "author-3"), "C3"],
+    ]);
+    const selected = selectBalancedEvidence([result("bluesky", "Bluesky", [...repeatedAuthor, otherAuthor])], citations, 8);
+    expect(selected.map(({ citationId }) => citationId)).toEqual(["C1", "C3"]);
+    expect(JSON.stringify(selected)).not.toContain("one-account");
+  });
+
   it.each([
     ["en", "Bond yields rose as interest rates changed.", "I drink coffee before work."],
     ["pt-BR", "A taxa de juros caiu e o câmbio mudou.", "Tomo café todas as manhãs."],
@@ -270,7 +286,7 @@ describe("market summary evidence contracts", () => {
 
   it("accepts only citations present in the corresponding submitted evidence group", () => {
     const summary = normalizeMarketSummary({
-      usClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1", "C99"] }],
+      baselineClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1", "C99"] }],
       localClaims: [{ text: "The selected-language records discuss prices.", citations: ["C2"] }],
       comparisonClaims: [{ text: "These samples are not directly comparable.", citations: ["C1", "C2"] }],
       limitations: ["Not representative"],
@@ -281,7 +297,7 @@ describe("market summary evidence contracts", () => {
 
   it("uses deterministic non-claiming text for a side with no submitted evidence", () => {
     const summary = normalizeMarketSummary({
-      usClaims: [{ text: "Investors universally expect growth.", citations: ["C1"] }],
+      baselineClaims: [{ text: "Investors universally expect growth.", citations: ["C1"] }],
       localClaims: [{ text: "Local view", citations: ["C2"] }],
       comparisonClaims: [{ text: "The two groups disagree.", citations: ["C2"] }],
       limitations: [],
@@ -294,7 +310,7 @@ describe("market summary evidence contracts", () => {
 
   it("rejects unsupported or uncited passages when evidence was supplied", () => {
     const value = {
-      usClaims: [{ text: "The sample proves investors are bullish.", citations: [] }],
+      baselineClaims: [{ text: "The sample proves investors are bullish.", citations: [] }],
       localClaims: [], comparisonClaims: [], limitations: [],
     };
     expect(normalizeMarketSummary(value, { us: new Set(["C1"]), local: new Set() })).toBeNull();
@@ -302,7 +318,7 @@ describe("market summary evidence contracts", () => {
 
   it("rejects an uncited sentence even when another claim in the same overview is cited", () => {
     const summary = normalizeMarketSummary({
-      usClaims: [
+      baselineClaims: [
         { text: "One sourced claim.", citations: ["C1"] },
         { text: "An unsupported factual claim.", citations: [] },
       ],
@@ -315,7 +331,7 @@ describe("market summary evidence contracts", () => {
 
   it("limits claim count and rejects cross-group citations on side-specific views", () => {
     const summary = normalizeMarketSummary({
-      usClaims: [{ text: "Wrong side citation.", citations: ["C2"] }],
+      baselineClaims: [{ text: "Wrong side citation.", citations: ["C2"] }],
       localClaims: [{ text: "Local evidence.", citations: ["C2"] }],
       comparisonClaims: [{ text: "Comparison.", citations: ["C1", "C2"] }],
       limitations: [],
@@ -325,7 +341,7 @@ describe("market summary evidence contracts", () => {
 
   it("rejects multiple sentences hidden under one claim citation", () => {
     const summary = normalizeMarketSummary({
-      usClaims: [{ text: "The sample mentions demand. It also alleges a supply shortage.", citations: ["C1"] }],
+      baselineClaims: [{ text: "The sample mentions demand. It also alleges a supply shortage.", citations: ["C1"] }],
       localClaims: [{ text: "Local evidence.", citations: ["C2"] }],
       comparisonClaims: [{ text: "The samples differ.", citations: ["C1", "C2"] }],
     }, { us: new Set(["C1"]), local: new Set(["C2"]) });
@@ -334,7 +350,7 @@ describe("market summary evidence contracts", () => {
 
   it("requires each comparison claim to cite both submitted evidence groups", () => {
     const summary = normalizeMarketSummary({
-      usClaims: [{ text: "Baseline evidence.", citations: ["C1"] }],
+      baselineClaims: [{ text: "Baseline evidence.", citations: ["C1"] }],
       localClaims: [{ text: "Selected-lens evidence.", citations: ["C2"] }],
       comparisonClaims: [{ text: "The samples diverge.", citations: ["C1"] }],
     }, { us: new Set(["C1"]), local: new Set(["C2"]) });
@@ -343,7 +359,7 @@ describe("market summary evidence contracts", () => {
 
   it("does not accept uncited model-authored limitations", () => {
     const summary = normalizeMarketSummary({
-      usClaims: [{ text: "Baseline evidence.", citations: ["C1"] }],
+      baselineClaims: [{ text: "Baseline evidence.", citations: ["C1"] }],
       localClaims: [{ text: "Selected-lens evidence.", citations: ["C2"] }],
       comparisonClaims: [{ text: "The samples differ.", citations: ["C1", "C2"] }],
       limitations: ["Unsupported claim about the data collection."],

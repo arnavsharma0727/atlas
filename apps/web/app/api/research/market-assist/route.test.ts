@@ -55,7 +55,7 @@ describe("free-tier market assist", () => {
       expect(userPrompt).not.toContain("This English market demand increased");
       expect(userPrompt).not.toContain("unmapped language ID");
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        usClaims: [{ text: "Baseline evidence notes demand.", citations: ["C1"] }],
+        baselineClaims: [{ text: "Baseline evidence notes demand.", citations: ["C1"] }],
         localClaims: [{ text: "Korean evidence notes exports.", citations: ["C2"] }],
         comparisonClaims: [{ text: "The bounded samples differ.", citations: ["C1", "C2"] }],
       }) } }] }), { status: 200 });
@@ -148,20 +148,25 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("Separate those claims from incidental mentions, lifestyle anecdotes, advertisements, fiction, and promotional content");
       expect(messages[0].content).toContain("a worker mentioning coffee, a café photo, or brewing instructions are not evidence of coffee-market views");
       expect(messages[0].content).toContain("does not establish a market thesis");
-      expect(messages[0].content).toContain("Never describe either set as what a country's investors, consumers, residents, or population think");
+      expect(messages[0].content).toContain("Never call either set a national view or describe what a country's investors, consumers, residents, or population think");
+      expect(messages[0].content).toContain("Never describe a company as U.S., Korean, or belonging to any country unless the submitted excerpt itself explicitly states that fact");
+      expect(messages[0].content).toContain("do not label it U.S.");
+      expect(messages[0].content).toContain("do not present its underlying claims as independently verified facts");
       expect(messages[0].content).toContain("linkSharing:true");
       expect(messages[0].content).toContain("Do not attribute linked headlines or copied reporting to the poster as their independent opinion");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
       expect(prompt).toContain("semiconductors");
       expect(prompt).toContain("Selected search lens: Korean language/community evidence for the South Korea selection");
       expect(prompt).toContain("not a sample of that country's population or investors");
+      expect(prompt).toContain("\"baseline\":[");
+      expect(prompt).not.toContain("\"us\":[");
       expect(prompt).not.toContain("https://private.example");
       expect(prompt).not.toContain("@reader");
       expect(prompt).not.toContain("analyst@private.example");
       expect(prompt).toContain("[handle]");
       expect(prompt).toContain("[email]");
       expect(prompt).toContain("\"linkSharing\":true");
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ usClaims: [{ text: "US sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }], comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: ["Not representative"] }) } }] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ baselineClaims: [{ text: "The baseline sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }], comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: ["Not representative"] }) } }] }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
@@ -169,7 +174,7 @@ describe("free-tier market assist", () => {
       evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments (@reader), https://private.example/story analyst@private.example", language: "en", linkSharing: true }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "수출 관련 의견", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "US sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
+    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "The baseline sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
   });
 
   it("retries Groq JSON validation failures once and still validates Atlas citations", async () => {
@@ -178,7 +183,7 @@ describe("free-tier market assist", () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "json_validate_failed", type: "invalid_request_error" } }), { status: 400 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: `Here is the evidence summary:\n\n\`\`\`json\n${JSON.stringify({
-        usClaims: [{ text: "US sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }],
+        baselineClaims: [{ text: "The baseline sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }],
         comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: [],
       })}\n\`\`\`` } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
@@ -198,7 +203,7 @@ describe("free-tier market assist", () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-      usClaims: [{ text: "Unsupported statement.", citations: ["C99"] }], localClaims: [],
+      baselineClaims: [{ text: "Unsupported statement.", citations: ["C99"] }], localClaims: [],
       comparisonClaims: [], limitations: [],
     }) } }] }), { status: 200 })));
     const response = await POST(makeRequest({
