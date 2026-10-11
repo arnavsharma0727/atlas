@@ -141,11 +141,12 @@ export default function ResearchSweep({
           {MARKET_COUNTRIES.map((item) => <option value={item.code} key={item.code}>{item.name}</option>)}
         </select>
         <button className="btn btn-primary market-search-button" type="submit" disabled={loading}>
-          {loading ? "Searching…" : "Search"}
+          {!loading && <svg aria-hidden="true" viewBox="0 0 20 20" className="market-search-icon"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>}
+          <span>{loading ? "Searching…" : "Search"}</span>
         </button>
       </form>
 
-      <p className="market-attribution">By: Arnav Sharma UVA30’</p>
+      <p className="market-attribution">By: <a href="https://www.linkedin.com/in/arnavsharma0727/" target="_blank" rel="noreferrer">Arnav Sharma UVA30’</a></p>
       <div className="search-data-note">
         <span>Search automatically creates an AI summary when available. The topic and up to 16 short public excerpts are sent to Groq; source links and author handles are excluded. AI may be unavailable if the operator has not enabled it or free usage limits are reached. <a href="/privacy">Privacy details</a>.</span>
         <nav className="search-policy-links" aria-label="Search and data policies">
