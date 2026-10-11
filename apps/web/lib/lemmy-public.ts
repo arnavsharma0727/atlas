@@ -62,6 +62,40 @@ type SearchResult = {
   }>;
 };
 
+type LemmySiteLanguages = {
+  all_languages?: Array<{ id?: number; code?: string; name?: string }>;
+};
+
+/** Resolve language IDs using the same instance that emitted the post. IDs are not assumed portable. */
+export async function getLemmyLanguageCatalog(
+  host: LemmyInstance,
+  fetcher: typeof fetch = fetch,
+): Promise<Map<number, { code: string; name: string }> | null> {
+  if (!LEMMY_INSTANCES.some((instance) => instance.host === host)) {
+    throw new Error("Choose a supported public Lemmy instance.");
+  }
+  try {
+    const response = await fetcher(`https://${host}/api/v3/site`, { headers: { accept: "application/json" } });
+    if (!response.ok) return null;
+    const body = await response.json() as LemmySiteLanguages;
+    if (!Array.isArray(body.all_languages) || body.all_languages.length > 250) return null;
+    const languages = new Map<number, { code: string; name: string }>();
+    for (const language of body.all_languages) {
+      if (
+        Number.isInteger(language.id) && language.id! >= 0 &&
+        typeof language.code === "string" && /^[a-z]{2,3}$/iu.test(language.code) &&
+        typeof language.name === "string" && language.name.length <= 80
+      ) {
+        languages.set(language.id!, { code: language.code.toLocaleLowerCase(), name: language.name });
+      }
+    }
+    return languages.size ? languages : null;
+  } catch {
+    // Language labels improve filtering but must never take down an otherwise healthy post search.
+    return null;
+  }
+}
+
 const MAX_RESULTS = 20;
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 

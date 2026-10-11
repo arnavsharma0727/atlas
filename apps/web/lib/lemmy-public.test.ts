@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { compareLemmyInstances, LemmyInstance, searchLemmyPosts } from "./lemmy-public";
+import { compareLemmyInstances, getLemmyLanguageCatalog, LemmyInstance, searchLemmyPosts } from "./lemmy-public";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -22,6 +22,28 @@ function item(overrides: { id?: number; ap_id?: string; published?: string; remo
 }
 
 describe("Lemmy public discussion search", () => {
+  it("resolves instance-specific post language IDs from that instance's public site metadata", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      all_languages: [
+        { id: 32, code: "de", name: "Deutsch" },
+        { id: 37, code: "en", name: "English" },
+      ],
+    }), { status: 200 }));
+    const catalog = await getLemmyLanguageCatalog("discuss.tchncs.de", fetchMock);
+    expect(new URL(fetchMock.mock.calls[0][0] as string).href).toBe("https://discuss.tchncs.de/api/v3/site");
+    expect(catalog?.get(32)).toEqual({ code: "de", name: "Deutsch" });
+    expect(catalog?.get(37)?.code).toBe("en");
+    expect(catalog?.get(84)).toBeUndefined();
+  });
+
+  it("fails open when language metadata is unavailable or malformed", async () => {
+    const unavailable = vi.fn().mockResolvedValue(new Response("", { status: 503 }));
+    expect(await getLemmyLanguageCatalog("jlai.lu", unavailable)).toBeNull();
+    const malformed = vi.fn().mockResolvedValue(new Response(JSON.stringify({ all_languages: [{ id: 1, code: "not a code", name: "bad" }] }), { status: 200 }));
+    expect(await getLemmyLanguageCatalog("jlai.lu", malformed)).toBeNull();
+    await expect(getLemmyLanguageCatalog("unknown.invalid" as LemmyInstance, malformed)).rejects.toThrow("supported public Lemmy");
+  });
+
   it("returns only recent, linked metadata and never includes post bodies", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ posts: [item()] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);

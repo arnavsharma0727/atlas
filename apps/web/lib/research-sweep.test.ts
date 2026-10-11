@@ -7,7 +7,9 @@ const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
   it("uses a body-less Lemmy market-post title as transient AI evidence without duplicating it in the source preview", async () => {
-    const fetcher = vi.fn(async () => Response.json({ posts: [{
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => new URL(String(input)).pathname.endsWith("/site")
+      ? Response.json({ all_languages: [{ id: 37, code: "en", name: "English" }] })
+      : Response.json({ posts: [{
       post: {
         id: 31,
         ap_id: "https://lemmy.world/post/31",
@@ -22,12 +24,27 @@ describe("runResearchSweep", () => {
     const [result] = await runResearchSweep("chip demand", { lemmy: true, lemmyInstances: ["lemmy.world"] }, fetcher, NOW);
     const item = result.evidence[0];
     expect(item).toMatchObject({ title: "Chip demand rises as inventory tightens", transientPreview: "Chip demand rises as inventory tightens" });
+    expect(item.language).toBe("en");
+    expect(result.sourceNote).toContain("lemmy.world's live /api/v3/site language catalog");
     expect(item.context).toContain("post title is the only transient discussion excerpt");
     expect(hasMarketSignalTerms({ excerpt: item.transientPreview!, language: item.language })).toBe(true);
     expect(selectBalancedEvidence([result], new Map([[citationKey(result.key, item.id), "C1"]]))).toEqual([
       expect.objectContaining({ citationId: "C1", excerpt: "Chip demand rises as inventory tightens", title: "Public discussion post" }),
     ]);
     expect(item.transientPreview).not.toBeUndefined();
+  });
+
+  it("keeps a Lemmy language ID unresolved when that same instance catalog has no matching entry", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => new URL(String(input)).pathname.endsWith("/site")
+      ? Response.json({ all_languages: [{ id: 37, code: "en", name: "English" }] })
+      : Response.json({ posts: [{
+        post: { id: 32, ap_id: "https://jlai.lu/post/32", name: "Market supply discussion", published: new Date(NOW - 60_000).toISOString(), language_id: 999 },
+        creator: { name: "member", actor_id: "https://jlai.lu/u/member" },
+        community: { name: "economie" },
+      }] }));
+    const [result] = await runResearchSweep("market supply", { lemmy: true, lemmyInstances: ["jlai.lu"] }, fetcher, NOW);
+    expect(result.evidence[0].language).toContain("unmapped by jlai.lu");
+    expect(result.sourceNote).toContain("1 post language ID was not found");
   });
 
   it("keeps MANA crowd forecasts separate from discussion summaries", async () => {
@@ -499,7 +516,7 @@ describe("runResearchSweep", () => {
       wikimediaLanguage: "en",
     }, fetcher, NOW);
 
-    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(fetcher).toHaveBeenCalledTimes(5);
     expect(results.map(({ key, evidence, error }) => [key, evidence.length, error])).toEqual([
       ["stack-exchange:economics", 1, null],
       ["lemmy:lemmy.world", 1, null],
@@ -550,14 +567,16 @@ describe("runResearchSweep", () => {
   it("does not require an in-app terms affirmation to query a public Lemmy API", async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ posts: [] })));
     const results = await runResearchSweep("markets", { gdelt: false, lemmy: true }, fetcher, NOW);
-    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledTimes(2);
     expect(results[0]).toMatchObject({ key: "lemmy:lemmy.world", status: "complete", evidence: [] });
   });
 
   it("keeps selected Lemmy instance results separate", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
-      return new Response(JSON.stringify({ posts: [{
+      return url.pathname.endsWith("/site")
+        ? Response.json({ all_languages: [{ id: 37, code: "en", name: "English" }] })
+        : new Response(JSON.stringify({ posts: [{
         post: { id: 2, ap_id: `https://${url.hostname}/post/2`, name: "A recent topic", published: new Date(NOW - 60_000).toISOString(), language_id: 37 },
         creator: { name: "member", actor_id: `https://${url.hostname}/u/member` },
         community: { name: "world" },
@@ -569,7 +588,7 @@ describe("runResearchSweep", () => {
       lemmyInstances: ["lemmy.world", "discuss.tchncs.de"],
       lemmyTermsAccepted: true,
     }, fetcher, NOW);
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenCalledTimes(4);
     expect(results.map(({ key, evidence }) => [key, evidence[0]?.source])).toEqual([
       ["lemmy:lemmy.world", "Lemmy · lemmy.world / c/world"],
       ["lemmy:discuss.tchncs.de", "Lemmy · discuss.tchncs.de / c/world"],
@@ -587,7 +606,7 @@ describe("runResearchSweep", () => {
       lemmyInstances: ["lemmy.world", "jlai.lu"],
       lemmyLocalInstances: ["jlai.lu"],
     }, fetcher, NOW);
-    expect(requested.map((url) => [url.hostname, url.searchParams.get("listing_type")])).toEqual([
+    expect(requested.filter((url) => url.pathname.endsWith("/search")).map((url) => [url.hostname, url.searchParams.get("listing_type")])).toEqual([
       ["lemmy.world", "All"],
       ["jlai.lu", "Local"],
     ]);
@@ -611,7 +630,7 @@ describe("runResearchSweep", () => {
       lemmy: true,
       lemmyInstances: ["lemmy.world", "discuss.tchncs.de", "feddit.org", "jlai.lu", "sopuli.xyz", "sh.itjust.works"],
     }, fetcher, NOW);
-    expect(fetcher).toHaveBeenCalledTimes(6);
+    expect(fetcher).toHaveBeenCalledTimes(12);
     expect(results.map(({ key, status }) => [key, status])).toEqual([
       ["lemmy:lemmy.world", "complete"],
       ["lemmy:discuss.tchncs.de", "complete"],
@@ -639,7 +658,7 @@ describe("runResearchSweep", () => {
       ],
       lemmyTermsAccepted: true,
     }, fetcher, NOW);
-    expect(requested).toEqual([
+    expect(requested.filter(({ phrase }) => phrase !== null)).toEqual([
       { host: "lemmy.world", phrase: "semiconductor" },
       { host: "jlai.lu", phrase: "semi-conducteur" },
     ]);

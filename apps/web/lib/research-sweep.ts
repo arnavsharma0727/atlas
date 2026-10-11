@@ -2,7 +2,7 @@ import { searchBlueskyPosts } from "./bluesky-public";
 import { withFetchTimeout } from "./fetch-with-timeout";
 import type { GlobalVoicesEditionResult } from "./global-voices-search";
 import { DISCUSSION_COMMUNITIES, getStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-topic-search";
-import { LEMMY_INSTANCES, LemmyInstance, LemmyListingType, searchLemmyPosts } from "./lemmy-public";
+import { getLemmyLanguageCatalog, LEMMY_INSTANCES, LemmyInstance, LemmyListingType, searchLemmyPosts } from "./lemmy-public";
 import { MASTODON_INSTANCES, mastodonHtmlToTransientText, searchPublicHashtag } from "./mastodon-public";
 import type { MastodonInstance } from "./mastodon-public";
 import { WIKIMEDIA_TALK_WIKIS, searchWikimediaTalk } from "./wikimedia-talk";
@@ -480,8 +480,16 @@ export async function runResearchSweep(
       const term = selection.lemmyQueries?.find((item) => item.host === host)?.query.trim() ?? query;
       const listingType: LemmyListingType = lemmyLocalInstances.has(host) ? "local" : "all";
       const viewLabel = listingType === "local" ? "locally hosted communities" : "federated search";
-      tasks.push(capture(`lemmy:${host}`, `Lemmy · ${host} · ${viewLabel}`, term, asOf, "Recent posts within 7 days; up to 20 per server view", async () =>
-      (await searchLemmyPosts(term, host, boundedFetch, now, listingType)).map((post) => ({
+      let languageCatalogAvailable = false;
+      let unmappedLanguageCount = 0;
+      tasks.push(capture(`lemmy:${host}`, `Lemmy · ${host} · ${viewLabel}`, term, asOf, "Recent posts within 7 days; up to 20 per server view", async () => {
+      const [posts, languageCatalog] = await Promise.all([
+        searchLemmyPosts(term, host, boundedFetch, now, listingType),
+        getLemmyLanguageCatalog(host, boundedFetch),
+      ]);
+      languageCatalogAvailable = languageCatalog !== null;
+      unmappedLanguageCount = posts.filter((post) => post.languageId !== null && !languageCatalog?.has(post.languageId)).length;
+      return posts.map((post) => ({
         id: `lemmy:${post.url}`,
         title: post.title,
         url: post.url,
@@ -492,7 +500,9 @@ export async function runResearchSweep(
           !post.transientPreview ? "No post body was returned; the post title is the only transient discussion excerpt available." : undefined,
           includesExternalLink(post.transientPreview ?? post.title) ? LINKED_POST_CAVEAT : undefined,
         ].filter(Boolean).join(" "),
-        language: post.languageId === null ? "not provided" : `Lemmy language metadata ID ${post.languageId} (instance-specific; language not mapped)`,
+        language: post.languageId === null
+          ? "not provided"
+          : languageCatalog?.get(post.languageId)?.code ?? `Lemmy language metadata ID ${post.languageId} (unmapped by ${host})`,
         timeLabel: "Published",
         timeValue: post.publishedAt,
         linkSharing: includesExternalLink(post.transientPreview ?? post.title),
@@ -503,8 +513,12 @@ export async function runResearchSweep(
         sourceOperatorLabel: "Lemmy federated search",
         // A link post may have no body; its own title is still transient primary evidence.
         transientPreview: post.transientPreview ?? post.title,
-      })),
-      ));
+      }));
+      }, () => languageCatalogAvailable
+        ? unmappedLanguageCount
+          ? `${unmappedLanguageCount} post language ID${unmappedLanguageCount === 1 ? " was" : "s were"} not found in ${host}'s live /api/v3/site catalog; those labels remain unresolved. Provider language metadata does not establish author nationality or residence.`
+          : `Post language IDs resolved against ${host}'s live /api/v3/site language catalog; provider labels do not establish author nationality or residence.`
+        : `The ${host} language catalog was unavailable or incomplete; unresolved IDs remain visible and cannot match a provider language label. Korean, Japanese, or Hindi script-only fallback may still qualify; other unknown languages are excluded.`));
     }
   }
   for (const { hashtag, instance } of mastodonQueries) {
