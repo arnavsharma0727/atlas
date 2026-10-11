@@ -7,7 +7,7 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
+import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, selectBalancedEvidence, type MarketSummary } from "../../lib/market-summary";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
@@ -130,9 +130,11 @@ export default function ResearchSweep({
       const includedEvidenceKeys = new Set<string>();
       let baselineScreenedOut = 0;
       let selectedScreenedOut = 0;
+      const marketTopicEligibility = (searchPhrase: string) => (item: Parameters<typeof hasMarketSignalTerms>[0]) =>
+        hasMarketSignalTerms(item) && hasTopicSignalTerms(item.excerpt, searchPhrase);
       const candidateEvidence = {
-        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys, undefined, hasMarketSignalTerms, () => baselineScreenedOut++),
-        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language, hasMarketSignalTerms, () => selectedScreenedOut++),
+        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys, undefined, marketTopicEligibility(topic), () => baselineScreenedOut++),
+        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language, marketTopicEligibility(localQuery), () => selectedScreenedOut++),
       };
       const evidenceForAi = candidateEvidence;
       setScreenedOutCounts({
@@ -140,7 +142,7 @@ export default function ResearchSweep({
         selected: selectedScreenedOut,
       });
       const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
-        ? await requestMarketAssist({ action: "summarize", topic, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
+        ? await requestMarketAssist({ action: "summarize", topic, localTopic: localQuery, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
         : { mode: "unavailable", query: "", hashtags: [], summary: null };
       if (generated.mode === "ai" && generated.summary) {
         setSummary(activeCountryCode === "US" ? sameCountrySummary(generated.summary) : generated.summary);
@@ -241,7 +243,7 @@ export default function ResearchSweep({
             </article>
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             <p className="market-summary-caveat">For social posts with attribution, no more than one excerpt per displayed account from each provider/network enters an overview. Account labels are used only to limit concentration; they are not sent to AI and do not verify a person's identity.</p>
-            <p className="market-summary-caveat">Before source balancing and the eight-excerpt cap, the conservative market-language screen excluded {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens candidate excerpts. This screen can miss relevant posts and does not itself prove relevance.</p>
+            <p className="market-summary-caveat">Before source balancing and the eight-excerpt cap, the topic-and-market-language screen excluded {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens candidate excerpts. It requires a query-topic term plus market language; synonym-only posts can be missed, and passing the screen does not prove relevance.</p>
             <p className="market-summary-caveat">The selected-language AI overview uses only records with an understood, matching provider language label. Mismatched, missing, or instance-specific language labels stay visible in the source list but are excluded from that overview.</p>
             <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives an English-language filter only when the query fits the provider limit; Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}
@@ -266,7 +268,7 @@ export default function ResearchSweep({
   );
 }
 
-async function requestMarketAssist(input: { action: "prepare"; topic: string; country: string; aiEnabled: true } | { action: "summarize"; topic: string; country: string; aiEnabled: true; evidence: { us: ReturnType<typeof selectBalancedEvidence>; local: ReturnType<typeof selectBalancedEvidence> } }) {
+async function requestMarketAssist(input: { action: "prepare"; topic: string; country: string; aiEnabled: true } | { action: "summarize"; topic: string; localTopic: string; country: string; aiEnabled: true; evidence: { us: ReturnType<typeof selectBalancedEvidence>; local: ReturnType<typeof selectBalancedEvidence> } }) {
   try {
     const response = await fetch("/api/research/market-assist", {
       method: "POST",

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketCountry } from "../../../../lib/market-countries";
-import { hasMarketSignalTerms, isVerifiedLanguageMatch, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
+import { hasMarketSignalTerms, hasTopicSignalTerms, isVerifiedLanguageMatch, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { topicHashtags } from "../../../../lib/topic-hashtags";
 
 export const runtime = "nodejs";
@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
   if (body.aiEnabled !== true) return json({ error: "AI must be requested by a search action" }, 403);
   const topic = typeof body.topic === "string" ? body.topic.trim() : "";
   if (topic.length < 2 || topic.length > 100) return json({ error: "Topic must be 2–100 characters" }, 400);
+  const localTopic = typeof body.localTopic === "string" ? body.localTopic.trim() : topic;
+  if (localTopic.length < 2 || localTopic.length > 100) return json({ error: "Local topic phrase must be 2–100 characters" }, 400);
   let country;
   try { country = marketCountry(typeof body.country === "string" ? body.country : ""); }
   catch { return json({ error: "Unsupported country search lens" }, 400); }
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.action === "summarize") {
-    const evidence = parseEvidence(body.evidence, country.language === "en" ? undefined : country.language);
+    const evidence = parseEvidence(body.evidence, topic, country.language === "en" ? topic : localTopic, country.language === "en" ? undefined : country.language);
     if (!evidence) return json({ error: "Invalid evidence payload" }, 400);
     const generated = await groq<Record<string, unknown>>(
       `Summarize only the JSON evidence and topic below. Return JSON only with this shape: {"baselineClaims":[{"text":"one concise factual claim","citations":["C1"]}],"localClaims":[{"text":"one concise factual claim","citations":["C2"]}],"comparisonClaims":[{"text":"one cautious comparison claim","citations":["C1","C2"]}]}. Each claim must be exactly one sentence and have its own one or more exact citation IDs from the relevant evidence list. Every comparison claim must cite at least one ID from each evidence list. Never combine multiple claims into one item. Use 1-4 claims per non-empty group. Do not add a separate limitations field, citation markers, or URLs inside prose. Say when evidence is sparse or not comparable. Topic: ${JSON.stringify(topic)}. Selected search lens: ${country.languageName} language/community evidence for the ${country.name} selection; this is not a sample of that country's population or investors. Evidence JSON: ${JSON.stringify({ baseline: evidence.us, local: evidence.local })}`,
@@ -175,7 +177,7 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   return null;
 }
 
-function parseEvidence(value: unknown, expectedLocalLanguage?: string): EvidenceGroups | null {
+function parseEvidence(value: unknown, baselineTopic: string, localTopic: string, expectedLocalLanguage?: string): EvidenceGroups | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   const parse = (list: unknown): EvidenceItem[] | null => {
@@ -201,12 +203,14 @@ function parseEvidence(value: unknown, expectedLocalLanguage?: string): Evidence
   // Browser filtering improves UX; this prevents a direct request from
   // bypassing that screen and spending the model call on incidental mentions.
   if (!us || !local || (!us.length && !local.length)) return null;
-  if ([...us, ...local].some((item) => !hasMarketSignalTerms(item))) return null;
+  if (us.some((item) => !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, baselineTopic))) return null;
+  const matchingLocalLanguage = expectedLocalLanguage
+    ? local.filter((item) => isVerifiedLanguageMatch(item.language, expectedLocalLanguage))
+    : local;
+  if (matchingLocalLanguage.some((item) => !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, localTopic))) return null;
   return {
     us,
-    local: expectedLocalLanguage
-      ? local.filter((item) => isVerifiedLanguageMatch(item.language, expectedLocalLanguage))
-      : local,
+    local: matchingLocalLanguage,
   };
 }
 

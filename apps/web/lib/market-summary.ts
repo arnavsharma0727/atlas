@@ -29,6 +29,43 @@ const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
   hi: /(?:बाज़ार|बाजार|मांग|आपूर्ति|कीमत|बिक्री|राजस्व|मुनाफ़ा|मुनाफा|शेयर|निवेश|लाभ|नुकसान|टैरिफ़|टैरिफ|निर्यात|आयात|उत्पादन|फ़सल|फसल|कमोडिटी|ब्याज दर|विनिमय दर|शेयर बाज़ार|शेयर बाजार|बाज़ार पूंजीकरण|बाजार पूंजीकरण|लाभांश|आपूर्ति श्रृंखला|मूल्यांकन)/u,
 };
 
+const QUERY_INTENT_TERMS = new Set([
+  "a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with",
+  "market", "markets", "marketplace", "price", "prices", "pricing", "demand", "supply",
+  "sales", "revenue", "margin", "margins", "inventory", "inventories", "stock", "stocks",
+  "share", "shares", "invest", "investor", "investors", "investment", "investments",
+  "earnings", "profit", "profits", "loss", "losses", "tariff", "tariffs", "export", "exports",
+  "import", "imports", "production", "yield", "yields", "commodity", "commodities", "futures",
+  "valuation", "valuations", "guidance", "cash", "flow", "dividend", "dividends", "debt", "equity",
+  "interest", "rate", "rates", "bond", "bonds", "chain", "order", "book", "capital", "expenditure",
+]);
+
+const MARKET_TOPIC_ALIASES: string[][] = [
+  ["semiconductor", "semiconductors", "chip", "chips", "gpu", "gpus", "wafer", "wafers"],
+  ["oil", "crude", "petroleum", "brent", "wti"],
+  ["natural gas", "lng", "gas"],
+  ["bitcoin", "btc"],
+  ["ethereum", "ether", "eth"],
+  ["electric vehicle", "electric vehicles", "ev", "evs"],
+];
+
+/** Require evidence to mention the searched subject, not merely generic market vocabulary. */
+export function hasTopicSignalTerms(excerpt: string, topic: string): boolean {
+  const normalizedExcerpt = excerpt.normalize("NFKC").toLocaleLowerCase();
+  const topicTerms = (topic.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
+    .filter((term) => !QUERY_INTENT_TERMS.has(term));
+  if (!topicTerms.length) return false;
+  const matches = (term: string) => {
+    if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(term)) return normalizedExcerpt.includes(term);
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    return new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`, "iu").test(normalizedExcerpt);
+  };
+  for (const aliasGroup of MARKET_TOPIC_ALIASES) {
+    if (topicTerms.some((term) => aliasGroup.includes(term)) && aliasGroup.some(matches)) return true;
+  }
+  return topicTerms.some(matches);
+}
+
 /**
  * Conservative lexical screen for discussion snippets sent to AI. It is not
  * a semantic relevance classifier: a match is only a minimum vocabulary gate.

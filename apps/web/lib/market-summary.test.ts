@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
+import { collapseRepeatedEvidenceViews, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isNearDuplicateExcerpt, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
@@ -80,6 +80,15 @@ describe("market summary evidence contracts", () => {
     expect(hasMarketSignalTerms({ excerpt: "커피 수요와 원자재 가격이 상승했다.", language: "ko" })).toBe(true);
     expect(hasMarketSignalTerms({ excerpt: "The smell of coffee fills the room.", language: "Lemmy language ID 0" })).toBe(false);
     expect(hasMarketSignalTerms({ excerpt: "시장 수요가 증가했다.", language: "Lemmy language ID 0" })).toBe(true);
+  });
+
+  it("requires a topic match as well as market language and accepts a small set of clear market aliases", () => {
+    expect(hasTopicSignalTerms("Critical minerals and industrial supply demand are changing.", "semiconductor demand")).toBe(false);
+    expect(hasTopicSignalTerms("GPU chip demand is accelerating.", "semiconductor demand")).toBe(true);
+    expect(hasTopicSignalTerms("Semiconductor demand is accelerating.", "semiconductor demand")).toBe(true);
+    expect(hasTopicSignalTerms("반도체 수요가 증가했다.", "반도체 수요")).toBe(true);
+    expect(hasTopicSignalTerms("Demand increased across markets.", "semiconductor demand")).toBe(false);
+    expect(hasTopicSignalTerms("Supply is tightening.", "demand and supply")).toBe(false);
   });
 
   it("applies the market-language screen before the balanced eight-item cap", () => {

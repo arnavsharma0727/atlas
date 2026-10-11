@@ -45,13 +45,26 @@ describe("free-tier market assist", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("rejects generic market-language excerpts that do not mention the searched topic", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductor demand", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Lemmy", title: "Public discussion post", excerpt: "Critical minerals demand is rising.", language: "en" }], local: [] },
+    }));
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("excludes mismatched and unverified languages from a localized Groq request", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
     const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const requestBody = JSON.parse(String(init?.body));
       const userPrompt = requestBody.messages.find((message: { role: string }) => message.role === "user").content;
-      expect(userPrompt).toContain("\"excerpt\":\"수출 시장 수요가 증가했다\"");
+      expect(userPrompt).toContain("\"excerpt\":\"반도체 수출 시장 수요가 증가했다\"");
       expect(userPrompt).not.toContain("This English market demand increased");
       expect(userPrompt).not.toContain("unmapped language ID");
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
@@ -62,11 +75,11 @@ describe("free-tier market assist", () => {
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
-      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
+      action: "summarize", topic: "semiconductors", localTopic: "반도체 수요", country: "KR", aiEnabled: true,
       evidence: {
-        us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand is increasing.", language: "en" }],
+        us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand is increasing.", language: "en" }],
         local: [
-          { citationId: "C2", source: "Mastodon", title: "Post", excerpt: "수출 시장 수요가 증가했다", language: "ko" },
+          { citationId: "C2", source: "Mastodon", title: "Post", excerpt: "반도체 수출 시장 수요가 증가했다", language: "ko" },
           { citationId: "C3", source: "Lemmy", title: "Post", excerpt: "This English market demand increased", language: "en" },
           { citationId: "C4", source: "Lemmy", title: "Post", excerpt: "A market demand view", language: "Lemmy unmapped language ID 0" },
         ],
@@ -92,7 +105,7 @@ describe("free-tier market assist", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "private provider detail" } }), { status: 429 })));
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand is increasing.", language: "en" }], local: [] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand is increasing.", language: "en" }], local: [] },
     }));
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ mode: "unavailable", reason: "rate-limited" });
@@ -170,8 +183,8 @@ describe("free-tier market assist", () => {
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
-      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Demand comments (@reader), https://private.example/story analyst@private.example", language: "en", linkSharing: true }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "수출 관련 의견", language: "ko" }] },
+      action: "summarize", topic: "semiconductors", localTopic: "반도체 수요", country: "KR", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Semiconductor demand comments (@reader), https://private.example/story analyst@private.example", language: "en", linkSharing: true }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "반도체 수출 관련 의견", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "The baseline sample notes demand.", citations: ["C1"] }, localSummary: { text: "KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
@@ -188,8 +201,8 @@ describe("free-tier market assist", () => {
       })}\n\`\`\`` } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
-      action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand comments", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Post", excerpt: "수출 관련 의견", language: "ko" }] },
+      action: "summarize", topic: "semiconductors", localTopic: "반도체 수요", country: "KR", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand comments", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Post", excerpt: "반도체 수출 관련 의견", language: "ko" }] },
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { citations: ["C1"] }, localSummary: { citations: ["C2"] } } });
@@ -208,7 +221,7 @@ describe("free-tier market assist", () => {
     }) } }] }), { status: 200 })));
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Demand remains uncertain.", language: "en" }], local: [] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand remains uncertain.", language: "en" }], local: [] },
     }));
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation" });
