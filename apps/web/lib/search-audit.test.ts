@@ -61,7 +61,7 @@ describe("local search audit", () => {
 
   it("does not turn an unavailable or unsearched source into a zero-return observation", async () => {
     const input = fixture();
-    input.results = ["unavailable", "not-searched"].map((status) => ({ ...input.results[0], status: status as ResearchSweepSourceResult["status"], evidence: [], providerReturnedCount: undefined, adapterExcludedCount: undefined, topicExcludedCount: undefined, error: "PRIVATE_ERROR" }));
+    input.results = ["unavailable", "not-searched"].map((status) => ({ ...input.results[0], status: status as ResearchSweepSourceResult["status"], evidence: [], providerReturnedCount: status === "not-searched" ? 0 : undefined, adapterExcludedCount: status === "not-searched" ? 0 : undefined, topicExcludedCount: status === "not-searched" ? 0 : undefined, error: "PRIVATE_ERROR" }));
     const snapshot = await buildSearchAudit(input);
     for (const source of snapshot.sources) {
       expect(source.providerReturnedCount).toBeNull();

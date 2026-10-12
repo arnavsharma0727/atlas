@@ -47,9 +47,11 @@ export async function buildSearchAudit(input: {
       retrievedAt: view.result.retrievedAt ?? null,
       window: view.result.window,
       status: view.result.status,
-      providerReturnedCount: view.result.status === "complete" || view.result.status === "partial" ? view.returnedCount : view.result.providerReturnedCount ?? null,
-      sourceSafetyExcludedCount: view.result.adapterExcludedCount ?? (view.result.status === "complete" || view.result.status === "partial" ? 0 : null),
-      topicExcludedCount: view.result.topicExcludedCount ?? (view.result.status === "complete" || view.result.status === "partial" ? 0 : null),
+      // The display filter initializes missing counts to zero even for failed
+      // searches. Status, not presence of that placeholder, establishes a run.
+      providerReturnedCount: view.result.status === "complete" || view.result.status === "partial" ? view.returnedCount : null,
+      sourceSafetyExcludedCount: view.result.status === "complete" || view.result.status === "partial" ? view.result.adapterExcludedCount ?? 0 : null,
+      topicExcludedCount: view.result.status === "complete" || view.result.status === "partial" ? view.result.topicExcludedCount ?? 0 : null,
       duplicateSuppressedCount: view.duplicateCount,
       displayedUniqueCount: view.evidence.length,
       overviewCandidateCount: input.candidateCounts[view.result.key] ?? 0,
