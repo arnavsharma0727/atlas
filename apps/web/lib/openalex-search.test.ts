@@ -14,6 +14,11 @@ const work = (title: string, offsetDays = 1) => ({
 });
 
 describe("searchOpenAlexWorks", () => {
+  it("does not match market inside marketing or discard Hindi vowel signs", async () => {
+    const fetcher = vi.fn(async () => Response.json({ results: [work("Bitcoin marketing"), work("Bitcoin market"), work("कीमत नीति"), work("मत नीति")] }));
+    expect((await searchOpenAlexWorks("bitcoin market", fetcher, NOW)).map((record) => record.title)).toEqual(["Bitcoin market"]);
+    expect((await searchOpenAlexWorks("कीमत नीति", fetcher, NOW)).map((record) => record.title)).toEqual(["कीमत नीति"]);
+  });
   it("rejects dates JavaScript would silently roll into another month", async () => {
     const dates = ["2026-02-29", "2026-04-31", "2026-13-01", "2026-00-01", "2026-01-00", "2026-1-01", "2024-02-29"];
     const fetcher = vi.fn(async () => Response.json({ results: dates.map((publication_date) => ({ ...work("Bitcoin market"), publication_date })) }));

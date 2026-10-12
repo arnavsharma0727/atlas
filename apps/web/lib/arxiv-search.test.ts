@@ -12,6 +12,13 @@ function entry({ id = "2604.01234", title = "Semiconductor investment and chip s
 }
 
 describe("public arXiv metadata search", () => {
+  it("preserves Hindi words in both the upstream query and retained title screen", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      expect(new URL(String(input)).searchParams.get("search_query")).toBe("all:कीमत AND all:नीति");
+      return new Response(feed([entry({ title: "कीमत नीति" }), entry({ title: "मत नीति" })]));
+    });
+    expect((await searchArxiv("कीमत नीति", fetcher, NOW)).map((record) => record.title)).toEqual(["कीमत नीति"]);
+  });
   it("rejects impossible submission dates and normalized 24-hour rollover", async () => {
     const fetcher = vi.fn(async () => new Response(feed([
       entry({ published: "2026-02-29T00:00:00Z" }),

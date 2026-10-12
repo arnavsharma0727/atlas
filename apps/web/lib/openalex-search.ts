@@ -1,5 +1,6 @@
 import { matchesScholarlyContext } from "./scholarly-context-relevance";
 import { publicationDateFromISO } from "./publication-date";
+import { matchesScholarlyTitle } from "./scholarly-title-match";
 
 export type OpenAlexWork = {
   id: string;
@@ -20,7 +21,6 @@ type ApiWork = {
 };
 
 const MAX_BODY_BYTES = 1_000_000;
-const STOP_WORDS = new Set(["a", "an", "and", "for", "from", "in", "of", "on", "or", "the", "to", "with"]);
 
 /** Keyless OpenAlex search; retain only title-level metadata, never abstracts or authors. */
 export async function searchOpenAlexWorks(
@@ -71,18 +71,14 @@ export async function searchOpenAlexWorks(
   if (!payload || typeof payload !== "object" || !("results" in payload) || !Array.isArray(payload.results)) {
     throw new Error("OpenAlex returned an unexpected response.");
   }
-  const terms = query.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-  const meaningful = terms.filter((term) => term.length > 1 && !STOP_WORDS.has(term));
   const oldestTime = oldest.getTime();
   return (payload.results as ApiWork[]).flatMap((work) => {
     const title = typeof work.title === "string" ? work.title.replace(/\s+/g, " ").trim().slice(0, 300) : "";
-    const titleNormalized = title.normalize("NFKC").toLocaleLowerCase();
     const published = publicationDateFromISO(work.publication_date);
     const rawId = typeof work.id === "string" ? work.id : "";
     const doi = typeof work.doi === "string" ? work.doi : "";
     const url = safeWorkUrl(doi, rawId);
-    if (!title || !url || !published || published.timestamp < oldestTime || published.timestamp > now || !matchesScholarlyContext(query, title) ||
-      (meaningful.length ? !meaningful.every((term) => titleNormalized.includes(term)) : !titleNormalized.includes(query.normalize("NFKC").toLocaleLowerCase()))) return [];
+    if (!title || !url || !published || published.timestamp < oldestTime || published.timestamp > now || !matchesScholarlyContext(query, title) || !matchesScholarlyTitle(title, query)) return [];
     return [{
       id: url,
       title,

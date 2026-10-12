@@ -577,12 +577,12 @@ export function isNearDuplicateExcerpt(left: string, right: string): boolean {
   const shingles = (value: string) => {
     const normalized = value.normalize("NFKC").toLocaleLowerCase();
     if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(normalized)) {
-      const characters = Array.from(normalized.replace(/[^\p{L}\p{N}]/gu, ""));
+      const characters = Array.from(normalized.replace(/[^\p{L}\p{M}\p{N}]/gu, ""));
       const result = new Set<string>();
       for (let index = 0; index <= characters.length - 4; index++) result.add(characters.slice(index, index + 4).join(""));
       return result;
     }
-    const tokens = normalized.match(/[\p{L}\p{N}]+/gu) ?? [];
+    const tokens = normalized.match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}]*/gu) ?? [];
     const result = new Set<string>();
     for (let index = 0; index <= tokens.length - 5; index++) result.add(tokens.slice(index, index + 5).join(" "));
     return result;

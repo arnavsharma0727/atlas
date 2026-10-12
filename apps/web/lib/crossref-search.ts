@@ -1,5 +1,6 @@
 import { matchesScholarlyContext } from "./scholarly-context-relevance";
 import { publicationDateFromParts } from "./publication-date";
+import { matchesScholarlyTitle } from "./scholarly-title-match";
 
 export type CrossrefWork = {
   doi: string;
@@ -73,7 +74,7 @@ export async function searchCrossrefWorks(
     const containerTitle = Array.isArray(item["container-title"]) ? scalar(item["container-title"][0], 160) : "";
     const dateParts = item.published?.["date-parts"];
     const published = publicationDateFromParts(Array.isArray(dateParts) && dateParts.length === 1 ? dateParts[0] : null);
-    if (!/^10\.\d{4,9}\/\S+$/u.test(doi) || !title || !matchesTitle(title, query) || !matchesScholarlyContext(query, title, containerTitle) || !published) return [];
+    if (!/^10\.\d{4,9}\/\S+$/u.test(doi) || !title || !matchesScholarlyTitle(title, query) || !matchesScholarlyContext(query, title, containerTitle) || !published) return [];
     if (published.timestamp < oldest || published.timestamp > now) return [];
     const url = `https://doi.org/${encodeURIComponent(doi).replace(/%2F/gi, "/")}`;
     return [{
@@ -87,18 +88,6 @@ export async function searchCrossrefWorks(
       language: "Not reported",
     }];
   }).slice(0, 12);
-}
-
-function matchesTitle(title: string, query: string) {
-  const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase();
-  const titleNormalized = normalize(title);
-  const queryNormalized = normalize(query).trim();
-  if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(queryNormalized)) return titleNormalized.includes(queryNormalized);
-  const words = queryNormalized.match(/[\p{L}\p{N}]+/gu) ?? [];
-  const relevant = words.filter((word) => word.length > 1 && !new Set(["a", "an", "and", "for", "from", "in", "of", "on", "or", "the", "to", "with"]).has(word));
-  if (!relevant.length) return titleNormalized.includes(queryNormalized);
-  const titleWords = new Set(titleNormalized.match(/[\p{L}\p{N}]+/gu) ?? []);
-  return relevant.every((word) => titleWords.has(word));
 }
 
 function scalar(value: unknown, limit: number) {

@@ -18,6 +18,14 @@ function evidence(id: string, source: string, excerpt: string, operator = source
 }
 
 describe("market summary evidence contracts", () => {
+  it("does not erase vowel distinctions when comparing Devanagari near-duplicate text", () => {
+    // Script-preservation stress fixture, not a claim about the meaning of the mutated words.
+    const original = "कीमत नीति नदी माला मोती राजा सेना सीमा कला तीर पारी किताब ".repeat(3);
+    const substitutions: Record<string, string> = { "ि": "ी", "ी": "ि", "ा": "ो", "ो": "ा", "े": "ै", "ै": "े" };
+    const different = original.replace(/\p{M}/gu, (mark) => substitutions[mark] ?? mark);
+    expect(isNearDuplicateExcerpt(original, different)).toBe(false);
+    expect(isNearDuplicateExcerpt(original, original)).toBe(true);
+  });
   it("sends only supported public posting timestamps, never an inferred event date", () => {
     const rows = [
       evidence("valid", "Bluesky", "Inflation and prices changed during Reagan's presidency."),

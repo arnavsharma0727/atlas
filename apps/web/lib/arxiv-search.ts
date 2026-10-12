@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { matchesScholarlyContext } from "./scholarly-context-relevance";
 import { publicationTimestampUTC } from "./publication-date";
+import { matchesScholarlyTitle, scholarlySearchTokens } from "./scholarly-title-match";
 
 export type ArxivRecord = {
   id: string;
@@ -21,7 +22,7 @@ export async function searchArxiv(
 ): Promise<ArxivRecord[]> {
   const query = input.trim();
   if (query.length < 2 || query.length > 100) throw new Error("Enter a search phrase with 2–100 characters.");
-  const terms = query.normalize("NFKC").match(/[\p{L}\p{N}]+/gu) ?? [];
+  const terms = scholarlySearchTokens(query);
   if (!terms.length) return [];
   const oldestDate = new Date(now);
   oldestDate.setUTCFullYear(oldestDate.getUTCFullYear() - 5);
@@ -55,7 +56,6 @@ export async function searchArxiv(
   const feed = payload.feed as Record<string, unknown>;
   const entries = Array.isArray(feed.entry) ? feed.entry : feed.entry ? [feed.entry] : [];
   const oldest = oldestDate.getTime();
-  const normalizedQuery = query.normalize("NFKC").toLocaleLowerCase();
   return entries.flatMap((value): ArxivRecord[] => {
     if (!value || typeof value !== "object") return [];
     const entry = value as Record<string, unknown>;
@@ -68,7 +68,7 @@ export async function searchArxiv(
       ? categoryValue["@_term"].slice(0, 40)
       : "";
     const url = safeArxivUrl(rawId);
-    if (!title || !url || timestamp === null || timestamp < oldest || timestamp > now || !titleMatches(title, normalizedQuery) || !matchesScholarlyContext(query, title, "", category)) return [];
+    if (!title || !url || timestamp === null || timestamp < oldest || timestamp > now || !matchesScholarlyTitle(title, query) || !matchesScholarlyContext(query, title, "", category)) return [];
     return [{ id: url.split("/abs/")[1], title, url, publishedAt: new Date(timestamp).toISOString(), category }];
   }).slice(0, 12);
 }
@@ -86,13 +86,4 @@ function safeArxivUrl(value: string): string | null {
   } catch {
     return null;
   }
-}
-
-function titleMatches(title: string, query: string) {
-  const normalizedTitle = title.normalize("NFKC").toLocaleLowerCase();
-  if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(query)) return normalizedTitle.includes(query);
-  const terms = query.match(/[\p{L}\p{N}]+/gu) ?? [];
-  const meaningful = terms.filter((term) => term.length > 1 && !new Set(["a", "an", "and", "for", "from", "in", "of", "on", "or", "the", "to", "with"]).has(term));
-  const titleTerms = new Set(normalizedTitle.match(/[\p{L}\p{N}]+/gu) ?? []);
-  return meaningful.length ? meaningful.every((term) => titleTerms.has(term)) : normalizedTitle.includes(query);
 }

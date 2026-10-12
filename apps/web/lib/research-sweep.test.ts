@@ -305,6 +305,7 @@ describe("runResearchSweep", () => {
       expect(source.query).toBe("inflation");
       expect(source.window).toContain("English-only disambiguation");
       expect(source.window).toContain("bounded upstream result set");
+      expect(source.window).toContain("no stemming or translation");
       expect(source.status).toBe("complete");
       expect(source.evidence).toEqual([]);
     }

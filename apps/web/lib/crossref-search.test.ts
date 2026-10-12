@@ -15,6 +15,10 @@ function item(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Crossref public research metadata search", () => {
+  it("requires full Hindi title words rather than matching fragments around vowel signs", async () => {
+    const fetcher = vi.fn(async () => Response.json({ message: { items: [item({ title: ["कीमत नीति"] }), item({ title: ["मत नीति"] })] } }));
+    expect((await searchCrossrefWorks("कीमत नीति", fetcher, NOW)).map((record) => record.title)).toEqual(["कीमत नीति"]);
+  });
   it("preserves year/month/day precision and rejects rollover or coercible dates", async () => {
     const parts = [[2026], [2026, 2], [2024, 2, 29], [2026, 4, 31], [2026, 13], [2026, 2, 29], [2026, null], ["2026"]];
     const fetcher = vi.fn(async () => Response.json({ message: { items: parts.map((value, index) => item({ DOI: `10.1234/date.${index}`, published: { "date-parts": [value] } })) } }));

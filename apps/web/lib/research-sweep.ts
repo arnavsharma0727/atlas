@@ -11,6 +11,7 @@ import type { ResearchEvidence } from "./research-brief";
 import type { CrossrefWork } from "./crossref-search";
 import type { ArxivRecord } from "./arxiv-search";
 import { scholarlyContextNote } from "./scholarly-context-relevance";
+import { SCHOLARLY_TITLE_MATCH_NOTE } from "./scholarly-title-match";
 import { searchManifoldForecasts } from "./manifold-search";
 import type { OpenAlexWork } from "./openalex-search";
 import type { SecFilingSearch } from "./sec-edgar-research-search";
@@ -551,7 +552,7 @@ export async function runResearchSweep(
       "Crossref · recent global research literature",
       query,
       asOf,
-      "Title-matched DOI metadata · earliest possible publication date within 5 years · year/month precision may overlap the present · up to 12 records" + scholarlyContextNote(query),
+      "Title-matched DOI metadata · earliest possible publication date within 5 years · year/month precision may overlap the present · up to 12 records" + SCHOLARLY_TITLE_MATCH_NOTE + scholarlyContextNote(query),
       async () => {
         const response = await boundedFetch("/api/research/crossref", {
           method: "POST",
@@ -587,7 +588,7 @@ export async function runResearchSweep(
       "OpenAlex · recent global research literature",
       query,
       asOf,
-      "Title-matched metadata · publication date within 5 years · up to 12 records" + scholarlyContextNote(query),
+      "Title-matched metadata · publication date within 5 years · up to 12 records" + SCHOLARLY_TITLE_MATCH_NOTE + scholarlyContextNote(query),
       async () => {
         const response = await boundedFetch("/api/research/openalex", {
           method: "POST",
@@ -625,7 +626,7 @@ export async function runResearchSweep(
       "arXiv · recent open research metadata",
       query,
       asOf,
-      "Title-matched preprint metadata · submitted within 5 years · up to 12 records" + scholarlyContextNote(query),
+      "Title-matched preprint metadata · submitted within 5 years · up to 12 records" + SCHOLARLY_TITLE_MATCH_NOTE + scholarlyContextNote(query),
       async () => {
         const response = await boundedFetch("/api/research/arxiv", {
           method: "POST",
