@@ -335,6 +335,7 @@ export function selectBalancedEvidence(
   expectedLanguage?: string,
   isEligible: (evidence: ModelEvidence) => boolean = () => true,
   onIneligible?: () => void,
+  onEligibleCandidate?: (sourceKey: string) => void,
 ): ModelEvidence[] {
   const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[]; authorKey?: string }>>();
   const seenText = new Set<string>();
@@ -377,6 +378,7 @@ export function selectBalancedEvidence(
         onIneligible?.();
         continue;
       }
+      onEligibleCandidate?.(result.key);
       // A prolific account must not occupy most of one provider's small
       // synthesis sample. This key is used only for selection and never sent
       // to the summarizer; unknown attribution remains uncapped.

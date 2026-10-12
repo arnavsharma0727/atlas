@@ -29,6 +29,7 @@ export default function ResearchSweep({
   const [summary, setSummary] = useState<MarketSummary | null>(null);
   const [summaryBreadth, setSummaryBreadth] = useState<{ baseline: EvidenceBreadth; selected: EvidenceBreadth } | null>(null);
   const [screenedOutCounts, setScreenedOutCounts] = useState<{ baseline: number; selected: number } | null>(null);
+  const [summaryCandidateCounts, setSummaryCandidateCounts] = useState<Record<string, number>>({});
   const [summaryMode, setSummaryMode] = useState<"ai" | "evidence" | "unavailable">("evidence");
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -59,6 +60,7 @@ export default function ResearchSweep({
     setSummary(null);
     setSummaryBreadth(null);
     setScreenedOutCounts(null);
+    setSummaryCandidateCounts({});
     setResults([]);
     setError("");
     onSearchTopic(topic);
@@ -133,12 +135,15 @@ export default function ResearchSweep({
       const includedEvidenceKeys = new Set<string>();
       let baselineScreenedOut = 0;
       let selectedScreenedOut = 0;
+      const candidateCounts: Record<string, number> = {};
+      const countCandidate = (sourceKey: string) => { candidateCounts[sourceKey] = (candidateCounts[sourceKey] ?? 0) + 1; };
       const marketTopicEligibility = (searchPhrase: string) => (item: ModelEvidence) =>
         isIndependentDiscussionEvidence(item) && hasMarketSignalTerms(item) && hasTopicSignalTerms(item.excerpt, searchPhrase);
       const candidateEvidence = {
-        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys, undefined, marketTopicEligibility(topic), () => baselineScreenedOut++),
-        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language, marketTopicEligibility(localQuery), () => selectedScreenedOut++),
+        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys, undefined, marketTopicEligibility(topic), () => baselineScreenedOut++, countCandidate),
+        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language, marketTopicEligibility(localQuery), () => selectedScreenedOut++, countCandidate),
       };
+      setSummaryCandidateCounts(candidateCounts);
       setSummaryBreadth({
         baseline: summarizeEvidenceBreadth(candidateEvidence.us),
         selected: summarizeEvidenceBreadth(candidateEvidence.local),
@@ -255,7 +260,7 @@ export default function ResearchSweep({
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             <p className="market-summary-caveat">For social posts with attribution, no more than one excerpt per displayed account from each provider/network enters an overview. Account labels are used only to limit concentration; they are not sent to AI and do not verify a person's identity.</p>
             <p className="market-summary-caveat">Social posts containing an external link, explicitly crediting a publisher, or matching a high-confidence stock-promotion/clickbait phrase screen remain visible in Sources but are excluded from the AI overview. Phrase screens can miss subtle promotion or flag a legitimate post; review each source note.</p>
-            <p className="market-summary-caveat">The source register omits results whose titles or excerpts do not contain a query-topic term, while preserving the raw provider-return count and screened-out count. The AI overview then requires both a query-topic term and market language; synonym-only posts can be missed, and passing either screen does not prove relevance. Before source balancing and the eight-excerpt cap, {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} candidate excerpts were excluded from AI consideration.</p>
+            <p className="market-summary-caveat">Each source's “pass overview filters” count is the number of unique excerpts that passed the available-language, citation, topic, market-vocabulary, and independence checks before per-platform/account balancing and the eight-excerpt cap; it does not mean every candidate was sent to AI. The source register omits results whose titles or excerpts do not contain a query-topic term, while preserving provider-return and screened-out counts. Synonym-only posts can be missed, and passing a screen does not prove relevance. In addition, {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens excerpts failed the topic, market-vocabulary, or independence checks.</p>
             <p className="market-summary-caveat">The selected-language AI overview uses matching provider language labels, or conservative script detection for Korean, Japanese, and Hindi when labels are missing. Explicitly mismatched labels and other unknown languages are excluded; language does not establish a poster’s location or nationality.</p>
             <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives an English-language filter only when the query fits the provider limit; Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}
@@ -270,7 +275,7 @@ export default function ResearchSweep({
               <p>Original links and provider-specific coverage, collected below the summary.</p>
             </header>
             <div className="market-results-grid">
-              {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} citationIds={citationIds} summaryCitationIds={new Set([...summary.usSummary.citations, ...summary.localSummary.citations, ...summary.comparison.citations])} />)}
+              {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} summaryCandidateCount={summaryCandidateCounts[view.result.key] ?? 0} citationIds={citationIds} summaryCitationIds={new Set([...summary.usSummary.citations, ...summary.localSummary.citations, ...summary.comparison.citations])} />)}
             </div>
           </section>
           <p className="search-limits">Public API results are incomplete samples. They can omit content, overlap across federated servers, and reflect platform/language selection. An AI summary describes only the retrieved sample; inspect original sources before drawing conclusions. <a href="/sources">How sources work</a> · <a href="/privacy">Privacy</a>.</p>
@@ -345,10 +350,10 @@ export function SummaryPassageText({ passage }: { passage: MarketSummary["usSumm
   )}</>;
 }
 
-function SourceResults({ result, evidence, returnedCount, duplicateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
+function SourceResults({ result, evidence, returnedCount, duplicateCount, summaryCandidateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; summaryCandidateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
   const [showAll, setShowAll] = useState(false);
   const items = visibleSummaryEvidence(evidence, showAll, result.key, citationIds, summaryCitationIds);
-  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
+  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""} · ${summaryCandidateCount} pass overview filters${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
   const statusLabel = result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? `Partial coverage · ${countsLabel}` : countsLabel;
   return (
     <section className="source-results" aria-label={result.label}>

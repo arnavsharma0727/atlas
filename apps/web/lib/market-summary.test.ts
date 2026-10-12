@@ -17,6 +17,27 @@ function evidence(id: string, source: string, excerpt: string, operator = source
 }
 
 describe("market summary evidence contracts", () => {
+  it("reports per-source overview candidates before the final platform cap", () => {
+    const rows = result("bluesky", "Bluesky", [
+      evidence("one", "Bluesky", "Solar demand rose as module prices fell.", "bluesky"),
+      evidence("two", "Bluesky", "Solar supply improved while inventories declined.", "bluesky"),
+    ]);
+    const candidates: string[] = [];
+    const selected = selectBalancedEvidence(
+      [rows],
+      new Map([[citationKey("bluesky", "one"), "C1"], [citationKey("bluesky", "two"), "C2"]]),
+      1,
+      new Set(),
+      undefined,
+      (item) => hasMarketSignalTerms(item) && hasTopicSignalTerms(item.excerpt, "solar"),
+      undefined,
+      (sourceKey) => candidates.push(sourceKey),
+    );
+
+    expect(candidates).toEqual(["bluesky", "bluesky"]);
+    expect(selected).toHaveLength(1);
+  });
+
   it("collapses exact same-network URL copies in display while preserving raw counts and cross-network provenance", () => {
     const original = evidence("post-a", "Lemmy", "A public post about market prices.", "lemmy-federation");
     const copy = { ...evidence("post-b", "Lemmy", "A public post about market prices.", "lemmy-federation"), url: `${original.url}?utm_source=instance` };
