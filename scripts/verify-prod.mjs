@@ -199,6 +199,23 @@ try {
   fail("server-side market evidence gate", error instanceof Error ? error.message : "request failed");
 }
 
+try {
+  const response = await fetch(`${base}/api/research/market-assist`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "prepare", topic: "semiconductors", country: "US", aiEnabled: true }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const body = await response.json().catch(() => null);
+  if (response.ok && body?.mode === "localized" && body?.query === "semiconductors") {
+    pass("shared production AI rate limiter", "the public preparation endpoint passed its database-backed shared quota check; this US phrase requires no model call");
+  } else {
+    fail("shared production AI rate limiter", `expected the no-model US preparation response, got HTTP ${response.status} (${body?.reason ?? body?.error ?? "unexpected response"})`);
+  }
+} catch (error) {
+  fail("shared production AI rate limiter", error instanceof Error ? error.message : "request failed");
+}
+
 for (const route of ["/about", "/briefs", "/candidates", "/companies", "/companies/NVDA", "/coverage", "/divergences/example", "/login", "/watchlists"]) {
   try {
     const response = await fetch(`${base}${route}`, { redirect: "manual", signal: AbortSignal.timeout(15000) });

@@ -23,7 +23,7 @@ export default function Privacy() {
               Search requests are sent to the relevant public search provider.
               arXiv, OpenAlex, Crossref, SEC EDGAR, Global Voices, and The Conversation requests are routed through
               Atlas server endpoints; those endpoints apply short-window,
-              IP-keyed, best-effort rate limits. Bluesky, Lemmy, Mastodon, and Stack
+              IP-keyed rate limits. Bluesky, Lemmy, Mastodon, and Stack
               Exchange searches are sent from your browser to their public
               APIs. Manifold search terms are also sent directly from your
               browser to its public, read-only API; returned forecast metadata
@@ -56,6 +56,7 @@ export default function Privacy() {
               key and a server configuration explicitly marked free-tier; Atlas does not
               upgrade an account or add billing details. The free-tier status
               must be confirmed by the project operator in Groq settings.
+              The AI bridge is limited across production instances to 6 requests per client per minute and 60 per day, with global caps of 10 per minute and 400 per day. The limiter stores keyed hashes and counters rather than raw IP addresses; old entries are pruned after two days when later requests run, so entries may remain longer during inactivity. Atlas hosting providers may separately process or log network addresses.
               Groq says prompts are not retained by default for inference, but
               reliability and abuse monitoring may retain prompts for up to
               30 days; usage metadata is collected. See its <a className="underline text-ink" href="https://console.groq.com/docs/your-data" target="_blank" rel="noreferrer">data handling documentation</a>.

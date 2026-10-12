@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { allowPublicMarketAssistRequest } from "../../../../lib/public-api-rate-limit";
+import { serverSupabase } from "../../../../lib/server-supabase";
 import { marketCountry } from "../../../../lib/market-countries";
 import { hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { topicHashtags } from "../../../../lib/topic-hashtags";
@@ -11,11 +13,9 @@ type EvidenceGroups = { us: ModelEvidence[]; local: ModelEvidence[] };
 type EvidenceItem = ModelEvidence;
 type GroqFailureReason = "disabled" | "rate-limited" | "provider-error" | "timeout" | "network-error" | "invalid-response";
 type GroqResult<T> = { value: T | null; reason?: GroqFailureReason };
-const windows = new Map<string, { count: number; resetAt: number }>();
+const developmentWindows = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60_000;
-// A localized search can make one prepare call and one summary call. Allow
-// three complete searches per minute without leaving the second search broken.
-const MAX_PER_WINDOW = 6;
+const DEVELOPMENT_MAX_PER_WINDOW = 6;
 
 /** Groq bridge for user-submitted searches. Server-side enablement and private credentials are still required. */
 export async function POST(request: NextRequest) {
@@ -44,8 +44,13 @@ export async function POST(request: NextRequest) {
   let country;
   try { country = marketCountry(typeof body.country === "string" ? body.country : ""); }
   catch { return json({ error: "Unsupported country search lens" }, 400); }
-  const ip = request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim() || "unknown";
-  if (!allow(ip)) return json({ error: "AI request limit reached. Try again in a minute.", reason: "request-limited" }, 429, { "Retry-After": "60" });
+  const limit = await allowPublicMarketAssistRequest(request, serverSupabase());
+  if (limit === "limited" || (limit === "unavailable" && process.env.NODE_ENV !== "production" && !allowInDevelopment(request.headers.get("x-forwarded-for")))) {
+    return json({ error: "AI request limit reached. Try again in a minute.", reason: "request-limited" }, 429, { "Retry-After": "60" });
+  }
+  if (limit === "unavailable" && process.env.NODE_ENV === "production") {
+    return json({ mode: "unavailable", reason: "rate-limiter-unavailable" }, 503, { "Retry-After": "60" });
+  }
 
   if (body.action === "prepare") {
     if (country.language === "en") return json({ mode: "localized", query: topic, hashtags: topicHashtags(topic) });
@@ -238,13 +243,14 @@ function parseEvidence(value: unknown, baselineTopic: string, localTopic: string
   };
 }
 
-function allow(ip: string) {
+function allowInDevelopment(forwardedFor: string | null) {
   const now = Date.now();
-  for (const [key, window] of windows) if (window.resetAt <= now) windows.delete(key);
-  const current = windows.get(ip);
-  if (current && current.count >= MAX_PER_WINDOW) return false;
+  for (const [key, window] of developmentWindows) if (window.resetAt <= now) developmentWindows.delete(key);
+  const ip = forwardedFor?.split(",", 1)[0]?.trim() || "local-development";
+  const current = developmentWindows.get(ip);
+  if (current && current.count >= DEVELOPMENT_MAX_PER_WINDOW) return false;
   if (current) current.count++;
-  else { if (windows.size >= 1000) windows.delete(windows.keys().next().value!); windows.set(ip, { count: 1, resetAt: now + WINDOW_MS }); }
+  else { if (developmentWindows.size >= 1000) developmentWindows.delete(developmentWindows.keys().next().value!); developmentWindows.set(ip, { count: 1, resetAt: now + WINDOW_MS }); }
   return true;
 }
 

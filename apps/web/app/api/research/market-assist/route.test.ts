@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { allowPublicMarketAssistRequest } from "../../../../lib/public-api-rate-limit";
 import { POST } from "./route";
+
+vi.mock("../../../../lib/server-supabase", () => ({ serverSupabase: () => null }));
+vi.mock("../../../../lib/public-api-rate-limit", () => ({ allowPublicMarketAssistRequest: vi.fn() }));
 
 let requestSequence = 10;
 function makeRequest(body: unknown) {
@@ -14,10 +18,12 @@ function makeRequest(body: unknown) {
 
 describe("free-tier market assist", () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "false");
     vi.stubEnv("GROQ_API_KEY", "");
     vi.stubEnv("GROQ_MODEL", "openai/gpt-oss-20b");
     vi.unstubAllGlobals();
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValue("allowed");
   });
 
   it("does not call an AI provider unless explicitly enabled server-side", async () => {
@@ -149,18 +155,29 @@ describe("free-tier market assist", () => {
     });
   });
 
-  it("distinguishes Atlas's own per-client request limit from a provider limit", async () => {
+  it("returns a retryable request limit before contacting Groq when the shared quota is exhausted", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
-    const makeUniqueRequest = () => new NextRequest("http://localhost/api/research/market-assist", {
-      method: "POST",
-      headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "x-forwarded-for": "203.0.113.77" },
-      body: JSON.stringify({ action: "prepare", topic: "semiconductors", country: "US", aiEnabled: true }),
-    });
-    for (let index = 0; index < 6; index++) expect((await POST(makeUniqueRequest())).status).toBe(200);
-    const response = await POST(makeUniqueRequest());
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValueOnce("limited");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({ action: "prepare", topic: "semiconductors", country: "US", aiEnabled: true }));
     expect(response.status).toBe(429);
     expect(await response.json()).toMatchObject({ reason: "request-limited" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("fails closed in production when the shared rate-limit database is unavailable", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValueOnce("unavailable");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({ action: "prepare", topic: "semiconductors", country: "US", aiEnabled: true }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "rate-limiter-unavailable" });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("requires an explicit AI request from the search workflow", async () => {
