@@ -55,6 +55,7 @@ export default function ResearchSweep({
   const queryClarity = inspectQueryClarity(searchedQuery);
   const countryFacts = selectedCountryContext(results, searchedCountryCode);
   const readiness = comparisonReadiness(summaryBreadth?.baseline, summaryBreadth?.selected, searchedCountryCode === "US");
+  const missingSelectedEvidence = searchedCountryCode !== "US" && summaryBreadth?.selected.excerptCount === 0;
 
   useEffect(() => {
     if (initialTopic) setQuery(initialTopic);
@@ -308,19 +309,19 @@ export default function ResearchSweep({
               </div>
                 <span>{summaryMode === "ai" ? "Checked against cited excerpts" : summaryMode === "evidence" ? "No country evidence" : "AI unavailable"}</span>
             </header>
-            <div className={`market-summary-columns${searchedCountryCode === "US" ? " market-summary-columns--single" : ""}`}>
+            <div className={`market-summary-columns${searchedCountryCode === "US" || missingSelectedEvidence ? " market-summary-columns--single" : ""}`}>
               {searchedCountryCode !== "US" && <article>
                 <h4>{searchedCountry.languageName} language/community search</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
                 <SummaryPassageText passage={summary.localSummary} onOpenCitation={revealCitation} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.localSummary.citations) : undefined} />
               </article>}
-              <article>
+              {!missingSelectedEvidence && <article>
                 <h4>English-language baseline · provider language varies</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.baseline)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.baseline) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.baseline)}</p>}
                 <SummaryPassageText passage={summary.usSummary} onOpenCitation={revealCitation} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.usSummary.citations) : undefined} />
-              </article>
+              </article>}
             </div>
             {countryFacts.length > 0 && <section className="country-context" aria-label={`Official data for ${searchedCountry.name}`}>
               <h4>Official data · {searchedCountry.name}</h4>

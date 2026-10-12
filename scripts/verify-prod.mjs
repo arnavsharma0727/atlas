@@ -115,7 +115,7 @@ try {
     privacyPage.includes("Stack Exchange question/answer") &&
     privacyPage.includes("Stack Exchange excerpts are") &&
     privacyPage.includes("not sent to AI providers") &&
-    methodologyPage.includes("specialist Q&A") &&
+    methodologyPage.includes("title-only academic searches") &&
     methodologyPage.includes("default comparison")) {
     pass("Stack Exchange licensed-answer boundaries", "adapter remains documented with individual CC BY-SA attribution and transient handling, but is excluded from focused comparison and AI summaries");
   } else {
