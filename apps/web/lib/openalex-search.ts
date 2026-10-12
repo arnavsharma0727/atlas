@@ -36,11 +36,26 @@ export async function searchOpenAlexWorks(
     select: "id,doi,title,publication_date,type,open_access",
     sort: "relevance_score:desc",
   }).toString();
-  const response = await fetcher(endpoint, {
-    headers: { accept: "application/json", "user-agent": "Atlas/1.0 (https://signal-scout-xi-ruby.vercel.app/sources)" },
-    signal: AbortSignal.timeout(8_000),
-    cache: "no-store",
-  });
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await fetcher(endpoint, {
+        headers: { accept: "application/json", "user-agent": "Atlas/1.0 (https://signal-scout-xi-ruby.vercel.app/sources)" },
+        signal: AbortSignal.timeout(8_000),
+        cache: "no-store",
+      });
+    } catch (cause) {
+      if (attempt > 0) throw cause;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      continue;
+    }
+    if (attempt === 0 && [502, 503, 504].includes(response.status)) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      continue;
+    }
+    break;
+  }
+  if (!response) throw new Error("OpenAlex research metadata is temporarily unavailable.");
   if (!response.ok) throw new Error(response.status === 429
     ? "OpenAlex keyless usage limit reached. Try again later."
     : "OpenAlex research metadata is temporarily unavailable.");

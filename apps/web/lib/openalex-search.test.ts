@@ -40,6 +40,14 @@ describe("searchOpenAlexWorks", () => {
     expect(await searchOpenAlexWorks("bitcoin market", fetcher, NOW)).toEqual([]);
   });
 
+  it("retries a transient OpenAlex 503 once, then returns the validated records", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response("temporarily unavailable", { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ results: [work("Bitcoin market attention")] }));
+    await expect(searchOpenAlexWorks("bitcoin market", fetcher, NOW)).resolves.toHaveLength(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it("normalizes provider errors and enforces query bounds before fetching", async () => {
     const fetcher = vi.fn(async () => new Response("", { status: 429 }));
     await expect(searchOpenAlexWorks("bitcoin", fetcher, NOW)).rejects.toThrow("keyless usage limit");
