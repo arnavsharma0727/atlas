@@ -213,10 +213,13 @@ describe("market summary evidence contracts", () => {
       id: "household", title: "Solar panels", url: "https://example.test/household", source: "Bluesky",
       evidenceClass: "social discussion", language: "en", timeLabel: "Published", timeValue: "2026-10-11T00:00:00Z", transientPreview: advice,
     }])], "solar panels");
-    expect(screened[0].evidence[0].context).toContain("individual household purchase");
+    expect(screened[0].evidence[0].context).toContain("individual household ownership");
     const germanBid = "Zweites Angebot nur mit Photovoltaik und Wallbox liegt bei 43.000€, der Elektriker war deutlich teurer.";
     expect(isHouseholdPurchaseAdvice(germanBid)).toBe(true);
     expect(isIndependentDiscussionEvidence({ excerpt: germanBid })).toBe(false);
+    const germanOwnership = "Ich mag zwar ein gutes Gewissen haben, aber die eigenen Solarmodule sind bei Produktion und Entsorgung auch nicht ohne.";
+    expect(isHouseholdPurchaseAdvice(germanOwnership)).toBe(true);
+    expect(isIndependentDiscussionEvidence({ excerpt: germanOwnership })).toBe(false);
   });
 
   it("keeps syndicated headline-style posts inspectable but out of independent views", () => {

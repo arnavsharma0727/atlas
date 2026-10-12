@@ -223,12 +223,13 @@ export function isHeadlineBulletin(value: string): boolean {
   return /^\s*\*(?:[^*\n]{1,32}\s+-\s+[^*\n]{12,180})\*/u.test(value.normalize("NFKC"));
 }
 
-/** Personal purchase/utility-bill advice is not evidence of a market-wide view. */
+/** Personal home-energy ownership, purchase, or bill anecdotes are not market-wide views. */
 export function isHouseholdPurchaseAdvice(value: string): boolean {
   const text = value.normalize("NFKC");
   return /\b(?:my|your|our|their|his|her)\s+(?:own\s+)?(?:electric(?:ity)?|energy|utility|power)\s+bills?\b/iu.test(text) ||
     /\b(?:my|your|our)\s+own\s+(?:solar\s+panels?|home\s+batter(?:y|ies)|rooftop\s+solar)\b/iu.test(text) ||
     /\b(?:mein(?:e|er|en|em|es)?|unser(?:e|er|en|em|es)?|dein(?:e|er|en|em|es)?)\s+(?:stromrechnung|energiekosten|solarmodule?|photovoltaikanlage|pv-anlage)\b/iu.test(text) ||
+    /\beigen(?:e|er|en|em|es)\s+(?:solarmodule?|photovoltaikanlage|pv-anlage|balkonkraftwerk)\b/iu.test(text) ||
     /\b(?:erstes?|zweites?|drittes?)\s+angebot\b.{0,140}\b(?:elektriker|wallbox|haus|dach)\b/iu.test(text);
 }
 
@@ -271,7 +272,7 @@ export function filterResultsToTopic(
             : isBulletin
               ? "This post uses a country-labelled headline-bulletin format; it remains visible but is excluded as an independent community view."
             : isHouseholdAdvice
-              ? "This post gives individual household purchase or utility-bill advice; it remains visible but does not support a market-wide discussion overview."
+              ? "This post gives an individual household ownership, purchase, or utility-bill anecdote; it remains visible but does not support a market-wide discussion overview."
             : undefined].filter(Boolean).join(" "),
       };
     });
