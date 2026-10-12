@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
+import { summarizeCitedEvidenceBreadth } from "./market-summary";
 
 function result(key: string, source: string, evidence: ResearchSweepSourceResult["evidence"]): ResearchSweepSourceResult {
   return { key, label: source, query: "solar", asOf: "2026-10-10T00:00:00.000Z", retrievedAt: "2026-10-10T00:00:01.000Z", window: "7 days", evidence, error: null, status: "complete" };
@@ -478,6 +479,30 @@ describe("market summary evidence contracts", () => {
       { source: "Mastodon · mastodon.social via mastodon.social" },
     ])).toEqual({ excerptCount: 4, platformLabels: ["Bluesky", "Lemmy", "Mastodon"] });
     expect(summarizeEvidenceBreadth([])).toEqual({ excerptCount: 0, platformLabels: [] });
+  });
+
+  it("counts only cited originals, not every platform selected as input", () => {
+    const rows = [
+      result("bluesky", "Bluesky", [evidence("a", "Bluesky", "Solar demand is rising.")]),
+      result("lemmy", "Lemmy", [evidence("b", "Lemmy", "Solar supply is falling.")]),
+      result("mastodon", "Mastodon", [evidence("c", "Mastodon", "Solar prices are changing.")]),
+    ];
+    const citations = new Map([[citationKey("bluesky", "a"), "C1"], [citationKey("lemmy", "b"), "C2"], [citationKey("mastodon", "c"), "C3"]]);
+    expect(summarizeCitedEvidenceBreadth(rows, citations, ["C1", "C1", "C999"]))
+      .toEqual({ excerptCount: 1, platformLabels: ["Bluesky"] });
+    expect(summarizeCitedEvidenceBreadth(rows, citations, ["C1", "C2"]))
+      .toEqual({ excerptCount: 2, platformLabels: ["Bluesky", "Lemmy"] });
+    expect(summarizeCitedEvidenceBreadth(rows, citations, []))
+      .toEqual({ excerptCount: 0, platformLabels: [] });
+  });
+
+  it("does not count multiple citation IDs for the same original as extra support", () => {
+    const original = evidence("a", "Mastodon · mastodon.social", "Solar demand is rising.");
+    const copy = { ...original, id: "b", source: "Mastodon · other instance", url: `${original.url}?utm_source=copy` };
+    const rows = [result("mastodon:a", "Mastodon", [original]), result("mastodon:b", "Mastodon", [copy])];
+    const citations = new Map([[citationKey("mastodon:a", "a"), "C1"], [citationKey("mastodon:b", "b"), "C2"]]);
+    expect(summarizeCitedEvidenceBreadth(rows, citations, ["C1", "C2"]))
+      .toEqual({ excerptCount: 1, platformLabels: ["Mastodon"] });
   });
 
   it("warns when an overview has no evidence or only one platform", () => {

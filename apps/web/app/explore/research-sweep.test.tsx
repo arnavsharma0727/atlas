@@ -6,6 +6,38 @@ import { includesExternalLink } from "../../lib/research-sweep";
 import { citationKey } from "../../lib/perspective-snapshot";
 
 describe("summary evidence links", () => {
+  it("distinguishes a one-platform cited basis from broader selected inputs", () => {
+    const html = renderToStaticMarkup(createElement(SummaryPassageText, {
+      passage: { text: "One retrieved post reports weaker demand.", citations: ["C1"] },
+      citedBreadth: { excerptCount: 1, platformLabels: ["Bluesky"] },
+    }));
+    expect(html).toContain("Cited basis: 1 unique record · 1 platform: Bluesky");
+    expect(html).toContain("This AI overview cites one platform only");
+    expect(html).toContain("does not establish agreement or independence");
+  });
+
+  it("does not label uncited caveats or deterministic source lists as AI-supported claims", () => {
+    const caveat = renderToStaticMarkup(createElement(SummaryPassageText, {
+      passage: { text: "No comparison is available.", citations: [] },
+      citedBreadth: { excerptCount: 0, platformLabels: [] },
+    }));
+    const fallback = renderToStaticMarkup(createElement(SummaryPassageText, {
+      passage: { text: "Inspect the records below.", citations: ["C1"] },
+    }));
+    expect(caveat).not.toContain("Cited basis");
+    expect(fallback).not.toContain("Cited basis");
+  });
+
+  it("does not call a two-platform cited sample independent corroboration", () => {
+    const html = renderToStaticMarkup(createElement(SummaryPassageText, {
+      passage: { text: "The cited posts describe different supply conditions.", citations: ["C1", "C2"] },
+      citedBreadth: { excerptCount: 2, platformLabels: ["Bluesky", "Lemmy"] },
+    }));
+    expect(html).toContain("2 unique records · 2 platforms: Bluesky, Lemmy");
+    expect(html).not.toContain("cites one platform only");
+    expect(html).toContain("does not establish agreement or independence");
+  });
+
   it("shows provider-return and overview-candidate counts separately", () => {
     const html = renderToStaticMarkup(createElement(SourceResults, {
       result: {

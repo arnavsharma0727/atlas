@@ -33,6 +33,26 @@ export function summarizeEvidenceBreadth(evidence: readonly Pick<ModelEvidence, 
   return { excerptCount: evidence.length, platformLabels: [...labels].filter(Boolean).sort((a, b) => a.localeCompare(b)) };
 }
 
+/** Count only originals actually referenced by a passage, not all selected model inputs. */
+export function summarizeCitedEvidenceBreadth(
+  results: ResearchSweepSourceResult[],
+  citationIds: Map<string, string>,
+  references: readonly string[],
+): EvidenceBreadth {
+  const citedIds = new Set(references);
+  const originals = new Set<string>();
+  const cited: Array<Pick<ModelEvidence, "source">> = [];
+  for (const result of results) for (const item of result.evidence) {
+    const id = citationIds.get(citationKey(result.key, item.id));
+    if (!id || !citedIds.has(id)) continue;
+    const original = normalizeSourceUrl(item.url);
+    if (originals.has(original)) continue;
+    originals.add(original);
+    cited.push({ source: item.source });
+  }
+  return summarizeEvidenceBreadth(cited);
+}
+
 /** Keep a one-source summary from reading like a cross-community result. */
 export function evidenceBreadthWarning(breadth: EvidenceBreadth): string | null {
   if (breadth.platformLabels.length === 0) {

@@ -7,7 +7,7 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, selectBalancedEvidence, summarizeEvidenceBreadth, type EvidenceBreadth, type MarketSummary } from "../../lib/market-summary";
+import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, selectBalancedEvidence, summarizeEvidenceBreadth, summarizeCitedEvidenceBreadth, type EvidenceBreadth, type MarketSummary } from "../../lib/market-summary";
 import { selectOverviewEvidence } from "../../lib/overview-evidence";
 import { buildSearchAudit, type AuditRunIdentity } from "../../lib/search-audit";
 import { inspectQueryClarity } from "../../lib/query-clarity";
@@ -289,13 +289,13 @@ export default function ResearchSweep({
                 <h4>English-language baseline · provider language varies</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.baseline)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.baseline) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.baseline)}</p>}
-                <SummaryPassageText passage={summary.usSummary} />
+                <SummaryPassageText passage={summary.usSummary} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.usSummary.citations) : undefined} />
               </article>
               {searchedCountryCode !== "US" && <article>
                 <h4>{searchedCountry.name} selection · {searchedCountry.languageName} search lens</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
-                <SummaryPassageText passage={summary.localSummary} />
+                <SummaryPassageText passage={summary.localSummary} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.localSummary.citations) : undefined} />
               </article>}
             </div>
             {searchedCountryCode !== "US" ? <article className="market-summary-comparison">
@@ -391,7 +391,7 @@ function sameCountrySummary(summary: MarketSummary): MarketSummary {
   };
 }
 
-export function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }) {
+export function SummaryPassageText({ passage, citedBreadth }: { passage: MarketSummary["usSummary"]; citedBreadth?: EvidenceBreadth }) {
   // Keep the overview readable while letting a researcher jump directly to
   // each source record supporting this passage in the consolidated register.
   return <div className="summary-passage">
@@ -402,6 +402,10 @@ export function SummaryPassageText({ passage }: { passage: MarketSummary["usSumm
         ))}
       </span>
     )}</p>
+    {citedBreadth && passage.citations.length > 0 && <>
+      <p className="summary-sample-meta">Cited basis: {citedBreadth.excerptCount} unique {citedBreadth.excerptCount === 1 ? "record" : "records"} · {citedBreadth.platformLabels.length} {citedBreadth.platformLabels.length === 1 ? "platform" : "platforms"}{citedBreadth.platformLabels.length > 0 ? `: ${citedBreadth.platformLabels.join(", ")}` : ""}. Citation coverage does not establish agreement or independence.</p>
+      {citedBreadth.platformLabels.length === 1 && <p className="summary-sample-caveat">This AI overview cites one platform only, even if other platforms appear in the selected inputs.</p>}
+    </>}
     {!!passage.supportingQuotes?.length && (
       <details className="summary-supporting-quotes">
         <summary>Check verbatim source excerpts</summary>
@@ -481,7 +485,7 @@ function formatEvidenceBreadth(breadth: EvidenceBreadth | undefined) {
   if (!breadth.excerptCount) return "Evidence sample: no excerpts passed the overview filters.";
   const platformCount = breadth.platformLabels.length;
   const platforms = platformCount ? ` · ${platformCount} ${platformCount === 1 ? "platform" : "platforms"}: ${breadth.platformLabels.join(", ")}` : " · source platform not identified";
-  return `Evidence sample: ${breadth.excerptCount} ${breadth.excerptCount === 1 ? "excerpt" : "excerpts"}${platforms}.`;
+  return `Selected overview inputs: ${breadth.excerptCount} ${breadth.excerptCount === 1 ? "excerpt" : "excerpts"}${platforms}.`;
 }
 
 function compactPreview(value: string) {
