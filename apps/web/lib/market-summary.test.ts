@@ -50,6 +50,21 @@ describe("market summary evidence contracts", () => {
     expect(views[1].result.evidence).toHaveLength(1);
   });
 
+  it("collapses a six-server Lemmy federation copy to one displayed source record", () => {
+    const url = "https://lemmy.world/post/semiconductor-1";
+    const hosts = ["lemmy.world", "discuss.tchncs.de", "feddit.org", "jlai.lu", "sopuli.xyz", "sh.itjust.works"];
+    const rows = hosts.map((host) => result(`lemmy:${host}`, `Lemmy · ${host}`, [
+      { ...evidence(host, `Lemmy · ${host}`, "Semiconductor supply and pricing discussion.", "lemmy-federation"), url },
+    ]));
+    const views = collapseRepeatedEvidenceViews(rows);
+
+    expect(views.map(({ evidence: items }) => items.length)).toEqual([1, 0, 0, 0, 0, 0]);
+    expect(views.map(({ returnedCount, duplicateCount }) => [returnedCount, duplicateCount])).toEqual([
+      [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
+    ]);
+    expect(views[0].evidence[0].context).toContain("one original record, not independent corroboration");
+  });
+
   it("does not collapse identical-looking links across different source operators", () => {
     const sameUrl = "https://example.test/shared";
     const rows = [
