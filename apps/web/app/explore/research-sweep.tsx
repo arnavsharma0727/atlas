@@ -244,18 +244,18 @@ export default function ResearchSweep({
                 <h4>Baseline search · language varies by provider</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.baseline)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.baseline) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.baseline)}</p>}
-                <p><SummaryPassageText passage={summary.usSummary} /></p>
+                <SummaryPassageText passage={summary.usSummary} />
               </article>
               <article>
                 <h4>{searchedCountry.name} selection · {searchedCountry.languageName} search lens</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
-                <p><SummaryPassageText passage={summary.localSummary} /></p>
+                <SummaryPassageText passage={summary.localSummary} />
               </article>
             </div>
             <article className="market-summary-comparison">
               <h4>Comparison</h4>
-              <p><SummaryPassageText passage={summary.comparison} /></p>
+              <SummaryPassageText passage={summary.comparison} />
             </article>
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             <p className="market-summary-caveat">For social posts with attribution, no more than one excerpt per displayed account from each provider/network enters an overview. Account labels are used only to limit concentration; they are not sent to AI and do not verify a person's identity.</p>
@@ -341,13 +341,23 @@ function sameCountrySummary(summary: MarketSummary): MarketSummary {
 export function SummaryPassageText({ passage }: { passage: MarketSummary["usSummary"] }) {
   // Keep the overview readable while letting a researcher jump directly to
   // each source record supporting this passage in the consolidated register.
-  return <>{passage.text}{passage.citations.length > 0 && (
-    <span className="summary-citations" aria-label="Evidence sources">
-      {" "}Evidence: {passage.citations.map((citationId, index) => (
-        <span key={citationId}>{index > 0 ? ", " : ""}<a href={`#citation-${citationId}`} aria-label={`Open source ${citationId}`}>{citationId}</a></span>
-      ))}
-    </span>
-  )}</>;
+  return <div className="summary-passage">
+    <p>{passage.text}{passage.citations.length > 0 && (
+      <span className="summary-citations" aria-label="Evidence sources">
+        {" "}Evidence: {passage.citations.map((citationId, index) => (
+          <span key={citationId}>{index > 0 ? ", " : ""}<a href={`#citation-${citationId}`} aria-label={`Open source ${citationId}`}>{citationId}</a></span>
+        ))}
+      </span>
+    )}</p>
+    {!!passage.supportingQuotes?.length && (
+      <details className="summary-supporting-quotes">
+        <summary>Check verbatim source excerpts</summary>
+        <ul>{passage.supportingQuotes.map(({ citationId, quote }, index) => (
+          <li key={`${citationId}:${index}`}><a href={`#citation-${citationId}`}>{citationId}</a> “{quote}”</li>
+        ))}</ul>
+      </details>
+    )}
+  </div>;
 }
 
 export function SourceResults({ result, evidence, returnedCount, duplicateCount, summaryCandidateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; summaryCandidateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {

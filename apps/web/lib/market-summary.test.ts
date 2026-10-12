@@ -457,31 +457,64 @@ describe("market summary evidence contracts", () => {
 
   it("accepts only citations present in the corresponding submitted evidence group", () => {
     const summary = normalizeMarketSummary({
-      baselineClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1", "C99"] }],
-      localClaims: [{ text: "The selected-language records discuss prices.", citations: ["C2"] }],
-      comparisonClaims: [{ text: "These samples are not directly comparable.", citations: ["C1", "C2"] }],
+      baselineClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1", "C99"], supportingQuotes: [{ citationId: "C1", quote: "Market supply constraints were noted." }] }],
+      localClaims: [{ text: "The selected-language records discuss prices.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: "선택된 기록은 가격을 논의했다." }] }],
+      comparisonClaims: [{ text: "These samples are not directly comparable.", citations: ["C1", "C2"], supportingQuotes: [
+        { citationId: "C1", quote: "Market supply constraints were noted." },
+        { citationId: "C2", quote: "선택된 기록은 가격을 논의했다." },
+      ] }],
       limitations: ["Not representative"],
-    }, { us: new Set(["C1"]), local: new Set(["C2"]) });
+    }, {
+      us: new Set(["C1"]), local: new Set(["C2"]),
+      evidenceText: { us: new Map([["C1", "Market supply constraints were noted."]]), local: new Map([["C2", "선택된 기록은 가격을 논의했다."]]) },
+    });
     expect(summary?.usSummary.citations).toEqual(["C1"]);
     expect(summary?.comparison.citations).toEqual(["C1", "C2"]);
+    expect(summary?.comparison.supportingQuotes?.map(({ citationId }) => citationId)).toEqual(["C1", "C2"]);
+  });
+
+  it("requires one exact excerpt substring for each AI citation and rejects cross-source quote swaps", () => {
+    const evidenceText = {
+      us: new Map([["C1", "Semiconductor demand may rise as supply tightens this quarter."]]),
+      local: new Map([["C2", "반도체 수요와 가격은 불확실하다."]]),
+    };
+    const valid = normalizeMarketSummary({
+      baselineClaims: [{ text: "One retrieved post says demand may rise.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "demand may rise as supply tightens" }] }],
+      localClaims: [{ text: "One retrieved post describes uncertainty.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: "수요와 가격은 불확실하다" }] }],
+      comparisonClaims: [{ text: "The excerpts frame demand differently.", citations: ["C1", "C2"], supportingQuotes: [
+        { citationId: "C1", quote: "demand may rise as supply tightens" },
+        { citationId: "C2", quote: "수요와 가격은 불확실하다" },
+      ] }],
+    }, { us: new Set(["C1"]), local: new Set(["C2"]), evidenceText });
+    expect(valid?.localSummary.supportingQuotes?.[0].quote).toBe("수요와 가격은 불확실하다");
+
+    const noQuote = normalizeMarketSummary({
+      baselineClaims: [{ text: "Demand is rising.", citations: ["C1"] }], localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set(), evidenceText });
+    expect(noQuote).toBeNull();
+
+    const wrongSource = normalizeMarketSummary({
+      baselineClaims: [{ text: "Demand is rising.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "수요와 가격은 불확실하다" }] }],
+      localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set(), evidenceText });
+    expect(wrongSource).toBeNull();
   });
 
   it("attributes model prose as unverified and rejects numeric details absent from cited text", () => {
     const valid = normalizeMarketSummary({
       baselineClaims: [
-        { text: "One unverified retrieved post claims a silicon wafer demand score of 65.6 in 2026-08.", citations: ["C1"] },
-        { text: "AI chip demand remains strong", citations: ["C1"] },
+        { text: "One unverified retrieved post claims a silicon wafer demand score of 65.6; AI chip demand remains strong.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "silicon wafer demand score of 65.6. AI chip demand remains strong." }] },
       ],
       localClaims: [], comparisonClaims: [],
     }, {
       us: new Set(["C1"]), local: new Set(),
-      evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score 65.6."]]), local: new Map() },
+      evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score of 65.6. AI chip demand remains strong."]]), local: new Map() },
     });
     expect(valid?.usSummary.text).toContain("One unverified retrieved post claims");
-    expect(valid?.usSummary.text).toContain("2026-08. AI chip demand remains strong.");
+    expect(valid?.usSummary.text).toContain("One unverified retrieved post claims a silicon wafer demand score of 65.6; AI chip demand remains strong.");
 
     const unattributedNumber = normalizeMarketSummary({
-      baselineClaims: [{ text: "Trade statistics show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"] }],
+      baselineClaims: [{ text: "Trade statistics show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "silicon wafer demand score 65.6." }] }],
       localClaims: [], comparisonClaims: [],
     }, {
       us: new Set(["C1"]), local: new Set(),
@@ -490,7 +523,7 @@ describe("market summary evidence contracts", () => {
     expect(unattributedNumber?.usSummary.text).toContain("One cited social post makes this unverified claim:");
 
     const unsupportedNumber = normalizeMarketSummary({
-      baselineClaims: [{ text: "Silicon wafer demand score was 66.5 in 2026-08.", citations: ["C1"] }],
+      baselineClaims: [{ text: "Silicon wafer demand score was 66.5 in 2026-08.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "silicon wafer demand score 65.6." }] }],
       localClaims: [], comparisonClaims: [],
     }, {
       us: new Set(["C1"]), local: new Set(),
@@ -520,11 +553,11 @@ describe("market summary evidence contracts", () => {
     expect(normalizeMarketSummary(value, { us: new Set(["C1"]), local: new Set() })).toBeNull();
   });
 
-  it("rejects an uncited sentence even when another claim in the same overview is cited", () => {
+  it("rejects multiple claims instead of flattening them into one passage", () => {
     const summary = normalizeMarketSummary({
       baselineClaims: [
         { text: "One sourced claim.", citations: ["C1"] },
-        { text: "An unsupported factual claim.", citations: [] },
+        { text: "A second sourced claim.", citations: ["C1"] },
       ],
       localClaims: [{ text: "Local evidence.", citations: ["C2"] }],
       comparisonClaims: [{ text: "Comparison.", citations: ["C1", "C2"] }],

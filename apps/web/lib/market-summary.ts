@@ -1,7 +1,8 @@
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 
-export type SummaryPassage = { text: string; citations: string[] };
+export type SummarySupportQuote = { citationId: string; quote: string };
+export type SummaryPassage = { text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] };
 export type MarketSummary = {
   usSummary: SummaryPassage;
   localSummary: SummaryPassage;
@@ -508,8 +509,8 @@ export function normalizeMarketSummary(
   const record = value as Record<string, unknown>;
   const passage = (key: string, allowed: Set<string>, requireBothGroups = false): SummaryPassage | null => {
     const rawClaims = record[key];
-    if (!Array.isArray(rawClaims) || rawClaims.length < 1 || rawClaims.length > 4) return null;
-    const claims: Array<{ text: string; citations: string[] }> = [];
+    if (!Array.isArray(rawClaims) || rawClaims.length !== 1) return null;
+    const claims: Array<{ text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] }> = [];
     for (const rawClaim of rawClaims) {
       if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return null;
       const claim = rawClaim as Record<string, unknown>;
@@ -522,6 +523,23 @@ export function normalizeMarketSummary(
       // do not resolve to evidence actually submitted for this summary.
       if (!citations.length) return null;
       if (requireBothGroups && (!citations.some((id) => available.us.has(id)) || !citations.some((id) => available.local.has(id)))) return null;
+      let supportingQuotes: SummarySupportQuote[] | undefined;
+      if (available.evidenceText) {
+        if (!Array.isArray(claim.supportingQuotes) || claim.supportingQuotes.length !== citations.length) return null;
+        supportingQuotes = [];
+        for (const rawQuote of claim.supportingQuotes) {
+          if (!rawQuote || typeof rawQuote !== "object" || Array.isArray(rawQuote)) return null;
+          const quoteRecord = rawQuote as Record<string, unknown>;
+          const citationId = typeof quoteRecord.citationId === "string" ? quoteRecord.citationId : "";
+          const quote = typeof quoteRecord.quote === "string" ? quoteRecord.quote.trim() : "";
+          if (!citations.includes(citationId) || Array.from(quote).length < 8 || quote.length > 240) return null;
+          const sourceExcerpt = available.evidenceText.us.get(citationId) ?? available.evidenceText.local.get(citationId);
+          if (!sourceExcerpt || !sourceExcerpt.includes(quote)) return null;
+          if (supportingQuotes.some((item) => item.citationId === citationId)) return null;
+          supportingQuotes.push({ citationId, quote });
+        }
+        if (citations.some((id) => !supportingQuotes!.some((quote) => quote.citationId === id))) return null;
+      }
       // Models can ignore attribution instructions and restate a forum user's
       // precise statistic like an established market fact. Keep a deterministic
       // disclosure in the rendered sentence, and fail closed on figures that
@@ -542,7 +560,7 @@ export function normalizeMarketSummary(
           ? `One cited social post makes this unverified claim: ${text}`
           : `The cited social posts make this unverified claim: ${text}`;
       }
-      claims.push({ text, citations });
+      claims.push({ text, citations, ...(supportingQuotes ? { supportingQuotes } : {}) });
     }
     const claimText = claims.map(({ text: value }) => ensureSentenceEnding(value)).join(" ").slice(0, 900);
     const allClaimsAttributed = claims.every(({ text: value }) =>
@@ -551,7 +569,8 @@ export function normalizeMarketSummary(
     );
     const text = allClaimsAttributed ? claimText : `The cited, unverified material says: ${claimText}`;
     const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))].slice(0, 8);
-    return { text, citations };
+    const supportingQuotes = claims.flatMap(({ supportingQuotes: quotes }) => quotes ?? []);
+    return { text, citations, ...(supportingQuotes.length ? { supportingQuotes } : {}) };
   };
 
   const submittedIds = new Set([...available.us, ...available.local]);

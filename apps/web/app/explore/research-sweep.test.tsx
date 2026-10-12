@@ -42,6 +42,20 @@ describe("summary evidence links", () => {
     expect(html).toContain('href="#citation-C4"');
   });
 
+  it("shows server-validated verbatim excerpts behind an optional disclosure", () => {
+    const html = renderToStaticMarkup(createElement(SummaryPassageText, {
+      passage: {
+        text: "One cited post describes uncertain demand.",
+        citations: ["C1"],
+        supportingQuotes: [{ citationId: "C1", quote: "Demand may remain uncertain this quarter." }],
+      },
+    }));
+
+    expect(html).toContain("Check verbatim source excerpts");
+    expect(html).toContain('href="#citation-C1"');
+    expect(html).toContain("Demand may remain uncertain this quarter.");
+  });
+
   it("does not add an empty evidence label when a deterministic passage has no citations", () => {
     const html = renderToStaticMarkup(createElement(SummaryPassageText, {
       passage: { text: "No comparison is available.", citations: [] },

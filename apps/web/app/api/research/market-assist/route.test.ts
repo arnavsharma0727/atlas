@@ -68,9 +68,12 @@ describe("free-tier market assist", () => {
       expect(userPrompt).not.toContain("This English market demand increased");
       expect(userPrompt).not.toContain("unmapped language ID");
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        baselineClaims: [{ text: "Baseline evidence notes demand.", citations: ["C1"] }],
-        localClaims: [{ text: "Korean evidence notes exports.", citations: ["C2"] }],
-        comparisonClaims: [{ text: "The bounded samples differ.", citations: ["C1", "C2"] }],
+        baselineClaims: [{ text: "Baseline evidence notes demand.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand is increasing." }] }],
+        localClaims: [{ text: "Korean evidence notes exports.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: "반도체 수출 시장 수요가 증가했다" }] }],
+        comparisonClaims: [{ text: "The bounded samples differ.", citations: ["C1", "C2"], supportingQuotes: [
+          { citationId: "C1", quote: "Semiconductor demand is increasing." },
+          { citationId: "C2", quote: "반도체 수출 시장 수요가 증가했다" },
+        ] }],
       }) } }] }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetch);
@@ -182,12 +185,14 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("Never call either set a national view or describe what a country's investors, consumers, residents, or population think");
       expect(messages[0].content).toContain("Never describe a company as U.S., Korean, or belonging to any country unless the submitted excerpt itself explicitly states that fact");
       expect(messages[0].content).toContain("do not label it U.S.");
+      expect(messages[0].content).toContain("one exact, verbatim supporting quote from each cited excerpt");
       expect(messages[0].content).toContain("a poster's assertion alone only establishes what that poster said");
       expect(messages[0].content).toContain("Prefer qualitative wording; any number in the summary must exactly appear in its cited excerpt");
       expect(messages[0].content).toContain("linkSharing:true");
       expect(messages[0].content).toContain("Do not treat a linked headline or promotion as a community member's independent view");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
       expect(prompt).toContain("Use exactly one claim for each non-empty evidence group");
+      expect(prompt).toContain("one exact verbatim supporting quote for every cited ID");
       expect(prompt).toContain("Include a number only when the exact figure appears in the cited excerpt");
       expect(prompt).toContain("semiconductors");
       expect(prompt).toContain("Selected search lens: Korean language/community evidence for the South Korea selection");
@@ -201,7 +206,13 @@ describe("free-tier market assist", () => {
       expect(prompt).toContain("[email]");
       expect(prompt).toContain("[link]");
       expect(prompt).not.toContain("\"linkSharing\":true");
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ baselineClaims: [{ text: "The baseline sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }], comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: ["Not representative"] }) } }] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        baselineClaims: [{ text: "The baseline sample notes demand.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand comments" }] }],
+        localClaims: [{ text: "KR sample notes exports.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: "반도체 수출 관련 의견" }] }],
+        comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"], supportingQuotes: [
+          { citationId: "C1", quote: "Semiconductor demand comments" }, { citationId: "C2", quote: "반도체 수출 관련 의견" },
+        ] }], limitations: ["Not representative"],
+      }) } }] }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
@@ -246,8 +257,11 @@ describe("free-tier market assist", () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "json_validate_failed", type: "invalid_request_error" } }), { status: 400 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: `Here is the evidence summary:\n\n\`\`\`json\n${JSON.stringify({
-        baselineClaims: [{ text: "The baseline sample notes demand.", citations: ["C1"] }], localClaims: [{ text: "KR sample notes exports.", citations: ["C2"] }],
-        comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"] }], limitations: [],
+        baselineClaims: [{ text: "The baseline sample notes demand.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand comments" }] }],
+        localClaims: [{ text: "KR sample notes exports.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: "반도체 수출 관련 의견" }] }],
+        comparisonClaims: [{ text: "Samples differ; evidence is limited.", citations: ["C1", "C2"], supportingQuotes: [
+          { citationId: "C1", quote: "Semiconductor demand comments" }, { citationId: "C2", quote: "반도체 수출 관련 의견" },
+        ] }], limitations: [],
       })}\n\`\`\`` } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
@@ -270,7 +284,7 @@ describe("free-tier market assist", () => {
         baselineClaims: [{ text: "Semiconductor demand is rising.", citations: ["C99"] }], localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        baselineClaims: [{ text: "One retrieved post says semiconductor demand remains uncertain.", citations: ["C1"] }], localClaims: [], comparisonClaims: [],
+        baselineClaims: [{ text: "One retrieved post says semiconductor demand remains uncertain.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand remains uncertain." }] }], localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
@@ -285,11 +299,33 @@ describe("free-tier market assist", () => {
     expect(retryPrompt).not.toContain("C99");
   });
 
+  it("fails closed when both model attempts invent a supporting quote", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fabricated = { baselineClaims: [{
+      text: "One retrieved post says demand is accelerating.",
+      citations: ["C1"],
+      supportingQuotes: [{ citationId: "C1", quote: "Semiconductor supply is strengthening." }],
+    }], localClaims: [], comparisonClaims: [] };
+    const fetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(fabricated) } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand remains uncertain.", language: "en" }], local: [] },
+    }));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation" });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
+    expect(retryPrompt).toContain("exact verbatim substring of that citation's excerpt");
+  });
+
   it("labels cited numeric social claims unverified when the model fails to attribute them", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
     const fetch = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        baselineClaims: [{ text: "Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"] }],
+        baselineClaims: [{ text: "Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "silicon wafer demand score 65.6." }] }],
         localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);

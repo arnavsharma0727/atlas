@@ -168,6 +168,11 @@ summary{line-height:1.5}
 .summary-citations{white-space:normal;font-size:.78em;color:#c0c5d5}
 .summary-citations a{color:#ffd0a8;text-decoration:underline;text-underline-offset:2px}
 .summary-citations a:focus-visible{outline:2px solid #ffd0a8;outline-offset:2px}
+.summary-supporting-quotes{margin-top:8px;color:#c0c5d5;font-size:11px;line-height:1.5}
+.summary-supporting-quotes summary{width:max-content;max-width:100%;cursor:pointer;color:#c0c5d5;text-decoration:underline;text-underline-offset:2px}
+.summary-supporting-quotes ul{margin:5px 0 0;padding-left:18px}
+.summary-supporting-quotes li{margin-top:5px;overflow-wrap:anywhere}
+.summary-supporting-quotes a{color:#ffd0a8;text-decoration:underline;text-underline-offset:2px}
 .market-summary-limitations{margin:8px 0 0;padding-left:18px;color:#f0c776;font-size:11px;line-height:1.6}
 .search-loading,.search-error{display:flex;align-items:center;justify-content:center;gap:8px;width:min(100%,900px);margin:24px auto;color:#c0c5d5;font-size:13px}
 .search-loading strong{font-weight:650;color:#fff}

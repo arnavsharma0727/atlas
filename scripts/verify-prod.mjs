@@ -141,7 +141,8 @@ try {
       page.includes("Each one-sentence claim must cite exact submitted records") &&
       page.includes("each comparison claim must cite both sides") &&
       page.includes("Script detection identifies writing system, not nationality, residence, or community membership") &&
-      page.includes("this is a consistency check, not semantic entailment or truth verification") &&
+      page.includes("Every generated citation must include a verbatim substring") &&
+      page.includes("a matching quote can still be irrelevant to the claim") &&
       page.includes("Inspect the original record and its provenance")
   ) {
     pass("summary market-screen and evidence policy", "methodology describes the lexical gate, its evidence citations, and limits");
