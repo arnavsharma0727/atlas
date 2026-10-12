@@ -69,6 +69,63 @@ function completeFixture() {
 }
 
 describe("research acceptance evaluator", () => {
+  it("accepts unknown non-discussion counts without inventing zero observations", () => {
+    const fixture = completeFixture();
+    fixture.sources.push({ ...fixture.sources[0], provider_key: "context-offline", is_community_discussion: "no",
+      provider_status: "unavailable", raw_returned_count: "", accepted_count: "", excluded_count: "" });
+    const report = evaluateResearchAcceptance(fixture);
+    expect(report.evidenceIntegrity.issueCount).toBe(0);
+    expect(report.scoreEligible).toBe(true);
+    expect(report.summary.uncertainDiscussionVolumeRuns).toBe(0);
+  });
+
+  it.each(["unavailable", "not-searched", "invented-status"])("rejects fabricated measured counts for %s", (status) => {
+    const fixture = completeFixture();
+    fixture.sources[0].provider_status = status;
+    const report = evaluateResearchAcceptance(fixture);
+    expect(report.evidenceIntegrity.issueCount).toBeGreaterThan(0);
+    expect(report.scoreEligible).toBe(false);
+  });
+
+  it.each(["", "1.5", "-1", "9007199254740992"])("rejects malformed measured counts: %s", (count) => {
+    const fixture = completeFixture();
+    fixture.sources[0].raw_returned_count = count;
+    expect(evaluateResearchAcceptance(fixture).gates[8].status).toBe("fail");
+  });
+
+  it("does not improve operator breadth by dropping unknown-volume discussion runs", () => {
+    const fixture = completeFixture();
+    for (const row of fixture.sources.filter((source) => source.provider_key === "provider-b")) {
+      row.provider_status = "unavailable";
+      row.raw_returned_count = row.accepted_count = row.excluded_count = "";
+    }
+    const report = evaluateResearchAcceptance(fixture);
+    expect(report.summary.knownHighVolumeRuns).toBe(0);
+    expect(report.summary.uncertainDiscussionVolumeRuns).toBe(240);
+    expect(report.summary.operatorBreadth.rate).toBe(0);
+    expect(report.gates[5].status).toBe("insufficient");
+    expect(report.scoreEligible).toBe(false);
+  });
+
+  it("keeps runs with ten measured records eligible despite another unavailable source", () => {
+    const fixture = completeFixture();
+    fixture.sources.push({ ...fixture.sources[0], provider_key: "discussion-offline", provider_status: "not-searched",
+      raw_returned_count: "", accepted_count: "", excluded_count: "" });
+    const report = evaluateResearchAcceptance(fixture);
+    expect(report.summary.knownHighVolumeRuns).toBe(240);
+    expect(report.summary.uncertainDiscussionVolumeRuns).toBe(0);
+    expect(report.scoreEligible).toBe(true);
+  });
+
+  it("rejects sampled results attributed to providers that were not searched", () => {
+    const fixture = completeFixture();
+    fixture.sources[0].provider_status = "not-searched";
+    fixture.sources[0].raw_returned_count = fixture.sources[0].accepted_count = fixture.sources[0].excluded_count = "";
+    const report = evaluateResearchAcceptance(fixture);
+    expect(report.evidenceIntegrity.issues).toContain("1 sampled result row(s) refer to unavailable or unsearched providers");
+    expect(report.scoreEligible).toBe(false);
+  });
+
   it("does not pass an empty or unreviewed worksheet", () => {
     const report = evaluateResearchAcceptance({ sources: [], results: [], claims: [] });
     expect(report.scoreEligible).toBe(false);

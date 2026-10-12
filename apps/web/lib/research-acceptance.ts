@@ -212,8 +212,11 @@ export function evaluateResearchAcceptance(input: {
 
   const discussionRows = sources.filter((row) => row.is_community_discussion === "yes");
   const rawDiscussionByRun = new Map<string, number>();
+  const unknownVolumeRuns = new Set<string>();
+  for (const row of discussionRows) if (!isMeasuredCount(row.raw_returned_count)) unknownVolumeRuns.add(row.run_id);
   for (const row of discussionRows) rawDiscussionByRun.set(row.run_id, (rawDiscussionByRun.get(row.run_id) ?? 0) + nonNegativeInt(row.raw_returned_count));
   const highVolumeRuns = new Set([...rawDiscussionByRun].filter(([, count]) => count >= 10).map(([runId]) => runId));
+  const uncertainVolumeRuns = [...unknownVolumeRuns].filter((runId) => !highVolumeRuns.has(runId));
   const usableOperatorsByRun = new Map<string, Set<string>>();
   const discussionProviderRuns = new Set(discussionRows.map((row) => `${row.run_id}\u0000${row.provider_key}`));
   for (const row of acceptedResults) {
@@ -227,7 +230,10 @@ export function evaluateResearchAcceptance(input: {
     usableOperatorsByRun.set(row.run_id, operators);
   }
   const multiOperatorRuns = [...highVolumeRuns].filter((runId) => (usableOperatorsByRun.get(runId)?.size ?? 0) >= 2).length;
-  const operatorBreadth = proportion(multiOperatorRuns, highVolumeRuns.size);
+  // A missing upstream count is not zero. Include potentially qualifying runs in
+  // the denominator to report a conservative lower bound, never an inflated rate.
+  const operatorBreadth = proportion(multiOperatorRuns, highVolumeRuns.size + uncertainVolumeRuns.length);
+  if (uncertainVolumeRuns.length) operatorBreadth.confidence95 = null;
 
   const statusRows = sources;
   const statusAccuracy = proportion(statusRows.filter((row) => row.ui_status_accurate === "yes").length, statusRows.filter((row) => isBinary(row.ui_status_accurate)).length);
@@ -305,9 +311,9 @@ export function evaluateResearchAcceptance(input: {
     gateWithInsufficient(5, "Duplicate detection", !duplicateItems.length || unreviewedDuplicateLabels > 0 || missingDuplicateGroup > 0 || singletonDuplicateGroups > 0 || duplicateFlagPrecision.denominator === 0,
       duplicateRecall.rate !== null && duplicateRecall.rate >= 0.90 && duplicateFlagPrecision.rate !== null && duplicateFlagPrecision.rate >= 0.90,
       `Duplicate recall ${fmtProportion(duplicateRecall)} across ${uniqueDuplicateGroups.size} reviewer-labeled duplicate group(s); duplicate-flag precision ${fmtProportion(duplicateFlagPrecision)}. Both targets are ≥90%; false-positive collapse must not exceed 10%. ${unreviewedDuplicateLabels} result(s) lack an adjudicated duplicate label; ${missingDuplicateGroup} confirmed duplicates lack a group ID; ${singletonDuplicateGroups} duplicate group(s) contain fewer than two sampled records.`),
-    gateWithInsufficient(6, "Distinct community operators", !highVolumeRuns.size,
+    gateWithInsufficient(6, "Distinct community operators", !highVolumeRuns.size || (uncertainVolumeRuns.length > 0 && (operatorBreadth.rate ?? 0) < 0.70),
       operatorBreadth.rate !== null && operatorBreadth.rate >= 0.70,
-      `${multiOperatorRuns}/${highVolumeRuns.size} runs with ≥10 raw discussion records had relevant first-person discussion from ≥2 distinct operators; target ≥70%.`),
+      `${multiOperatorRuns}/${highVolumeRuns.size} known runs with ≥10 raw discussion records had relevant first-person discussion from ≥2 distinct operators; ${uncertainVolumeRuns.length} additional run(s) have unknown discussion volume. Conservative breadth lower bound ${operatorBreadth.rate === null ? "unmeasured" : `${(operatorBreadth.rate * 100).toFixed(1)}%`} (${operatorBreadth.numerator}/${operatorBreadth.denominator}); target ≥70%. Unknown counts are not zero.`),
     gateWithInsufficient(7, "Provider status accuracy", !statusReviewComplete,
       sourceStatusAccurate,
       `${statusAccuracy.numerator}/${statusAccuracy.denominator} reviewed provider states were adjudicated accurate; every observed unavailable/partial/stale/empty state must be represented correctly.`),
@@ -332,7 +338,7 @@ export function evaluateResearchAcceptance(input: {
     precision: { overall: overallPrecision, byLens: precisionByLens, byProvider: precisionByProvider },
     interReviewerKappa: kappas,
     interReviewerKappaDenominators: kappaDenominators,
-    summary: { semanticSupport, citationResolution, exactQuotePresence, postAttributionAccuracy, unsupportedGeography, comparisonSides, counterevidenceOmissions, duplicateRecall, duplicateFlagPrecision, operatorBreadth, statusAccuracy, sourceLinkAccessibility },
+    summary: { semanticSupport, citationResolution, exactQuotePresence, postAttributionAccuracy, unsupportedGeography, comparisonSides, counterevidenceOmissions, duplicateRecall, duplicateFlagPrecision, operatorBreadth, knownHighVolumeRuns: highVolumeRuns.size, uncertainDiscussionVolumeRuns: uncertainVolumeRuns.length, statusAccuracy, sourceLinkAccessibility },
     languageAccuracyByLens,
     claimCoverageByLens,
     reviewerFluency: { resultRows: results.length, reviewedByAtLeastOneFluentReviewer: fluentResults.length, claimRows: claims.length, reviewedClaimsWithAtLeastOneFluentReviewer: fluentClaims.length },
@@ -350,6 +356,7 @@ function inspectEvidenceIntegrity(sources: AcceptanceSourceRow[], results: Accep
   const runById = new Map<string, RunIdentity>();
   const sourceKeys = new Set<string>();
   const sourceOperators = new Map<string, string>();
+  const sourceStatuses = new Map<string, string>();
   const resultKeys = new Set<string>();
   const claimKeys = new Set<string>();
   const deployedCommits = new Set<string>();
@@ -359,6 +366,7 @@ function inspectEvidenceIntegrity(sources: AcceptanceSourceRow[], results: Accep
   let duplicateResultRows = 0;
   let mismatchedResults = 0;
   let mismatchedResultOperators = 0;
+  let resultsFromUnmeasuredSources = 0;
   let orphanClaims = 0;
   let duplicateClaimRows = 0;
   let mismatchedClaims = 0;
@@ -376,8 +384,12 @@ function inspectEvidenceIntegrity(sources: AcceptanceSourceRow[], results: Accep
       baseline_query: row.baseline_query.trim(), local_query: row.local_query.trim(),
     };
     const parsedDate = Date.parse(rawDate);
-    const validCounts = [row.raw_returned_count, row.accepted_count, row.excluded_count].every((value) => /^\d+$/u.test(value.trim()));
-    if (!runId || !provider || !row.source_operator_key.trim() || !row.provider_status.trim() || !signature.topic_label ||
+    const status = row.provider_status.trim();
+    const counts = [row.raw_returned_count, row.accepted_count, row.excluded_count];
+    const validCounts = ["complete", "partial"].includes(status)
+      ? counts.every(isMeasuredCount)
+      : ["unavailable", "not-searched"].includes(status) && counts.every((value) => value.trim() === "");
+    if (!runId || !provider || !row.source_operator_key.trim() || !signature.topic_label ||
       !signature.baseline_query || !signature.local_query || !signature.deployed_commit || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u.test(rawDate) || !Number.isFinite(parsedDate) ||
       !REQUIRED_LENSES.includes(signature.selected_lens as typeof REQUIRED_LENSES[number]) || !validCounts || !isBinary(row.is_community_discussion)) invalidSourceRows++;
     if (signature.deployed_commit) deployedCommits.add(signature.deployed_commit);
@@ -385,6 +397,7 @@ function inspectEvidenceIntegrity(sources: AcceptanceSourceRow[], results: Accep
     if (sourceKeys.has(key)) duplicateSourceRows++;
     sourceKeys.add(key);
     sourceOperators.set(key, row.source_operator_key.trim());
+    sourceStatuses.set(key, status);
     const previous = runById.get(runId);
     if (previous && Object.keys(previous).some((field) => previous[field as keyof RunIdentity] !== signature[field as keyof RunIdentity])) conflictingRuns++;
     else if (!previous && runId) runById.set(runId, signature);
@@ -401,6 +414,7 @@ function inspectEvidenceIntegrity(sources: AcceptanceSourceRow[], results: Accep
     const identity = runById.get(runId);
     if (!identity || !sourceKeys.has(`${runId}\u0000${provider}`)) orphanResults++;
     else {
+      if (["unavailable", "not-searched"].includes(sourceStatuses.get(`${runId}\u0000${provider}`) ?? "")) resultsFromUnmeasuredSources++;
       if (identity.selected_lens !== row.selected_lens.trim() || identity.topic_label !== row.topic_label.trim()) mismatchedResults++;
       if (sourceOperators.get(`${runId}\u0000${provider}`) !== row.source_operator_key.trim()) mismatchedResultOperators++;
     }
@@ -424,6 +438,7 @@ function inspectEvidenceIntegrity(sources: AcceptanceSourceRow[], results: Accep
   if (orphanResults) issues.push(`${orphanResults} sampled result row(s) do not link to a recorded provider/search`);
   if (mismatchedResults) issues.push(`${mismatchedResults} sampled result row(s) disagree with their search topic or lens`);
   if (mismatchedResultOperators) issues.push(`${mismatchedResultOperators} sampled result row(s) disagree with the source operator recorded for their provider`);
+  if (resultsFromUnmeasuredSources) issues.push(`${resultsFromUnmeasuredSources} sampled result row(s) refer to unavailable or unsearched providers`);
   if (duplicateClaimRows) issues.push(`${duplicateClaimRows} duplicate summary claim ID row(s)`);
   if (orphanClaims) issues.push(`${orphanClaims} summary claim row(s) do not link to a recorded search`);
   if (mismatchedClaims) issues.push(`${mismatchedClaims} summary claim row(s) disagree with their search lens`);
@@ -472,6 +487,10 @@ function proportion(numerator: number, denominator: number): Proportion {
 function nonNegativeInt(value: string): number {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function isMeasuredCount(value: string): boolean {
+  return /^\d+$/u.test(value.trim()) && Number.isSafeInteger(Number(value));
 }
 
 function gateWithInsufficient(id: number, name: string, insufficient: boolean, passed: boolean, detail: string): AcceptanceGate {
