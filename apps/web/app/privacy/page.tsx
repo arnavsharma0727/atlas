@@ -21,7 +21,7 @@ export default function Privacy() {
             </p>
             <p>
               Search requests are sent to the relevant public search provider.
-              arXiv, OpenAlex, Crossref, Global Voices, and The Conversation requests are routed through
+              arXiv, OpenAlex, Crossref, SEC EDGAR, Global Voices, and The Conversation requests are routed through
               Atlas server endpoints; those endpoints apply short-window,
               IP-keyed, best-effort rate limits. Bluesky, Lemmy, Mastodon, and Stack
               Exchange searches are sent from your browser to their public
@@ -35,6 +35,18 @@ export default function Privacy() {
               and Atlas&apos;s hosting infrastructure may process technical
               request data under their own terms and operational logging
               practices. Atlas does not control their retention.
+            </p>
+            <p>
+              For SEC EDGAR context, Atlas checks an exact company name or
+              ticker against the public issuer index and, on a match, requests
+              that issuer&apos;s filing metadata by CIK. The text you typed is
+              not sent to the SEC. Atlas does not fetch filing bodies or send
+              filing metadata to Groq. SEC requests require an operator-set
+              User-Agent with a contact email; the issuer index may be cached
+              by the hosting platform for up to one day and matching filing
+              metadata in server memory for five minutes. SEC and hosting
+              infrastructure may log network requests under their own
+              policies.
             </p>
             <p>
               When a visitor submits a search, Atlas automatically attempts

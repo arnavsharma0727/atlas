@@ -82,6 +82,7 @@ export default function ResearchSweep({
         openAlex: true,
         arxiv: true,
         manifoldForecasts: true,
+        secEdgar: true,
         bluesky: true,
         blueskyQueries: [topic.length <= 92 ? `${topic} lang:en` : topic],
         // Keep these specialist Q&A communities as an explicitly separate evidence class.

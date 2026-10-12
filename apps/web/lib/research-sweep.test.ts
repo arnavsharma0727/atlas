@@ -203,6 +203,40 @@ describe("runResearchSweep", () => {
     expect(selectBalancedEvidence(results, new Map())).toEqual([]);
   });
 
+  it("adds exact SEC issuer filing links as primary-source context, never AI/community evidence", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("/api/research/sec-edgar");
+      expect(JSON.parse(String(init?.body))).toEqual({ query: "AAPL" });
+      return Response.json({
+        issuer: { cik: "0000320193", ticker: "AAPL", name: "Apple Inc." },
+        retrievedAt: new Date(NOW).toISOString(),
+        filings: [{
+          accession: "0000320193-26-000001", form: "10-K", filedAt: new Date(NOW - 60_000).toISOString(),
+          title: "10-K filing · Annual report", url: "https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/aapl-10k.htm",
+        }],
+      });
+    });
+    const results = await runResearchSweep("AAPL", { secEdgar: true, lemmy: false }, fetcher, NOW);
+    expect(results).toMatchObject([{
+      key: "sec-edgar", status: "complete", evidence: [{ evidenceClass: "official company disclosure", sourceOperatorKey: "sec-edgar" }],
+    }]);
+    expect(results[0].evidence[0].context).toContain("not establish global issuer coverage");
+    expect(results[0].evidence[0].transientPreview).toBeUndefined();
+    expect(selectBalancedEvidence(results, new Map())).toEqual([]);
+  });
+
+  it("reports exact SEC issuer no-match without claiming topic or global absence", async () => {
+    const fetcher = vi.fn(async () => Response.json({ issuer: null, filings: [], retrievedAt: new Date(NOW).toISOString() }));
+    const [result] = await runResearchSweep("semiconductor demand", { secEdgar: true, lemmy: false }, fetcher, NOW);
+    expect(result).toMatchObject({ key: "sec-edgar", status: "complete", evidence: [], coverageNote: expect.stringContaining("not evidence that a company or topic is absent elsewhere") });
+  });
+
+  it("distinguishes a matched SEC issuer with no recent qualifying filings", async () => {
+    const fetcher = vi.fn(async () => Response.json({ issuer: { cik: "0000320193", ticker: "AAPL", name: "Apple Inc." }, filings: [] }));
+    const [result] = await runResearchSweep("AAPL", { secEdgar: true, lemmy: false }, fetcher, NOW);
+    expect(result.coverageNote).toContain("Matched Apple Inc. (AAPL), but no qualifying filing metadata");
+  });
+
   it("adds arXiv title metadata as preprint context without abstract text", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe("/api/research/arxiv");

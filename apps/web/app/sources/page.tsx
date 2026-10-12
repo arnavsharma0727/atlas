@@ -301,8 +301,13 @@ export default async function Sources() {
       name: "SEC EDGAR",
       key: "sec-edgar",
       enabled: Boolean(process.env.SEC_USER_AGENT),
+      onDemand: true,
       detail:
-        "Official U.S. filing metadata; not part of the current homepage evidence stream. Requires a declared User-Agent and fair-access limits.",
+        "Visitor-triggered exact company-name or ticker lookup through SEC issuer metadata and submissions APIs. Free and public with no API key, but Atlas requires the operator's descriptive User-Agent to contain a contact email and uses a server-side request because data.sec.gov does not support browser CORS. Up to 10 recent 10-K, 10-Q, 8-K, 20-F, 40-F, or 6-K filing links from the past three years; only SEC-index metadata is requested, not filing text. This covers SEC registrants—including some foreign issuers—not all global companies; no match is not evidence of absence. Filing links are separate primary-source context, never AI-summary or community-opinion evidence. Per-instance rate limiting and caching are best-effort in serverless hosting.",
+      referenceUrl: "https://www.sec.gov/search-filings/edgar-application-programming-interfaces-apis",
+      referenceLabel: "SEC EDGAR APIs and data coverage",
+      secondaryReferenceUrl: "https://www.sec.gov/developer",
+      secondaryReferenceLabel: "SEC developer fair-access guidance",
     },
   ];
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -366,7 +371,7 @@ export default async function Sources() {
         <div className="eyebrow mb-4">Source configuration and health</div>
         <h1 className="mb-4 text-4xl font-extrabold">Sources</h1>
         <p className="mb-10 max-w-2xl leading-7 text-muted">
-          The live search uses Bluesky, Lemmy, Mastodon public hashtags, title-only Stack Exchange Q&amp;A, Global Voices reporting, and The Conversation expert-analysis headlines. Reddit is excluded from research search under its current developer/API policy. These are incomplete, different kinds of
+          The live search separates public conversation from expert, reporting, scholarly, forecast, and SEC filing context. Reddit is excluded from research search under its current developer/API policy. These are incomplete, different kinds of
           evidence—not a representative measure of a country or market.
           Scheduled operational connectors are listed separately below;
           their stored records are not automatically part of this search.
@@ -383,10 +388,10 @@ export default async function Sources() {
                     lastSuccess.completed_at ?? lastSuccess.started_at,
                   ) >
                   48 * 60 * 60 * 1000);
-            const status = source.onDemand
-              ? "on demand"
-              : !source.enabled
-                ? "off"
+            const status = !source.enabled
+              ? "off"
+              : source.onDemand
+                ? "on demand"
                 : stale
                   ? "stale"
                   : latest?.status === "failed"

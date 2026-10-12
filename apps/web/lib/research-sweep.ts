@@ -12,6 +12,7 @@ import type { CrossrefWork } from "./crossref-search";
 import type { ArxivRecord } from "./arxiv-search";
 import { searchManifoldForecasts } from "./manifold-search";
 import type { OpenAlexWork } from "./openalex-search";
+import type { SecFilingSearch } from "./sec-edgar-research-search";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -27,6 +28,8 @@ export type ResearchSweepSelection = {
   arxiv?: boolean;
   /** Visitor-triggered play-money prediction markets; never fed into country/community summaries. */
   manifoldForecasts?: boolean;
+  /** Visitor-triggered exact issuer lookup; official filings are source context, never conversation evidence. */
+  secEdgar?: boolean;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -142,7 +145,7 @@ export async function runResearchSweep(
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
   const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
-  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -183,6 +186,75 @@ export async function runResearchSweep(
         sourceOperatorLabel: "Manifold Markets",
       })),
     ));
+  }
+  if (selection.secEdgar) {
+    tasks.push((async () => {
+      const label = "SEC EDGAR · official filing metadata";
+      const window = "Exact company-name/ticker match · selected SEC filings · past 3 years · up to 10";
+      try {
+        const response = await boundedFetch("/api/research/sec-edgar", {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error(response.status === 429
+          ? "SEC EDGAR search limit reached. Try again in one minute."
+          : "SEC EDGAR metadata is temporarily unavailable or not configured.");
+        const body = await response.json() as SecFilingSearch & { retrievedAt?: string };
+        if (!body || !(body.issuer === null || (typeof body.issuer?.cik === "string" && typeof body.issuer?.ticker === "string" && typeof body.issuer?.name === "string")) || !Array.isArray(body.filings)) {
+          throw new Error("SEC EDGAR returned an unexpected response.");
+        }
+        const issuer = body.issuer;
+        return {
+          key: "sec-edgar",
+          label,
+          query,
+          asOf,
+          retrievedAt: typeof body.retrievedAt === "string" ? body.retrievedAt : new Date().toISOString(),
+          window,
+          evidence: issuer ? body.filings.flatMap((filing) => {
+            if (!filing || typeof filing.form !== "string" || typeof filing.filedAt !== "string" || typeof filing.title !== "string" || typeof filing.url !== "string") return [];
+            let url: URL;
+            try { url = new URL(filing.url); } catch { return []; }
+            if (url.protocol !== "https:" || url.hostname !== "www.sec.gov" || !url.pathname.startsWith("/Archives/edgar/data/")) return [];
+            return [{
+              id: `sec-edgar:${filing.accession}`,
+              title: filing.title,
+              url: url.toString(),
+              source: `SEC EDGAR · ${issuer.name} (${issuer.ticker})`,
+              evidenceClass: "official company disclosure" as const,
+              language: "Not reported",
+              timeLabel: "Filed",
+              timeValue: filing.filedAt,
+              context: `Official SEC filing metadata for ${issuer.name} (${issuer.ticker}, CIK ${issuer.cik}). Atlas retrieved filing index metadata only; open the original filing to inspect its contents. A U.S. filing record does not establish global issuer coverage or community opinion.`,
+              attribution: "U.S. Securities and Exchange Commission EDGAR",
+              attributionUrl: "https://www.sec.gov/edgar/search/",
+              sourceOperatorKey: "sec-edgar",
+              sourceOperatorLabel: "U.S. Securities and Exchange Commission",
+            }];
+          }) : [],
+          error: null,
+          ...(!issuer
+            ? { coverageNote: "No exact SEC-listed company-name or ticker match was found. EDGAR covers SEC registrants only; this is not evidence that a company or topic is absent elsewhere." }
+            : body.filings.length === 0
+              ? { coverageNote: `Matched ${issuer.name} (${issuer.ticker}), but no qualifying filing metadata was returned in the past three years.` }
+              : {}),
+          status: "complete" as const,
+        };
+      } catch (cause) {
+        return {
+          key: "sec-edgar",
+          label,
+          query,
+          asOf,
+          retrievedAt: new Date().toISOString(),
+          window,
+          evidence: [],
+          error: cause instanceof Error ? cause.message : "SEC EDGAR metadata is unavailable.",
+          status: "unavailable" as const,
+        };
+      }
+    })());
   }
   if (selection.globalVoices) {
     for (const [index, term] of [query, ...additionalQueries.map((value) => value.trim())].entries()) {

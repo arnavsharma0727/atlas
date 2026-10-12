@@ -80,6 +80,28 @@ try {
 }
 
 try {
+  const [sourcesResponse, privacyResponse, methodologyResponse] = await Promise.all([
+    fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/methodology`, { signal: AbortSignal.timeout(15000) }),
+  ]);
+  const [sourcesPage, privacyPage, methodologyPage] = await Promise.all([
+    sourcesResponse.text(), privacyResponse.text(), methodologyResponse.text(),
+  ]);
+  if (sourcesResponse.ok && privacyResponse.ok && methodologyResponse.ok &&
+    sourcesPage.includes("SEC EDGAR") && sourcesPage.includes("Visitor-triggered exact company-name or ticker lookup") &&
+    sourcesPage.includes("operator's descriptive User-Agent") &&
+    privacyPage.includes("The text you typed is") && privacyPage.includes("not sent to the SEC") &&
+    methodologyPage.includes("An exact-name/ticker miss is not a topic-wide or global absence claim")) {
+    pass("SEC issuer source disclosure", "exact-issuer coverage, contact User-Agent, query privacy, and no-match limits are documented");
+  } else {
+    fail("SEC issuer source disclosure", "SEC scope, privacy, or no-match disclosures are missing");
+  }
+} catch (error) {
+  fail("SEC issuer source disclosure", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const response = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
   const page = await response.text();
   if (
@@ -170,20 +192,22 @@ for (const [name, route, resultKey] of [
   ["OpenAlex research metadata", "/api/research/openalex", "works"],
   ["Crossref research metadata", "/api/research/crossref", "works"],
   ["arXiv research metadata", "/api/research/arxiv", "records"],
+  ["SEC EDGAR exact issuer filings", "/api/research/sec-edgar", "filings"],
 ]) {
   try {
     const response = await fetch(`${base}${route}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query: "electric vehicles" }),
+      body: JSON.stringify({ query: route.endsWith("sec-edgar") ? "AAPL" : "electric vehicles" }),
       signal: AbortSignal.timeout(45000),
     });
     const body = await response.json().catch(() => null);
     const results = body && Array.isArray(body[resultKey]) ? body[resultKey] : null;
-    if (response.ok && results && results.every((item) => typeof item.title === "string" && typeof item.url === "string")) {
+    const issuerValid = !route.endsWith("sec-edgar") || body?.issuer?.ticker === "AAPL";
+    if (response.ok && results && issuerValid && results.every((item) => typeof item.title === "string" && typeof item.url === "string")) {
       pass(`${name} route`, `HTTP ${response.status}; ${results.length} valid metadata records`);
     } else {
-      fail(`${name} route`, `HTTP ${response.status}; expected a ${resultKey} array of title/URL records`);
+      fail(`${name} route`, `HTTP ${response.status}; expected ${route.endsWith("sec-edgar") ? "an exact AAPL issuer match and " : ""}a ${resultKey} array of title/URL records`);
     }
   } catch (error) {
     fail(`${name} route`, error instanceof Error ? error.message : "request failed");
