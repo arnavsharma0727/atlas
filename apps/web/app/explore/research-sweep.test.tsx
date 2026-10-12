@@ -18,6 +18,7 @@ describe("summary evidence links", () => {
     expect(html).toContain('Another post reports falling demand.<span class="summary-citations"');
     expect(html.match(/Check verbatim source excerpts/g)).toHaveLength(2);
     expect(html.match(/Cited basis:/g)).toHaveLength(1);
+    expect(html.match(/Event timing is unverified:/g)).toHaveLength(1);
     expect(html).toContain('href="#citation-C1"');
     expect(html).toContain('href="#citation-C2"');
   });
@@ -50,6 +51,7 @@ describe("summary evidence links", () => {
     }));
     expect(caveat).not.toContain("Cited basis");
     expect(fallback).not.toContain("Cited basis");
+    expect(fallback).not.toContain("Event timing is unverified:");
   });
 
   it("does not call a two-platform cited sample independent corroboration", () => {

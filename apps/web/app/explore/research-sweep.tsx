@@ -404,6 +404,7 @@ export function SummaryPassageText({ passage, citedBreadth }: { passage: MarketS
     )}</p>}
     {citedBreadth && passage.citations.length > 0 && <>
       <p className="summary-sample-meta">Cited basis: {citedBreadth.excerptCount} unique {citedBreadth.excerptCount === 1 ? "record" : "records"} · {citedBreadth.platformLabels.length} {citedBreadth.platformLabels.length === 1 ? "platform" : "platforms"}{citedBreadth.platformLabels.length > 0 ? `: ${citedBreadth.platformLabels.join(", ")}` : ""}. Citation coverage does not establish agreement or independence.</p>
+      <p className="summary-sample-caveat">Event timing is unverified: recent posts may describe different historical periods, forecasts, or current conditions.</p>
       {citedBreadth.platformLabels.length === 1 && <p className="summary-sample-caveat">This AI overview cites one platform only, even if other platforms appear in the selected inputs.</p>}
     </>}
     {!passage.claims?.length && !!passage.supportingQuotes?.length && (
