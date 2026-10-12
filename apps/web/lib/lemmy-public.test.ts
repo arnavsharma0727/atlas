@@ -64,7 +64,7 @@ describe("Lemmy public discussion search", () => {
     const requestUrl = new URL(fetchMock.mock.calls[0][0] as URL);
     expect(requestUrl.origin).toBe("https://lemmy.world");
     expect(requestUrl.searchParams.get("q")).toBe("central bank");
-    expect(requestUrl.searchParams.get("limit")).toBe("20");
+    expect(requestUrl.searchParams.get("limit")).toBe("50");
     expect(requestUrl.searchParams.get("listing_type")).toBe("All");
   });
 
@@ -84,7 +84,7 @@ describe("Lemmy public discussion search", () => {
   });
 
   it("preserves raw counts separately from stale and removed items", async () => {
-    const fetcher = vi.fn(async () => Response.json({ posts: [item(), item({ id: 43, removed: true }), item({ id: 44, published: "2026-09-20T00:00:00Z" })] }));
+    const fetcher = vi.fn(async () => Response.json({ posts: [item(), item({ id: 43, removed: true }), item({ id: 44, published: "2026-08-20T00:00:00Z" })] }));
     const page = await searchLemmyPostPage("central bank", "lemmy.world", fetcher, now);
     expect(page).toMatchObject({ returnedCount: 3, excludedCount: 2 });
     expect(page.posts).toHaveLength(1);
@@ -109,7 +109,7 @@ describe("Lemmy public discussion search", () => {
   });
 
   it("refuses responses larger than the requested bound", async () => {
-    const fetcher = vi.fn(async () => Response.json({ posts: Array.from({ length: 21 }, (_, index) => item({ id: index + 1 })) }));
+    const fetcher = vi.fn(async () => Response.json({ posts: Array.from({ length: 51 }, (_, index) => item({ id: index + 1 })) }));
     await expect(searchLemmyPosts("central bank", "lemmy.world", fetcher, now)).rejects.toThrow("exceeded the bounded");
   });
 
@@ -118,7 +118,7 @@ describe("Lemmy public discussion search", () => {
       item({ id: 43, removed: true }),
       item({ id: 47, nsfw: true }),
       item({ id: 48, bot: true }),
-      item({ id: 44, published: "2026-09-20T00:00:00Z" }),
+      item({ id: 44, published: "2026-08-20T00:00:00Z" }),
       item({ id: 45, ap_id: "javascript:alert(1)" }),
       item({ id: 46, published: "2026-10-01T00:00:00Z" }),
       item(),

@@ -76,7 +76,7 @@ const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
   pt: /\b(?:mercado|demanda|oferta|preço|preços|vendas|receita|faturamento|margem|estoque|ações|investimento|investidor|lucro|prejuízo|tarifa|exportação|importação|produção|safra|commodit\w*|futuro|cotação|taxa de juros|câmbio|bolsa de valores|rendimento|dividendo|capitalização)\b/iu,
   es: /\b(?:mercado|demanda|oferta|precio|precios|ventas|ingresos|margen|inventario|acciones|inversión|inversor|beneficio|pérdida|arancel|exportación|importación|producción|cosecha|materias primas|futuros|cotización|tipo de cambio|tasa de interés|bolsa de valores|rentabilidad|dividendo|capitalización)\b/iu,
   fr: /\b(?:marché|demande|offre|prix|ventes|revenu|chiffre d['’]affaires|marge|stock|actions|investissement|investisseur|bénéfice|perte|tarif|exportation|importation|production|récolte|matières premières|contrats à terme|valorisation|taux d'intérêt|cours boursier|rendement|dividende|capitalisation)\b/iu,
-  de: /\b(?:markt|nachfrage|angebot|preis|preise|umsatz|marge|lagerbestand|aktie|investition|investor|gewinn|verlust|zoll|export|import|produktion|ernte|rohstoff|terminmarkt|bewertung|aktienkurs|börsenkurs|zinssatz|rendite|dividende|marktkapitalisierung|cashflow|auftragsbestand)\b/iu,
+  de: /\b(?:markt|nachfrage|angebot|preis|preise|preislich|preisentwicklung|kosten|umsatz|marge|lagerbestand|aktie|investition|investor|gewinn|verlust|zoll|export|import|produktion|ernte|rohstoff|terminmarkt|bewertung|aktienkurs|börsenkurs|zinssatz|rendite|dividende|marktkapitalisierung|cashflow|auftragsbestand)\b/iu,
   ko: /(?:시장|수요|공급|가격|매출|마진|재고|주가|주식|투자|실적|이익|손실|관세|수출|수입|생산|수확|원자재|선물|밸류에이션|시가총액|영업이익|배당|금리|환율|주주|공급망|가이던스)/u,
   ja: /(?:市場|需要|供給|価格|売上|利益|在庫|株価|株式|投資|業績|関税|輸出|輸入|生産|収穫|原材料|先物|評価額|時価総額|株主|営業利益|配当|金利|為替|供給網|売上高|業績予想)/u,
   hi: /(?:बाज़ार|बाजार|मांग|आपूर्ति|कीमत|बिक्री|राजस्व|मुनाफ़ा|मुनाफा|शेयर|निवेश|लाभ|नुकसान|टैरिफ़|टैरिफ|निर्यात|आयात|उत्पादन|फ़सल|फसल|कमोडिटी|ब्याज दर|विनिमय दर|शेयर बाज़ार|शेयर बाजार|बाज़ार पूंजीकरण|बाजार पूंजीकरण|लाभांश|आपूर्ति श्रृंखला|मूल्यांकन)/u,
@@ -126,6 +126,9 @@ const QUERY_INTENT_TERMS = new Set([
 ]);
 
 const MARKET_TOPIC_ALIASES: string[][] = [
+  // Curated adjacent sector wording. This is a discovery alias, not evidence
+  // that a post about photovoltaic generation discusses panel manufacturers.
+  ["solar panel", "solar panels", "solar module", "solar modules", "photovoltaic", "photovoltaics", "solarmodul", "solarmodule", "photovoltaik"],
   ["semiconductor", "semiconductors", "chip", "chips", "gpu", "gpus", "wafer", "wafers"],
   ["oil", "crude", "petroleum", "brent", "wti"],
   ["natural gas", "gas natural", "gás natural", "gaz naturel", "erdgas", "천연가스", "천연 가스", "天然ガス", "प्राकृतिक गैस", "lng", "henry hub"],
@@ -215,17 +218,24 @@ export function isAttributedReportShare(value: string): boolean {
   return /(?:\bsource\s*:\s*|\bvia\s*:\s*|\breported\s+by\s*:\s*|出典\s*[:：]|출처\s*[:：])[^\s,;]{2,80}/iu.test(value);
 }
 
+/** A country-labelled, star-wrapped bulletin is not a first-person market view. */
+export function isHeadlineBulletin(value: string): boolean {
+  return /^\s*\*(?:[^*\n]{1,32}\s+-\s+[^*\n]{12,180})\*/u.test(value.normalize("NFKC"));
+}
+
 /** Personal purchase/utility-bill advice is not evidence of a market-wide view. */
 export function isHouseholdPurchaseAdvice(value: string): boolean {
   const text = value.normalize("NFKC");
   return /\b(?:my|your|our|their|his|her)\s+(?:own\s+)?(?:electric(?:ity)?|energy|utility|power)\s+bills?\b/iu.test(text) ||
-    /\b(?:my|your|our)\s+own\s+(?:solar\s+panels?|home\s+batter(?:y|ies)|rooftop\s+solar)\b/iu.test(text);
+    /\b(?:my|your|our)\s+own\s+(?:solar\s+panels?|home\s+batter(?:y|ies)|rooftop\s+solar)\b/iu.test(text) ||
+    /\b(?:mein(?:e|er|en|em|es)?|unser(?:e|er|en|em|es)?|dein(?:e|er|en|em|es)?)\s+(?:stromrechnung|energiekosten|solarmodule?|photovoltaikanlage|pv-anlage)\b/iu.test(text) ||
+    /\b(?:erstes?|zweites?|drittes?)\s+angebot\b.{0,140}\b(?:elektriker|wallbox|haus|dach)\b/iu.test(text);
 }
 
 /** Linked, explicitly attributed, or high-confidence promotional posts cannot support the overview. */
 export function isIndependentDiscussionEvidence(item: { linkSharing?: boolean; excerpt?: string }): boolean {
   const excerpt = item.excerpt ?? "";
-  return item.linkSharing !== true && !isLikelyMarketPromotion(excerpt) && !isAttributedReportShare(excerpt) && !isHouseholdPurchaseAdvice(excerpt);
+  return item.linkSharing !== true && !isLikelyMarketPromotion(excerpt) && !isAttributedReportShare(excerpt) && !isHeadlineBulletin(excerpt) && !isHouseholdPurchaseAdvice(excerpt);
 }
 
 /** Filter displayed records by the phrase actually used for each search lens, preserving raw API counts. */
@@ -244,11 +254,12 @@ export function filterResultsToTopic(
       const copy = `${item.title} ${item.transientPreview ?? ""}`;
       const isPromotion = isLikelyMarketPromotion(copy);
       const isReportShare = isAttributedReportShare(copy);
+      const isBulletin = isHeadlineBulletin(item.transientPreview ?? item.title);
       const isHouseholdAdvice = isHouseholdPurchaseAdvice(copy);
       const detectedLanguage = result.key.startsWith("local:") && expectedLocalLanguage
         ? languageLensMatchMethod(item.language, expectedLocalLanguage, item.transientPreview ?? item.title)
         : null;
-      if ((item.evidenceClass !== "social discussion" || (!isPromotion && !isReportShare && !isHouseholdAdvice)) && detectedLanguage !== "script-detection") return item;
+      if ((item.evidenceClass !== "social discussion" || (!isPromotion && !isReportShare && !isBulletin && !isHouseholdAdvice)) && detectedLanguage !== "script-detection") return item;
       return {
         ...item,
         context: [item.context, detectedLanguage === "script-detection"
@@ -257,6 +268,8 @@ export function filterResultsToTopic(
           ? "This excerpt matches a high-confidence stock-promotion/clickbait phrase screen; it remains visible but is excluded from the AI overview."
           : isReportShare
             ? "This post explicitly attributes its material to a publisher; it remains visible but is excluded as an independent community view."
+            : isBulletin
+              ? "This post uses a country-labelled headline-bulletin format; it remains visible but is excluded as an independent community view."
             : isHouseholdAdvice
               ? "This post gives individual household purchase or utility-bill advice; it remains visible but does not support a market-wide discussion overview."
             : undefined].filter(Boolean).join(" "),

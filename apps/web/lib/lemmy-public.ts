@@ -101,8 +101,8 @@ export async function getLemmyLanguageCatalog(
   }
 }
 
-const MAX_RESULTS = 20;
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_RESULTS = 50;
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Search one public Lemmy instance; post text is returned only for transient browser review. */
 export async function searchLemmyPosts(

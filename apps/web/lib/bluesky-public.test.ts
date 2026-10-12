@@ -6,7 +6,7 @@ const NOW = Date.parse("2026-10-02T12:00:00Z");
 describe("searchBlueskyPosts", () => {
   it("never substitutes recent index time for missing, invalid, old or future declared creation time", async () => {
     const dates = [undefined, null, "2026-10-02", "2026-09-31T12:00:00Z",
-      new Date(NOW - 8 * 86400000).toISOString(), new Date(NOW + 1000).toISOString()];
+      new Date(NOW - 31 * 86400000).toISOString(), new Date(NOW + 1000).toISOString()];
     const fetcher = vi.fn(async () => Response.json({ posts: dates.map((createdAt, index) => ({
       uri: `at://did:plc:abc/app.bsky.feed.post/invalid${index}`, author: { handle: "reader.example" },
       record: { text: `GPU demand test ${index}`, createdAt }, indexedAt: new Date(NOW - 1000).toISOString(),
@@ -43,7 +43,7 @@ describe("searchBlueskyPosts", () => {
     expect(url.searchParams.get("q")).toBe(query);
     expect(url.searchParams.get("lang")).toBe("en");
     expect(url.searchParams.get("sort")).toBe("latest");
-    expect(url.searchParams.get("limit")).toBe("25");
+    expect(url.searchParams.get("limit")).toBe("100");
     await expect(searchBlueskyPosts("GPU", fetcher, NOW, { language: "en&author=other" })).rejects.toThrow("language filter");
     expect(fetcher).toHaveBeenCalledOnce();
   });
@@ -73,12 +73,23 @@ describe("searchBlueskyPosts", () => {
 
   it("excludes stale and malformed records and rejects oversized queries", async () => {
     const fetcher = vi.fn(async (_input: RequestInfo | URL) => new Response(JSON.stringify({ posts: [
-      { uri: "at://did:plc:abc/app.bsky.feed.post/stale", record: { text: "old", createdAt: new Date(NOW - 8 * 86400000).toISOString() }, author: { handle: "a.example" } },
+      { uri: "at://did:plc:abc/app.bsky.feed.post/stale", record: { text: "old", createdAt: new Date(NOW - 31 * 86400000).toISOString() }, author: { handle: "a.example" } },
       { uri: "https://invalid", record: { text: "bad" }, author: { handle: "a.example" } },
     ] })));
     expect(await searchBlueskyPosts("markets", fetcher, NOW)).toEqual([]);
     await expect(searchBlueskyPosts("x".repeat(101), fetcher, NOW)).rejects.toThrow("2–100");
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains a dated market post from the prior month within the bounded window", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      uri: "at://did:plc:abc/app.bsky.feed.post/oldermarket",
+      record: { text: "Solarmodule Preise fallen, der PV-Markt bleibt stabil.", createdAt: new Date(NOW - 29 * 86400000).toISOString(), langs: ["de"] },
+      author: { handle: "market-reader.example" },
+    }] }));
+    const posts = await searchBlueskyPosts("Solarmodule", fetcher, NOW, { language: "de" });
+    expect(posts).toHaveLength(1);
+    expect(posts[0].publishedAt).toBe(new Date(NOW - 29 * 86400000).toISOString());
   });
 
   it("withholds post text when Bluesky returns content labels", async () => {
@@ -144,6 +155,6 @@ describe("searchBlueskyPosts", () => {
   });
 
   it("refuses responses larger than the requested limit", async () => {
-    await expect(searchBlueskyPosts("semiconductor", vi.fn(async () => Response.json({ posts: Array(26).fill({}) })), NOW)).rejects.toThrow("exceeded the bounded search");
+    await expect(searchBlueskyPosts("semiconductor", vi.fn(async () => Response.json({ posts: Array(101).fill({}) })), NOW)).rejects.toThrow("exceeded the bounded search");
   });
 });

@@ -839,7 +839,7 @@ describe("runResearchSweep", () => {
       sourceOperatorKey: "lemmy-federation",
       sourceOperatorLabel: "Lemmy federated search",
     });
-    expect(results[2].evidence[0]).toMatchObject({ source: "Bluesky public AppView · search 1", transientPreview: "A useful discussion https://example.test/story" });
+    expect(results[2].evidence[0]).toMatchObject({ source: "Bluesky public AppView · search 1 · query “markets”", transientPreview: "A useful discussion https://example.test/story" });
     expect(results[2].evidence[0].context).toContain("does not establish the author's independent view");
     expect(results[1].evidence[0].evidenceClass).toBe("social discussion");
     expect(results[1].evidence[0].transientPreview).toBe("This post body is transiently previewed, never saved https://example.test/thread");

@@ -760,7 +760,7 @@ export async function runResearchSweep(
       let unmappedLanguageCount = 0;
       let rawCount: number | undefined;
       let adapterExcludedCount = 0;
-      tasks.push(capture(`lemmy:${host}`, `Lemmy · ${host} · ${viewLabel}`, term, asOf, "Recent posts within 7 days; up to 20 per server view", async () => {
+      tasks.push(capture(`lemmy:${host}`, `Lemmy · ${host} · ${viewLabel}`, term, asOf, "Recent posts within 30 days; up to 50 per server view", async () => {
       const [page, languageCatalog] = await Promise.all([
         searchLemmyPostPage(term, host, boundedFetch, now, listingType),
         getLemmyLanguageCatalog(host, boundedFetch),
@@ -848,7 +848,7 @@ export async function runResearchSweep(
   for (const [index, termInput] of blueskyQueries.entries()) {
     const term = termInput.trim();
     let sourceNote: string | undefined;
-    tasks.push(capture(`bluesky:${index}`, `Bluesky · search ${index + 1}`, term, asOf, `Latest index sample: up to 25 returns · retained declared creation times within 7 days${selection.blueskyLanguage ? ` · provider language filter: ${selection.blueskyLanguage}` : ""}`, async () => {
+    tasks.push(capture(`bluesky:${index}`, `Bluesky · search ${index + 1}`, term, asOf, `Latest index sample: up to 100 returns · retained declared creation times within 30 days${selection.blueskyLanguage ? ` · provider language filter: ${selection.blueskyLanguage}` : ""}`, async () => {
       const posts = await searchBlueskyPosts(term, boundedFetch, now, { language: selection.blueskyLanguage });
       sourceNote = [concentratedBylineNote(posts.map(({ authorHandle }) => authorHandle)),
         "Freshness uses the post's valid client-declared createdAt timestamp, never indexedAt. Missing, invalid, stale or future creation times are excluded. This declaration is unverified, not an independently established publication or event date; displayed times have millisecond resolution."].filter(Boolean).join(" ");
@@ -856,7 +856,7 @@ export async function runResearchSweep(
         id: `bluesky:${post.uri}`,
         title: post.title,
         url: post.url,
-        source: `Bluesky public AppView · search ${index + 1}`,
+        source: `Bluesky public AppView · search ${index + 1} · query “${term}”`,
         evidenceClass: "social discussion" as const,
         language: post.language,
         timeLabel: "Client-declared created time · unverified",

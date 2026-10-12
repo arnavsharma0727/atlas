@@ -14,6 +14,11 @@ describe("bounded transparent market-discussion query plan", () => {
   it.each(["GPU prices", "inflation", "oil demand", "coffee supply", "unemployment"])("does not redundantly narrow an existing market intent: %s", (topic) => {
     expect(marketDiscussionQueries(topic, "en")).toEqual([topic]);
   });
+  it("keeps reviewed adjacent solar wording as a separately visible bounded search", () => {
+    expect(marketDiscussionQueries("solar panels", "en")).toEqual(["solar panels", "solar panels prices", "photovoltaics"]);
+    expect(marketDiscussionQueries("Solarmodule", "de")).toEqual(["Solarmodule", "Solarmodule Preise", "Photovoltaik"]);
+    expect(marketDiscussionQueries("solar panels in Germany", "en")).toEqual(["solar panels in Germany", "solar panels in Germany prices"]);
+  });
   it("does not truncate a topic, infer an unsupported language or exceed the query cap", () => {
     expect(marketDiscussionQueries("x".repeat(100), "en")).toEqual(["x".repeat(100)]);
     expect(marketDiscussionQueries("GPU", "unknown")).toEqual(["GPU"]);

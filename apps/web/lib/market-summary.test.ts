@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isHouseholdPurchaseAdvice, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
+import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isHeadlineBulletin, isHouseholdPurchaseAdvice, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 import { summarizeCitedEvidenceBreadth } from "./market-summary";
@@ -214,6 +214,20 @@ describe("market summary evidence contracts", () => {
       evidenceClass: "social discussion", language: "en", timeLabel: "Published", timeValue: "2026-10-11T00:00:00Z", transientPreview: advice,
     }])], "solar panels");
     expect(screened[0].evidence[0].context).toContain("individual household purchase");
+    const germanBid = "Zweites Angebot nur mit Photovoltaik und Wallbox liegt bei 43.000€, der Elektriker war deutlich teurer.";
+    expect(isHouseholdPurchaseAdvice(germanBid)).toBe(true);
+    expect(isIndependentDiscussionEvidence({ excerpt: germanBid })).toBe(false);
+  });
+
+  it("keeps syndicated headline-style posts inspectable but out of independent views", () => {
+    const bulletin = "*🥰 Schweiz - Gewächshaus installiert Solarmodule über Tomaten und produziert Strom* Weitere Einzelheiten folgen.";
+    expect(isHeadlineBulletin(bulletin)).toBe(true);
+    expect(isIndependentDiscussionEvidence({ excerpt: bulletin })).toBe(false);
+    expect(isHeadlineBulletin("Ich denke, Photovoltaik verteuert sich durch weniger Wettbewerb.")).toBe(false);
+    const screened = filterResultsToTopic([result("local:bluesky", "Bluesky", [{
+      ...evidence("bulletin", "Bluesky", bulletin), title: "Public Bluesky post by @reader.example", transientPreview: bulletin,
+    }])], "solar panels", "Solarmodule", "de");
+    expect(screened[0].evidence[0].context).toContain("headline-bulletin");
   });
 
   it("keeps high-confidence stock-pitch copy visible but out of the community overview", () => {
@@ -276,6 +290,11 @@ describe("market summary evidence contracts", () => {
     expect(hasMarketSignalTerms({ excerpt: "I need a coffee before my shift starts.", language: "English" })).toBe(false);
     expect(hasMarketSignalTerms({ excerpt: "Coffee prices rose as supply tightened and inventories fell.", language: "en" })).toBe(true);
     expect(hasMarketSignalTerms({ excerpt: "O preço do café caiu após a safra recorde.", language: "pt-BR" })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: "Solarmodule konkurrieren preislich mit Alternativen.", language: "de" })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: "Die Kosten für PV-Anlagen sinken.", language: "de" })).toBe(true);
+    expect(hasTopicSignalTerms("Der Photovoltaik-Markt steht unter Druck.", "Solarmodule")).toBe(true);
+    expect(hasTopicSignalTerms("Photovoltaic costs are falling.", "solar panels")).toBe(true);
+    expect(hasTopicSignalTerms("The wind-power market is under pressure.", "solar panels")).toBe(false);
     expect(hasMarketSignalTerms({ excerpt: "커피 수요와 원자재 가격이 상승했다.", language: "ko" })).toBe(true);
     expect(hasMarketSignalTerms({ excerpt: "The smell of coffee fills the room.", language: "Lemmy language ID 0" })).toBe(false);
     expect(hasMarketSignalTerms({ excerpt: "시장 수요가 증가했다.", language: "Lemmy language ID 0" })).toBe(true);

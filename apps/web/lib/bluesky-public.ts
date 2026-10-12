@@ -27,8 +27,10 @@ type SearchResponse = {
   }>;
 };
 
-const MAX_RESULTS = 25;
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// The AppView lexicon permits 100 items. A single bounded page gives sparse
+// language lenses a better chance without cursor walking or collecting a feed.
+const MAX_RESULTS = 100;
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function searchBlueskyPosts(
   query: string,
