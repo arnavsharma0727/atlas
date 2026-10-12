@@ -4,6 +4,18 @@ import { searchBlueskyPosts } from "./bluesky-public";
 const NOW = Date.parse("2026-10-02T12:00:00Z");
 
 describe("searchBlueskyPosts", () => {
+  it("uses the official language parameter independently of a full-length phrase", async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL) => Response.json({ posts: [] }));
+    const query = "x".repeat(100);
+    await searchBlueskyPosts(query, fetcher, NOW, { language: "en" });
+    const url = new URL(String(fetcher.mock.calls[0][0]));
+    expect(url.searchParams.get("q")).toBe(query);
+    expect(url.searchParams.get("lang")).toBe("en");
+    expect(url.searchParams.get("sort")).toBe("latest");
+    expect(url.searchParams.get("limit")).toBe("25");
+    await expect(searchBlueskyPosts("GPU", fetcher, NOW, { language: "en&author=other" })).rejects.toThrow("language filter");
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
   it("uses public search and returns an ephemeral preview with an attributed citation", async () => {
     const fetcher = vi.fn(async (_input: RequestInfo | URL) => new Response(JSON.stringify({ posts: [{
       uri: "at://did:plc:abc/app.bsky.feed.post/xyz",

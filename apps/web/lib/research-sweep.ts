@@ -69,6 +69,8 @@ export type ResearchSweepSelection = {
   bluesky?: boolean;
   /** Visitor-supplied language variants stay separate; no translation or pooling. */
   blueskyQueries?: readonly string[];
+  /** Official language parameter, not a query-syntax facet or contributor nationality. */
+  blueskyLanguage?: string;
   wikimediaLanguage?: string;
 };
 
@@ -138,6 +140,7 @@ export async function runResearchSweep(
     term.trim().length < 2 || term.trim().length > 100,
   )) throw new Error("Each Stack Exchange community needs a listed site and its own 2–100 character search phrase.");
   if (blueskyQueries.length > 4) throw new Error("Use the main phrase plus no more than three alternate Bluesky phrases.");
+  if (selection.blueskyLanguage && !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/u.test(selection.blueskyLanguage)) throw new Error("Use a valid Bluesky language filter.");
   if (blueskyQueries.some((term) => term.trim().length < 2 || term.trim().length > 100)) {
     throw new Error("Each Bluesky phrase must contain 2–100 characters.");
   }
@@ -871,8 +874,8 @@ export async function runResearchSweep(
   for (const [index, termInput] of blueskyQueries.entries()) {
     const term = termInput.trim();
     let sourceNote: string | undefined;
-    tasks.push(capture(`bluesky:${index}`, `Bluesky · search ${index + 1}`, term, asOf, "Up to 25 newest indexed posts within 7 days", async () => {
-      const posts = await searchBlueskyPosts(term, boundedFetch, now);
+    tasks.push(capture(`bluesky:${index}`, `Bluesky · search ${index + 1}`, term, asOf, `Up to 25 newest indexed posts within 7 days${selection.blueskyLanguage ? ` · provider language filter: ${selection.blueskyLanguage}` : ""}`, async () => {
+      const posts = await searchBlueskyPosts(term, boundedFetch, now, { language: selection.blueskyLanguage });
       sourceNote = concentratedBylineNote(posts.map(({ authorHandle }) => authorHandle));
       return posts.map((post) => ({
         id: `bluesky:${post.uri}`,
@@ -893,7 +896,7 @@ export async function runResearchSweep(
             : null,
           post.contentWarning,
           post.linkedContent || includesExternalLink(post.transientPreview) ? LINKED_POST_CAVEAT : undefined,
-        ].filter(Boolean).join(" ") || "Visitor-entered language variants are kept as separate searches and are not translated or pooled; indexed subset, not a complete or representative feed",
+        ].filter(Boolean).join(" ") || "Original and supplemental phrases remain separate queries, not translated or pooled by this adapter; duplicate originals are not additional community agreement. Indexed subset, not a complete or representative feed; provider language filters do not establish nationality.",
         attribution: `Author: @${post.authorHandle}`,
       }));
     }, () => sourceNote));

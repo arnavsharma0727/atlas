@@ -12,6 +12,7 @@ import { selectOverviewEvidence } from "../../lib/overview-evidence";
 import { buildSearchAudit, type AuditRunIdentity } from "../../lib/search-audit";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
+import { marketDiscussionQueries, MARKET_QUERY_PLAN_NOTE } from "../../lib/market-query-plan";
 
 export default function ResearchSweep({
   initialTopic,
@@ -103,7 +104,8 @@ export default function ResearchSweep({
         eiaEnergyPrices: true,
         bisCountryCode: activeCountryCode,
         bluesky: true,
-        blueskyQueries: [topic.length <= 92 ? `${topic} lang:en` : topic],
+        blueskyQueries: marketDiscussionQueries(topic, "en"),
+        blueskyLanguage: "en",
         // Keep these specialist Q&A communities as an explicitly separate evidence class.
         stackExchangeQueries: ["economics", "quant", "money"].map((site) => ({ site, query: topic })),
         lemmy: true,
@@ -117,7 +119,8 @@ export default function ResearchSweep({
         return runResearchSweep(localQuery, {
           globalVoices: true,
           bluesky: true,
-          blueskyQueries: [localQuery],
+          blueskyQueries: marketDiscussionQueries(localQuery, activeCountry.language),
+          blueskyLanguage: activeCountry.language,
           stackExchangeQueries: (activeCountry.stackExchangeSites ?? []).map((site) => ({ site, query: localQuery })),
           lemmy: true,
           lemmyInstances: localLemmyInstances,
@@ -308,7 +311,8 @@ export default function ResearchSweep({
             <p className="market-summary-caveat">Social posts containing an external link, explicitly crediting a publisher, or matching a high-confidence stock-promotion/clickbait phrase screen remain visible in Sources but are excluded from the AI overview. Phrase screens can miss subtle promotion or flag a legitimate post; review each source note.</p>
             <p className="market-summary-caveat">Each source's “pass overview filters” count is the number of unique excerpts that passed the available-language, citation, topic, market-vocabulary, and independence checks before per-platform/account balancing and the eight-excerpt cap; it does not mean every candidate was sent to AI. The source register omits results whose titles or excerpts do not contain a query-topic term, while preserving provider-return and screened-out counts. Synonym-only posts can be missed, and passing a screen does not prove relevance. In addition, {screenedOutCounts?.baseline ?? 0} baseline and {screenedOutCounts?.selected ?? 0} selected-lens excerpts failed the topic, market-vocabulary, or independence checks.</p>
             <p className="market-summary-caveat">The selected-language AI overview uses matching provider language labels, or conservative script detection for Korean, Japanese, and Hindi when labels are missing. Explicitly mismatched labels and other unknown languages are excluded; language does not establish a poster’s location or nationality.</p>
-            <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives an English-language filter only when the query fits the provider limit; Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
+            <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives the official English-language filter for the baseline and selected-language filter for the local lens, independently of phrase length; provider labels can be wrong. Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
+            <p className="market-summary-caveat">{MARKET_QUERY_PLAN_NOTE}</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}
           </section>
 

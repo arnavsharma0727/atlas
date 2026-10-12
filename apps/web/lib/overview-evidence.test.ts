@@ -26,6 +26,16 @@ function row(key: string, language: string, text: string): ResearchSweepSourceRe
 }
 
 describe("overview selection uses the current search invocation", () => {
+  it("retains original purchase-price commentary without admitting links or dropping topic checks", () => {
+    const independent = row("bluesky:1", "en", "GPU prices have stopped me from upgrading my desktop.");
+    const linked = row("bluesky:2", "en", "GPU prices are rising; read this article.");
+    linked.evidence[0].linkSharing = true;
+    const unrelated = row("bluesky:3", "en", "Coffee prices have stopped me from buying drinks.");
+    const rows = [independent, linked, unrelated];
+    const selected = selectOverviewEvidence(rows, buildCitationIds(rows), { topic: "GPU", localTopic: "GPU", selectedLanguage: "en" });
+    expect(selected.evidence.us.map(({ excerpt }) => excerpt)).toEqual([independent.evidence[0].transientPreview]);
+    expect(selected.excludedCounts.baseline).toBe(2);
+  });
   it.each([
     ["en", "inflation", "Inflation is slowing."],
     ["fr", "chômage", "Le chômage augmente."],

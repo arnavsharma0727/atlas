@@ -50,6 +50,11 @@ try {
   } else {
     fail("Bluesky embedded-link provenance", "the source register is missing hidden-link or linked-copy boundaries");
   }
+  if (response.ok && page.includes("one price-context supplement") && page.includes("official lang parameter") && page.includes("price-biased")) {
+    pass("Bluesky bounded query-plan provenance", "original and price-context queries, language parameter and sampling bias are disclosed");
+  } else {
+    fail("Bluesky bounded query-plan provenance", "the source register is missing explicit supplemental-query or language boundaries");
+  }
 } catch (error) {
   fail("Mastodon automated-account boundary", error instanceof Error ? error.message : "request failed");
 }

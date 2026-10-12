@@ -57,6 +57,12 @@ export default function Privacy() {
               practices. Atlas does not control their retention.
             </p>
             <p>
+              Bluesky may receive the original phrase plus one automatically
+              generated price-context phrase, with an official language filter.
+              Both executed queries are shown in Sources. This adds a bounded
+              price-biased sample, not a representative measure of opinion.
+            </p>
+            <p>
               For SEC EDGAR context, Atlas checks an exact company name or
               ticker against the public issuer index and, on a match, requests
               that issuer&apos;s filing metadata by CIK. The text you typed is

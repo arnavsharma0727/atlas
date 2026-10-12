@@ -32,13 +32,16 @@ export async function searchBlueskyPosts(
   query: string,
   fetcher: typeof fetch = fetch,
   now = Date.now(),
+  options: { language?: string } = {},
 ): Promise<BlueskyPostCitation[]> {
   const term = query.trim();
   if (term.length < 2 || term.length > 100) throw new Error("Enter a search phrase with 2–100 characters.");
+  if (options.language && !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/u.test(options.language)) throw new Error("Use a valid provider language filter.");
   // Search itself is currently served unauthenticated from api.bsky.app;
   // public.api.bsky.app returns 403 for this method.
   const endpoint = new URL("https://api.bsky.app/xrpc/app.bsky.feed.searchPosts");
   endpoint.search = new URLSearchParams({ q: term, limit: String(MAX_RESULTS), sort: "latest" }).toString();
+  if (options.language) endpoint.searchParams.set("lang", options.language);
   const response = await fetcher(endpoint, { headers: { accept: "application/json" } });
   if (response.status === 429) throw new Error("Bluesky is rate-limiting public search. Try again later.");
   if (!response.ok) throw new Error("Bluesky public search is temporarily unavailable.");

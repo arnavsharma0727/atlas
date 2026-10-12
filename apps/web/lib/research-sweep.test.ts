@@ -6,6 +6,13 @@ import { citationKey } from "./perspective-snapshot";
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("keeps original and price-context searches auditable with an explicit provider language filter", async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL) => Response.json({ posts: [] }));
+    const results = await runResearchSweep("GPU", { lemmy: false, bluesky: true, blueskyQueries: ["GPU", "GPU prices"], blueskyLanguage: "en" }, fetcher, NOW);
+    expect(results.map(({ query }) => query)).toEqual(["GPU", "GPU prices"]);
+    expect(results.every(({ window }) => window.includes("provider language filter: en"))).toBe(true);
+    expect(fetcher.mock.calls.every(([url]) => new URL(String(url)).searchParams.get("lang") === "en")).toBe(true);
+  });
   it("shows the bounded PyTorch sample separately, with partial status and no AI candidates", async () => {
     const fetcher = vi.fn(async () => Response.json({ sample: {
       evidence: [{ id: "pytorch:1:1", title: "GPU deployment", url: "https://discuss.pytorch.org/t/1/1", source: "PyTorch Forums", evidenceClass: "community forum", language: "Not reported", timeLabel: "Original post created", timeValue: new Date(NOW).toISOString(), transientPreview: "GPU deployment memory constraints are limiting our model sizes.", summaryEligible: false }],
