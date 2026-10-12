@@ -72,6 +72,11 @@ type SourceConfig = {
   onDemand?: boolean;
 };
 
+const excludedFromFocusedSearch = new Set([
+  "pytorch", "arxiv", "crossref", "openalex", "manifold-forecasts",
+  "stack-exchange", "the-conversation-search",
+]);
+
 export default async function Sources() {
   const timeZone = await getDisplayTimeZone();
   const db = serverSupabase();
@@ -459,10 +464,14 @@ export default async function Sources() {
         <div className="eyebrow mb-4">Source configuration and health</div>
         <h1 className="mb-4 text-4xl font-extrabold">Sources</h1>
         <p className="mb-10 max-w-2xl leading-7 text-muted">
-          The live search separates public conversation from expert, reporting, scholarly, forecast, and SEC filing context. Reddit is excluded from research search under its current developer/API policy. These are incomplete, different kinds of
-          evidence—not a representative measure of a country or market.
-          Scheduled operational connectors are listed separately below;
-          their stored records are not automatically part of this search.
+          The focused comparison searches Bluesky, Lemmy, and Mastodon discussion,
+          plus applicable dated official market context. Title-only literature,
+          specialist Q&amp;A, play-money forecasts, and software forums are no
+          longer queried by the default search because they do not establish
+          a country view. Some adapters remain documented below for operator
+          review; their presence does not mean they contributed to your result.
+          Reddit and SEC are excluded. These are incomplete samples, not a
+          representative measure of a country or market.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           {health.map(({ source, runs, latest, lastSuccess, historyCapped, historyIncomplete }) => {
@@ -479,7 +488,7 @@ export default async function Sources() {
             const status = !source.enabled
               ? "off"
               : source.onDemand
-                ? "on demand"
+                ? excludedFromFocusedSearch.has(source.key) ? "not in search" : "on demand"
                 : stale
                   ? "stale"
                   : latest?.status === "failed"
@@ -511,7 +520,9 @@ export default async function Sources() {
                 ))}
                 {source.onDemand ? (
                   <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
-                    Visitor-triggered only. No database records or automated run-health history.
+                    {excludedFromFocusedSearch.has(source.key)
+                      ? "Adapter retained for operator review; the focused search does not call it."
+                      : "Visitor-triggered only. No database records or automated run-health history."}
                   </p>
                 ) : <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line pt-3 text-xs">
                   <dt className="text-muted">Last success</dt>

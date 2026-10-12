@@ -34,9 +34,9 @@ describe("async search language snapshot", () => {
   ])("submits %s evidence, not the previous %s lens", async (country, previousCountry, language, text) => {
     hookState.country = country;
     hookState.previousCountry = previousCountry;
-    vi.mocked(runResearchSweep).mockImplementation(async (_query, selection) => selection.globalVoices
-      ? [fixture("bluesky:local", language, text)]
-      : [fixture("bluesky:baseline", "en", "Solar demand is rising while inventories decline.")]);
+    vi.mocked(runResearchSweep).mockImplementation(async (_query, selection) => selection.blueskyLanguage === "en"
+      ? [fixture("bluesky:baseline", "en", "Solar demand is rising while inventories decline.")]
+      : [fixture("bluesky:local", language, text)]);
     const fetchMock = vi.fn(async (_url: unknown, options?: RequestInit) => {
       const input = JSON.parse(options?.body as string);
       return Response.json(input.action === "prepare" ? { mode: "localized", query: "Solar", hashtags: ["Solar"] }
@@ -47,6 +47,10 @@ describe("async search language snapshot", () => {
     const form = tree.props.children.find((child: { type?: string } | null) => child?.type === "form");
     form.props.onSubmit({ preventDefault: vi.fn() });
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const [baselineSelection, localSelection] = vi.mocked(runResearchSweep).mock.calls.map((call) => call[1]);
+    expect(baselineSelection).toMatchObject({ theConversation: false, crossref: false, openAlex: false, arxiv: false, pytorch: false, manifoldForecasts: false, stackExchangeQueries: [] });
+    expect(localSelection.lemmyInstances).toHaveLength(country === "DE" ? 2 : 1);
+    expect(localSelection.stackExchangeQueries).toEqual([]);
     const submitted = JSON.parse(fetchMock.mock.calls[1][1]?.body as string);
     expect(submitted.action).toBe("summarize");
     expect(submitted.country).toBe(country);

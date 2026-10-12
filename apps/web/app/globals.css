@@ -202,6 +202,14 @@ summary{line-height:1.5}
 .source-register[open]>summary::before{content:"−"}
 .source-register>summary span{margin-left:auto;color:#b6bdce;font-size:11px;font-weight:400;text-align:right}
 .source-register .source-citations{margin-top:0;border-top:1px solid #303750;padding:18px}
+.comparison-readiness{display:flex;align-items:baseline;gap:10px;margin-top:14px;padding:11px 14px;border:1px solid #4c5572;border-radius:8px;background:#1d2742;color:#dce2ef;font-size:12px;line-height:1.5}
+.comparison-readiness strong{color:#fff;white-space:nowrap}
+.comparison-readiness--insufficient{border-color:#936b49;background:#322819}
+.comparison-readiness--limited{border-color:#666f89}
+.source-gaps{margin-top:18px;border-top:1px solid #414a64;padding-top:14px}
+.source-gaps>summary{cursor:pointer;color:#c5cee0;font-size:12px;font-weight:600}
+.source-gaps>p{color:#aeb8cb;font-size:11px;line-height:1.5}
+.source-gaps .market-results-grid{margin-top:12px}
 .summary-supporting-quotes{margin-top:8px;color:#c0c5d5;font-size:11px;line-height:1.5}
 .summary-supporting-quotes summary{width:max-content;max-width:100%;cursor:pointer;color:#c0c5d5;text-decoration:underline;text-underline-offset:2px}
 .summary-supporting-quotes ul{margin:5px 0 0;padding-left:18px}
@@ -243,6 +251,8 @@ summary{line-height:1.5}
   .source-register>summary{align-items:flex-start;flex-wrap:wrap;padding:15px}
   .source-register>summary span{width:100%;margin-left:24px;text-align:left}
   .source-register .source-citations{padding:14px}
+  .comparison-readiness{display:block}
+  .comparison-readiness span{display:block;margin-top:4px}
   .market-results-grid{grid-template-columns:1fr;gap:12px}
   .source-results{padding:15px}
   .search-loading{justify-content:flex-start;line-height:1.5}

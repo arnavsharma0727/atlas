@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { MARKET_COUNTRIES, marketCountry } from "../../lib/market-countries";
 import { topicHashtags } from "../../lib/topic-hashtags";
-import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
@@ -14,6 +13,7 @@ import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 import { marketDiscussionQueries, MARKET_QUERY_PLAN_NOTE } from "../../lib/market-query-plan";
 import { selectedCountryContext } from "../../lib/country-context";
+import { comparisonReadiness } from "../../lib/comparison-readiness";
 
 export default function ResearchSweep({
   initialTopic,
@@ -49,9 +49,12 @@ export default function ResearchSweep({
   const revealCitation = () => { const register = document.getElementById("source-register"); if (register instanceof HTMLDetailsElement) register.open = true; };
   const citationIds = buildCitationIds(results);
   const displayResults = collapseRepeatedEvidenceViews(results);
+  const matchedResults = displayResults.filter((view) => view.evidence.length > 0);
+  const coverageGaps = displayResults.filter((view) => view.evidence.length === 0);
   const searchedCountry = marketCountry(searchedCountryCode);
   const queryClarity = inspectQueryClarity(searchedQuery);
   const countryFacts = selectedCountryContext(results, searchedCountryCode);
+  const readiness = comparisonReadiness(summaryBreadth?.baseline, summaryBreadth?.selected, searchedCountryCode === "US");
 
   useEffect(() => {
     if (initialTopic) setQuery(initialTopic);
@@ -94,16 +97,18 @@ export default function ResearchSweep({
       setSearchedLocalQuery(activeCountryCode === "US" ? topic : localQuery);
       setLocalQueryMethod(preparation.mode === "researcher" ? "researcher" : preparation.mode === "english-fallback" || preparation.mode === "unavailable" ? "original" : activeCountryCode === "US" ? "baseline" : "translated");
       const localHashtags = (preparation.hashtags.length ? preparation.hashtags : topicHashtags(localQuery)).filter(Boolean).slice(0, 3);
-      const allLemmy = LEMMY_INSTANCES.map(({ host }) => host);
       const baseMastodon = topicHashtags(topic).map((hashtag) => ({ hashtag, instance: "mastodon.social" as const }));
       const baseSearch = runResearchSweep(topic, {
         globalVoices: false,
-        theConversation: true,
-        crossref: true,
-        openAlex: true,
-        arxiv: true,
-        pytorch: true,
-        manifoldForecasts: true,
+        // Default search is a country comparison, not a general-purpose source catalog.
+        // Title-only research, play-money forecasts and specialist software forums
+        // cannot establish what market participants in either lens are saying.
+        theConversation: false,
+        crossref: false,
+        openAlex: false,
+        arxiv: false,
+        pytorch: false,
+        manifoldForecasts: false,
         secEdgar: false,
         worldBankCountryCode: activeCountryCode,
         eiaEnergyPrices: true,
@@ -112,8 +117,7 @@ export default function ResearchSweep({
         bluesky: true,
         blueskyQueries: marketDiscussionQueries(topic, "en"),
         blueskyLanguage: "en",
-        // Keep these specialist Q&A communities as an explicitly separate evidence class.
-        stackExchangeQueries: ["economics", "quant", "money"].map((site) => ({ site, query: topic })),
+        stackExchangeQueries: [],
         lemmy: true,
         lemmyInstances: ["lemmy.world"],
         lemmyQueries: [{ host: "lemmy.world", query: topic }],
@@ -121,13 +125,13 @@ export default function ResearchSweep({
       });
 
       const localSearch = activeCountryCode !== "US" ? (() => {
-        const localLemmyInstances = [...new Set([...activeCountry.lemmyInstances, ...allLemmy])];
+        const localLemmyInstances = [...new Set(activeCountry.lemmyInstances)];
         return runResearchSweep(localQuery, {
-          globalVoices: true,
+          globalVoices: false,
           bluesky: true,
           blueskyQueries: marketDiscussionQueries(localQuery, activeCountry.language),
           blueskyLanguage: activeCountry.language,
-          stackExchangeQueries: (activeCountry.stackExchangeSites ?? []).map((site) => ({ site, query: localQuery })),
+          stackExchangeQueries: [],
           lemmy: true,
           lemmyInstances: localLemmyInstances,
           lemmyLocalInstances: activeCountry.lemmyLocalInstances ?? [],
@@ -280,6 +284,9 @@ export default function ResearchSweep({
             </div>
             <p>{searchedCountryCode === "US" ? "English-language baseline" : `${searchedCountry.name} language/community lens · English baseline`}</p>
           </div>
+          <div className={`comparison-readiness comparison-readiness--${readiness.state}`} role="status">
+            <strong>{readiness.label}</strong><span>{readiness.note}</span>
+          </div>
           {queryClarity.warning && <aside className="query-clarity-note" aria-live="polite">
             <p>{queryClarity.warning}</p>
             {queryClarity.suggestedAlias && <button type="button" onClick={() => {
@@ -324,10 +331,10 @@ export default function ResearchSweep({
               })}</ul>
               <p>Publisher observations for this topic, with their own dates and units. They are not community opinions or evidence of current prices.</p>
             </section>}
-            {searchedCountryCode !== "US" ? <article className="market-summary-comparison">
+            {searchedCountryCode !== "US" && readiness.state !== "insufficient" ? <article className="market-summary-comparison">
               <h4>Comparison</h4>
               <SummaryPassageText passage={summary.comparison} onOpenCitation={revealCitation} />
-            </article> : <p className="market-summary-caveat">Choose another language/community lens to compare against this baseline; Atlas cannot verify that baseline contributors are in the United States.</p>}
+            </article> : searchedCountryCode === "US" ? <p className="market-summary-caveat">Choose another language/community lens to compare against this baseline; Atlas cannot verify that baseline contributors are in the United States.</p> : null}
             <details className="summary-method"><summary>How to read this overview</summary>
             {summaryProvider && <p className="market-summary-caveat">Generated with {summaryProvider}; an additional check used the same provider and model.</p>}
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
@@ -361,8 +368,12 @@ export default function ResearchSweep({
               {auditError && <p role="alert">{auditError}</p>}
             </details>
             <div className="market-results-grid">
-              {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} summaryCandidateCount={summaryCandidateCounts[view.result.key] ?? 0} citationIds={citationIds} summaryCitationIds={new Set([...summary.usSummary.citations, ...summary.localSummary.citations, ...summary.comparison.citations])} />)}
+              {matchedResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} summaryCandidateCount={summaryCandidateCounts[view.result.key] ?? 0} citationIds={citationIds} summaryCitationIds={new Set([...summary.usSummary.citations, ...summary.localSummary.citations, ...summary.comparison.citations])} />)}
             </div>
+            {coverageGaps.length > 0 && <details className="source-gaps"><summary>Other source coverage · {coverageGaps.length} searches with no displayed records</summary>
+              <p>An empty, filtered, or unavailable response does not establish that discussion is absent.</p>
+              <div className="market-results-grid">{coverageGaps.map((view, index) => <SourceResults key={`${view.result.key}:gap:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} summaryCandidateCount={summaryCandidateCounts[view.result.key] ?? 0} citationIds={citationIds} summaryCitationIds={new Set()} />)}</div>
+            </details>}
           </section>
           </details>
           <details className="search-limits"><summary>Coverage and privacy</summary><p>Public API results are incomplete samples. They can omit content, overlap across federated servers, and reflect platform/language selection. An AI summary describes only the retrieved sample; inspect original sources before drawing conclusions. <a href="/sources">How sources work</a> · <a href="/privacy">Privacy</a>.</p></details>
