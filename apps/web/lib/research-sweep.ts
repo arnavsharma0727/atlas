@@ -15,10 +15,11 @@ import { SCHOLARLY_TITLE_MATCH_NOTE } from "./scholarly-title-match";
 import { PYTORCH_COVERAGE, PYTORCH_WINDOW, pytorchAppliesToQuery, type PytorchSample } from "./pytorch-forum";
 import { searchManifoldForecasts } from "./manifold-search";
 import type { OpenAlexWork } from "./openalex-search";
-import type { SecFilingSearch } from "./sec-edgar-research-search";
 import { searchWorldBankMacro, worldBankCountryCodes, worldBankIndicatorForQuery } from "./world-bank-macro";
 import { eiaSeriesForQuery } from "./eia-energy-search";
 import { bisEerAppliesToQuery } from "./bis-effective-exchange";
+import { ecbCurrencies, ECB_REFERENCE, ECB_TERMS } from "./ecb-reference";
+import { publicationDateFromISO, publicationTimestampUTC } from "./publication-date";
 import { isValidTopicHashtag } from "./topic-hashtags";
 import { includesExternalLink } from "./external-links";
 export { includesExternalLink } from "./external-links";
@@ -39,7 +40,7 @@ export type ResearchSweepSelection = {
   pytorch?: boolean;
   /** Visitor-triggered play-money prediction markets; never fed into country/community summaries. */
   manifoldForecasts?: boolean;
-  /** Visitor-triggered exact issuer lookup; official filings are source context, never conversation evidence. */
+  /** Deprecated: older callers receive a not-searched state; SEC access is disabled. */
   secEdgar?: boolean;
   /** Narrow keyless macro context; never treated as public conversation or summarized by AI. */
   worldBankCountryCode?: string;
@@ -47,6 +48,8 @@ export type ResearchSweepSelection = {
   eiaEnergyPrices?: boolean;
   /** Keyless BIS currency context, limited to effective-rate searches and excluded from AI discussion. */
   bisCountryCode?: string;
+  /** Keyless latest daily euro reference snapshot; informational, never discussion/AI evidence. */
+  ecbCountryCode?: string;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -167,7 +170,7 @@ export async function runResearchSweep(
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
   const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
-  if (!(selection.pytorch && pytorchAppliesToQuery(query)) && !selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !(selection.bisCountryCode && bisEerAppliesToQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!(selection.pytorch && pytorchAppliesToQuery(query)) && !selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !(selection.ecbCountryCode && bisEerAppliesToQuery(query)) && !(selection.bisCountryCode && bisEerAppliesToQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -187,6 +190,42 @@ export async function runResearchSweep(
   }
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
   const conversationTasks: Promise<ResearchSweepSourceResult[]>[] = [];
+  if (selection.ecbCountryCode && bisEerAppliesToQuery(query)) {
+    tasks.push((async () => {
+      const key = "ecb-reference", label = "ECB · daily euro reference rates";
+      const window = "Latest working-day snapshot · USD and selected currency per EUR · >7 calendar days marked stale";
+      try {
+        const requested = ecbCurrencies(selection.ecbCountryCode!);
+        const response = await boundedFetch("/api/research/ecb", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query, country: selection.ecbCountryCode }),
+        });
+        if (!response.ok) throw new Error("ECB daily reference data is temporarily unavailable.");
+        const body = await response.json();
+        if (!Array.isArray(body?.evidence) || !publicationDateFromISO(body.observedDate) || body.observedDate > asOf.slice(0, 10) || publicationTimestampUTC(body.fetchedAt) === null || Date.parse(body.fetchedAt) > Date.now()) throw new Error("Unexpected ECB response.");
+        const seen = new Set<string>();
+        const evidence = body.evidence.filter((item: ResearchEvidence) => {
+          if (!item || typeof item.id !== "string") return false;
+          const code = item.id.split(":")[1];
+          if (!requested.includes(code) || seen.has(code) || item.id !== `ecb-reference:${code}:${body.observedDate}` ||
+            item.url !== ECB_REFERENCE || item.licenseUrl !== ECB_TERMS || item.timeValue !== body.observedDate ||
+            item.evidenceClass !== "official statistical data" || item.sourceOperatorKey !== "ecb-statistics" ||
+            item.summaryEligible !== false || typeof item.title !== "string" || typeof item.context !== "string") return false;
+          seen.add(code); return true;
+        }).slice(0, 2);
+        const missing = requested.filter((code) => !seen.has(code));
+        const stale = Date.parse(asOf.slice(0, 10)) - Date.parse(body.observedDate) > 7 * 86400000;
+        const notes = [missing.length ? `No usable reference quote for ${missing.join(", ")}.` : "", stale ? "Snapshot is more than seven calendar days old." : ""].filter(Boolean);
+        return { key, label, query, asOf, retrievedAt: body.fetchedAt, window, evidence, error: null,
+          status: notes.length ? "partial" as const : "complete" as const,
+          coverageNote: notes.join(" ") || "Working-day reference snapshot, not a real-time executable quote or a country opinion.",
+          sourceNote: "ECB official XML; no topic text is sent upstream. Fifteen-minute warm-instance cache; retrieval time is the original provider fetch. Germany, France and Spain share EUR. No currency conversions are calculated.",
+        };
+      } catch (cause) {
+        return { key, label, query, asOf, window, evidence: [], error: cause instanceof Error ? cause.message : "ECB data unavailable.", status: "unavailable" as const };
+      }
+    })());
+  }
   if (selection.bisCountryCode && bisEerAppliesToQuery(query)) {
     tasks.push((async () => {
       const label = "BIS · official effective-exchange-rate context";
@@ -360,89 +399,13 @@ export async function runResearchSweep(
     ));
   }
   if (selection.secEdgar) {
-    tasks.push((async () => {
-      const label = "SEC EDGAR · official filing metadata";
-      const window = "Exact company-name/ticker match · selected SEC filings · past 3 years · up to 10";
-      try {
-        const response = await boundedFetch("/api/research/sec-edgar", {
-          method: "POST",
-          headers: { accept: "application/json", "content-type": "application/json" },
-          body: JSON.stringify({ query }),
-        });
-        if (response.status === 503) {
-          const unavailable = await response.json().catch(() => null) as { code?: unknown; error?: unknown } | null;
-          if (unavailable?.code === "not_configured") {
-            return {
-              key: "sec-edgar",
-              label,
-              query,
-              asOf,
-              retrievedAt: new Date().toISOString(),
-              window,
-              evidence: [],
-              error: "Not searched: the operator needs to set SEC_USER_AGENT to a descriptive name with a contact email.",
-              status: "not-searched" as const,
-            };
-          }
-        }
-        if (!response.ok) throw new Error(response.status === 429
-          ? "SEC EDGAR search limit reached. Try again in one minute."
-          : "SEC EDGAR metadata is temporarily unavailable or not configured.");
-        const body = await response.json() as SecFilingSearch & { retrievedAt?: string };
-        if (!body || !(body.issuer === null || (typeof body.issuer?.cik === "string" && typeof body.issuer?.ticker === "string" && typeof body.issuer?.name === "string")) || !Array.isArray(body.filings)) {
-          throw new Error("SEC EDGAR returned an unexpected response.");
-        }
-        const issuer = body.issuer;
-        return {
-          key: "sec-edgar",
-          label,
-          query,
-          asOf,
-          retrievedAt: typeof body.retrievedAt === "string" ? body.retrievedAt : new Date().toISOString(),
-          window,
-          evidence: issuer ? body.filings.flatMap((filing) => {
-            if (!filing || typeof filing.form !== "string" || typeof filing.filedAt !== "string" || typeof filing.title !== "string" || typeof filing.url !== "string") return [];
-            let url: URL;
-            try { url = new URL(filing.url); } catch { return []; }
-            if (url.protocol !== "https:" || url.hostname !== "www.sec.gov" || !url.pathname.startsWith("/Archives/edgar/data/")) return [];
-            return [{
-              id: `sec-edgar:${filing.accession}`,
-              title: filing.title,
-              url: url.toString(),
-              source: `SEC EDGAR · ${issuer.name} (${issuer.ticker})`,
-              evidenceClass: "official company disclosure" as const,
-              language: "Not reported",
-              timeLabel: "Filed",
-              timeValue: filing.filedAt,
-              context: `Official SEC filing metadata for ${issuer.name} (${issuer.ticker}, CIK ${issuer.cik}). Atlas retrieved filing index metadata only; open the original filing to inspect its contents. A U.S. filing record does not establish global issuer coverage or community opinion.`,
-              attribution: "U.S. Securities and Exchange Commission EDGAR",
-              attributionUrl: "https://www.sec.gov/edgar/search/",
-              sourceOperatorKey: "sec-edgar",
-              sourceOperatorLabel: "U.S. Securities and Exchange Commission",
-            }];
-          }) : [],
-          error: null,
-          ...(!issuer
-            ? { coverageNote: "No exact SEC-listed company-name or ticker match was found. EDGAR covers SEC registrants only; this is not evidence that a company or topic is absent elsewhere." }
-            : body.filings.length === 0
-              ? { coverageNote: `Matched ${issuer.name} (${issuer.ticker}), but no qualifying filing metadata was returned in the past three years.` }
-              : {}),
-          status: "complete" as const,
-        };
-      } catch (cause) {
-        return {
-          key: "sec-edgar",
-          label,
-          query,
-          asOf,
-          retrievedAt: new Date().toISOString(),
-          window,
-          evidence: [],
-          error: cause instanceof Error ? cause.message : "SEC EDGAR metadata is unavailable.",
-          status: "unavailable" as const,
-        };
-      }
-    })());
+    // Compatibility for older callers; never invoke the retired SEC bridge.
+    tasks.push(Promise.resolve({
+      key: "sec-edgar", label: "SEC EDGAR · disabled", query, asOf,
+      window: "Disabled by operator · no SEC requests",
+      evidence: [], error: "Not searched: SEC access is disabled by operator policy.",
+      status: "not-searched" as const,
+    }));
   }
   if (selection.globalVoices) {
     for (const [index, term] of [query, ...additionalQueries.map((value) => value.trim())].entries()) {

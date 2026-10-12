@@ -374,12 +374,24 @@ export default async function Sources() {
       ],
     },
     {
-      name: "SEC EDGAR",
-      key: "sec-edgar",
-      enabled: Boolean(process.env.SEC_USER_AGENT),
+      name: "ECB · daily euro reference rates",
+      key: "ecb-reference",
+      enabled: true,
       onDemand: true,
       detail:
-        "Visitor-triggered exact company-name or ticker lookup through SEC issuer metadata and submissions APIs. Free and public with no API key, but Atlas requires the operator's descriptive User-Agent to contain a contact email and uses a server-side request because data.sec.gov does not support browser CORS. Up to 10 recent 10-K, 10-Q, 8-K, 20-F, 40-F, or 6-K filing links from the past three years; only SEC-index metadata is requested, not filing text. This covers SEC registrants—including some foreign issuers—not all global companies; no match is not evidence of absence. Filing links are separate primary-source context, never AI-summary or community-opinion evidence. Per-instance rate limiting and caching are best-effort in serverless hosting.",
+        "Free official daily XML dataset; no key, account or signup. Explicit currency/FX searches show unmodified units of USD and the selected currency per EUR with the actual reference date and original provider-fetch time. Germany, France and Spain share EUR. Missing currencies or observations over seven calendar days old are marked partial; impossible/future dates and invalid rates are rejected. Published on working days, not a live tradable quote; ECB discourages transaction use. No cross-rates or returns are calculated. This is official context, never community opinion or AI-summary evidence. The fixed feed receives no search text. A fifteen-minute warm-instance shared cache coalesces country requests; failed access backs off for one minute. These safeguards are per-instance, not globally coordinated. ECB free-use conditions require accurate reproduction and attribution; modified information must be identified as modified.",
+      referenceUrl: "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html",
+      referenceLabel: "ECB daily reference-rate dataset and publication schedule",
+      secondaryReferenceUrl: "https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html",
+      secondaryReferenceLabel: "ECB free-use conditions",
+    },
+    {
+      name: "SEC EDGAR",
+      key: "sec-edgar",
+      enabled: false,
+      onDemand: true,
+      detail:
+        "Disabled by operator policy. Atlas makes neither visitor-search nor scheduled-ingestion SEC requests, even if a legacy contact identity exists. The old search route returns disabled without upstream access. Historical records do not constitute current market evidence.",
       referenceUrl: "https://www.sec.gov/search-filings/edgar-application-programming-interfaces-apis",
       referenceLabel: "SEC EDGAR APIs and data coverage",
       secondaryReferenceUrl: "https://www.sec.gov/developer",

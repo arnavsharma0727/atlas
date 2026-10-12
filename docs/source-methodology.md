@@ -1,5 +1,13 @@
 # Source handling
 
+## Operator source policy and current official context (2026-10-12)
+
+SEC visitor requests and scheduled ingestion are disabled by operator instruction, even if a legacy contact identity exists. The old visitor route returns HTTP 410 with code disabled without upstream access. Older sweep callers receive not-searched, not an empty successful sample. No SEC contact email is required. Earlier audit entries describing missing SEC setup are historical observations, not current instructions.
+
+Explicit currency/FX searches can use the ECB's [official daily XML snapshot](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml). The [ECB reference-rate page](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) describes working-day publication and discourages transaction use; its [free-use conditions](https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html) require accurate reproduction and attribution, with modification disclosures when applicable. Atlas displays unmodified USD and selected-currency units per euro, without computing cross-rates or returns. Euro-area lenses share EUR; no separate country quote is invented. Future/impossible dates and invalid rates are rejected, duplicate currencies withheld, missing currencies and dates older than seven calendar days marked partial. Weekends/holidays are not mistaken for a guaranteed failure. Observation date and original provider-fetch time remain separate.
+
+The feed has a fixed host/path, six-second bounded read and 100 KB body cap, no query-text transmission, a fifteen-minute coalesced warm-instance cache across lenses and one-minute failure backoff. This is best-effort per instance, not distributed traffic coordination. XML entity declarations are rejected. Rates remain official statistical context, excluded from every opinion summary. The [simulated reviewer panel](simulated-review.md) is AI-authored design feedback, not independent empirical acceptance.
+
 ## Additional forum screening and unresolved acceptance (2026-10-12)
 
 The freeCodeCamp forum's `/tos` redirects to [freeCodeCamp's terms](https://www.freecodecamp.org/news/terms-of-service). Those terms restrict automated access except public search indexing, distinguish other services that may have different terms, and leave contributors to decide their content permissions. Neither the index exception nor a public JSON endpoint establishes a clear applicable basis for Atlas's excerpt synthesis. No forum-content request, account or connector was added; forum-specific clarification and compatible reuse permission remain unresolved.

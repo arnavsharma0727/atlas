@@ -4,6 +4,8 @@ This protocol is the evidence gate for any claim that Atlas is an 8/10 cross-com
 
 ## Scope
 
+Operator-requested simulated review is recorded separately in [the simulated panel report](simulated-review.md). It can guide development and private testing without recruiting human reviewers, but must not populate the independent-review worksheets, assert fluency/independence, or satisfy any empirical rating gate. SEC requests are disabled by operator choice and SEC configuration is not an acceptance prerequisite.
+
 Evaluate the deployed search workflow—not mocked components—across eight current language/community lenses: English baseline, Korean, Japanese, German, French, Brazilian Portuguese, Hindi, and Spanish. These are search lenses, not verified national populations. The English baseline is not a U.S. sample. Do not phrase a result as a country's view unless contributor geography is independently verified (the current configured providers generally do not verify it).
 
 Use ten varied market topics, selected before testing: two company/issuer topics, two commodities or agricultural inputs, two consumer/industrial product markets, two macro/financial conditions, and two topics chosen by reviewers to expose ambiguity or low-volume coverage. Avoid choosing topics because Atlas already returns strong results. Record the exact baseline and local-language query used; a fluent reviewer must approve each local phrase before search. Run each topic/lens pair three times on separate days to expose freshness and provider variability: 240 searches total.

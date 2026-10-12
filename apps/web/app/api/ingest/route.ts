@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverSupabase } from "../../../lib/server-supabase";
 import { RSSConnector } from "../../../lib/connectors/rss";
 import { HackerNewsConnector } from "../../../lib/connectors/hackernews";
-import { SECEdgarConnector } from "../../../lib/connectors/sec";
 import { MOISPressReleaseConnector } from "../../../lib/connectors/mois";
 import { StackExchangeConnector } from "../../../lib/connectors/stackexchange";
 import { EuropeanCommissionConnector } from "../../../lib/connectors/european-commission";
@@ -69,7 +68,7 @@ async function runIngestion() {
   const connectors: Connector[] = [];
   if (isHackerNewsIngestionEnabled())
     connectors.push(new HackerNewsConnector());
-  if (process.env.SEC_USER_AGENT) connectors.push(new SECEdgarConnector());
+  // SEC ingestion is disabled by operator policy, even if a legacy identity exists.
   const summary = {
     companies: companies?.length ?? 0,
     documentsStored: 0,
@@ -147,15 +146,7 @@ async function runIngestion() {
         const started = new Date();
         try {
           let result;
-          if (connector instanceof SECEdgarConnector) {
-            if (!company.cik) continue;
-            result = await connector.fetchCompanyFilings(
-              company.cik,
-              company.id,
-              start,
-              end,
-            );
-          } else if (connector instanceof MOISPressReleaseConnector)
+          if (connector instanceof MOISPressReleaseConnector)
             result = await connector.fetchDocuments({
               query: "반도체 OR 경제 OR 수출 OR 금융 OR 미국 OR 무역",
               start,

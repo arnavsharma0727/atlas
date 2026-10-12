@@ -1,5 +1,11 @@
 # Atlas research-quality smoke check
 
+## Simulated panel, SEC disabled, daily ECB context — 2026-10-12
+
+The operator explicitly requested simulated reviewers and no SEC requests. Three AI-authored reviewer perspectives are recorded separately in simulated-review.md; real acceptance worksheets remain untouched and no human independence, fluency, kappa, precision or 8/10 result is invented. The SEC bridge now returns HTTP 410 disabled before any upstream request, compatibility sweep callers report not-searched, and scheduled ingestion no longer registers a SEC connector even when a legacy identity exists. The production verifier now checks the intended disabled policy rather than requiring a contact email.
+
+Currency/FX searches add the official keyless ECB daily XML dataset as dated, attributed, AI-excluded statistical context. One live adapter call returned observation date 2026-10-12, two requested USD/KRW reference values, no missing currencies and no stale flag. This is an operational spot-check, not a market-opinion or research-quality benchmark. New tests cover reference date/value preservation, missing/duplicate/invalid rates, future/impossible dates, stale snapshots, euro-area currency handling, model exclusion, input validation, coalesced cache/original fetch time, error backoff and retired SEC no-fetch behavior. Verification: 980 tests across 91 files, typecheck, optimized production build, script syntax and whitespace checks pass. Deployment remains unverified until the normal Git/Vercel release and production checks complete. No paid service, signup, new credential, model request or quota workaround was added.
+
 ## Per-provider-call shared AI quota — 2026-10-12
 
 Release follow-up: implementation commit `76c6fcef51d100121e62e17d644de2ddd1c90065` was pushed and Vercel reported success. Production Privacy returns HTTP 200 and discloses separate additional-call charging, no promised completed-search capacity, and no inferred reset time. This confirms deployment, not an actual successful model-reviewed summary or production quota exhaustion/reset experiment. Existing live limits were not bypassed and no counter was cleared. This follow-up is retained in a local documentation commit to avoid a reporting-only build.

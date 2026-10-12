@@ -414,30 +414,47 @@ for (const [name, route, method] of [
   }
 }
 
+try {
+  const retired = await fetch(`${base}/api/research/sec-edgar`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query: "AAPL" }), signal: AbortSignal.timeout(10000),
+  });
+  const disabled = await retired.json().catch(() => null);
+  if (retired.status === 410 && disabled?.code === "disabled") pass("SEC disabled by policy", "legacy bridge returns disabled; SEC setup is not required");
+  else fail("SEC disabled by policy", `expected HTTP 410 disabled, got ${retired.status}`);
+  const response = await fetch(`${base}/api/research/ecb`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query: "currency exchange rate", country: "KR" }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const body = await response.json().catch(() => null);
+  if (response.ok && Array.isArray(body?.evidence) && body.evidence.length === 2 &&
+    body.evidence.every((item) => item.summaryEligible === false && item.sourceOperatorKey === "ecb-statistics" && item.timeValue === body.observedDate) &&
+    body.stale === false && Array.isArray(body.missingCurrencies) && body.missingCurrencies.length === 0) {
+    pass("ECB daily reference context", `two dated, AI-excluded reference values; observation ${body.observedDate}`);
+  } else fail("ECB daily reference context", `HTTP ${response.status}; expected two current reference currencies`);
+} catch (error) {
+  fail("operator source-policy and ECB context", error instanceof Error ? error.message : "request failed");
+}
+
 for (const [name, route, resultKey] of [
   ["OpenAlex research metadata", "/api/research/openalex", "works"],
   ["Crossref research metadata", "/api/research/crossref", "works"],
   ["arXiv research metadata", "/api/research/arxiv", "records"],
-  ["SEC EDGAR exact issuer filings", "/api/research/sec-edgar", "filings"],
 ]) {
   try {
     const response = await fetch(`${base}${route}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query: route.endsWith("sec-edgar") ? "AAPL" : "electric vehicles" }),
+      body: JSON.stringify({ query: "electric vehicles" }),
       signal: AbortSignal.timeout(45000),
     });
     const body = await response.json().catch(() => null);
     const results = body && Array.isArray(body[resultKey]) ? body[resultKey] : null;
-    if (route.endsWith("sec-edgar") && response.status === 503 && body?.code === "not_configured") {
-      fail(`${name} route`, "SEC_USER_AGENT is not configured in production; add a descriptive User-Agent containing a real contact email to Vercel Production");
-      continue;
-    }
-    const issuerValid = !route.endsWith("sec-edgar") || body?.issuer?.ticker === "AAPL";
-    if (response.ok && results && issuerValid && results.every((item) => typeof item.title === "string" && typeof item.url === "string")) {
+    if (response.ok && results && results.every((item) => typeof item.title === "string" && typeof item.url === "string")) {
       pass(`${name} route`, `HTTP ${response.status}; ${results.length} valid metadata records`);
     } else {
-      fail(`${name} route`, `HTTP ${response.status}; expected ${route.endsWith("sec-edgar") ? "an exact AAPL issuer match and " : ""}a ${resultKey} array of title/URL records`);
+      fail(`${name} route`, `HTTP ${response.status}; expected a ${resultKey} array of title/URL records`);
     }
   } catch (error) {
     fail(`${name} route`, error instanceof Error ? error.message : "request failed");
