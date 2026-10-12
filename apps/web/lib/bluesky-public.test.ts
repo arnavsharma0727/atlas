@@ -64,8 +64,10 @@ describe("searchBlueskyPosts", () => {
 
   it.each([
     { embed: { $type: "app.bsky.embed.external#view", external: { uri: "https://publisher.example/report" } } },
+    { embed: { $type: "app.bsky.embed.external#viewArticle", uri: "https://publisher.example/report" } },
     { recordEmbed: { $type: "app.bsky.embed.external", external: { uri: "https://publisher.example/report" } } },
     { embed: { $type: "app.bsky.embed.recordWithMedia#view", media: { $type: "app.bsky.embed.external#view", external: { uri: "https://publisher.example/report" } } } },
+    { embed: { $type: "app.bsky.embed.recordWithMedia#view", media: { $type: "app.bsky.embed.external#viewGallery", uri: "https://publisher.example/report" } } },
     { facets: [{ features: [{ $type: "app.bsky.richtext.facet#link", uri: "https://publisher.example/report" }] }] },
   ])("detects external cards and rich-text link facets without retaining their destinations: %j", async (metadata) => {
     const fetcher = vi.fn(async () => Response.json({ posts: [{

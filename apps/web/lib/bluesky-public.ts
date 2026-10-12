@@ -97,11 +97,16 @@ export async function searchBlueskyPosts(
 function hasExternalEmbed(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   const embed = value as Record<string, unknown>;
-  if (embed.$type === "app.bsky.embed.external" || embed.$type === "app.bsky.embed.external#view") return true;
+  if (isExternalType(embed.$type)) return true;
   if (embed.$type !== "app.bsky.embed.recordWithMedia" && embed.$type !== "app.bsky.embed.recordWithMedia#view") return false;
   const media = embed.media;
   return !!media && typeof media === "object" &&
-    ["app.bsky.embed.external", "app.bsky.embed.external#view"].includes(String((media as Record<string, unknown>).$type));
+    isExternalType((media as Record<string, unknown>).$type);
+}
+
+function isExternalType(value: unknown): boolean {
+  // The current lexicon also defines article/gallery/livestream external views.
+  return typeof value === "string" && (value === "app.bsky.embed.external" || value.startsWith("app.bsky.embed.external#"));
 }
 
 function hasLinkFacet(value: unknown): boolean {
