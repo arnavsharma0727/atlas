@@ -1,3 +1,5 @@
+import { isValidTopicHashtag } from "./topic-hashtags";
+
 export type MastodonPublicPost = {
   id: string;
   url: string;
@@ -116,7 +118,7 @@ export async function fetchTrendingHashtags(
   const body = (await response.json()) as ApiTag[];
   if (!Array.isArray(body)) return [];
   return body.flatMap((tag) => {
-    if (typeof tag.name !== "string" || !/^[\p{L}\p{N}_-]{1,50}$/u.test(tag.name)) return [];
+    if (typeof tag.name !== "string" || !isValidTopicHashtag(tag.name)) return [];
     return [{
       name: tag.name,
       url: `https://${instance}/tags/${encodeURIComponent(tag.name)}`,
@@ -157,7 +159,7 @@ export async function searchPublicHashtag(
   localOnly = false,
 ): Promise<MastodonPublicPost[]> {
   const hashtag = input.trim().replace(/^#+/, "");
-  if (!/^[\p{L}\p{N}_-]{1,50}$/u.test(hashtag)) {
+  if (!isValidTopicHashtag(hashtag)) {
     throw new Error("Enter a hashtag with 1–50 letters, numbers, underscores, or hyphens.");
   }
   if (!MASTODON_INSTANCES.some((candidate) => candidate.host === instance)) {
@@ -291,7 +293,7 @@ export async function comparePublicHashtag(
 
 function validateHashtag(input: string) {
   const hashtag = input.trim().replace(/^#+/, "");
-  if (!/^[\p{L}\p{N}_-]{1,50}$/u.test(hashtag))
+  if (!isValidTopicHashtag(hashtag))
     throw new Error("Enter a hashtag with 1–50 letters, numbers, underscores, or hyphens.");
   return hashtag;
 }

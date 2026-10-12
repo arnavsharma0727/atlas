@@ -16,6 +16,7 @@ import type { SecFilingSearch } from "./sec-edgar-research-search";
 import { searchWorldBankMacro, worldBankCountryCodes, worldBankIndicatorForQuery } from "./world-bank-macro";
 import { eiaSeriesForQuery } from "./eia-energy-search";
 import { bisEerAppliesToQuery } from "./bis-effective-exchange";
+import { isValidTopicHashtag } from "./topic-hashtags";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -166,7 +167,7 @@ export async function runResearchSweep(
   const mastodonQueriesPerInstance = new Map<string, number>();
   for (const { instance } of mastodonQueries) mastodonQueriesPerInstance.set(instance, (mastodonQueriesPerInstance.get(instance) ?? 0) + 1);
   if (mastodonQueries.length > MASTODON_INSTANCES.length * 3 || new Set(mastodonQueryKeys).size !== mastodonQueryKeys.length || mastodonQueries.some(({ hashtag, instance }) =>
-    !MASTODON_INSTANCES.some(({ host }) => host === instance) || !/^[\p{L}\p{N}_-]{1,50}$/u.test(hashtag.trim().replace(/^#+/, "")),
+    !MASTODON_INSTANCES.some(({ host }) => host === instance) || !isValidTopicHashtag(hashtag.trim().replace(/^#+/, "")),
   ) || [...mastodonQueriesPerInstance.values()].some((count) => count > 3)) {
     throw new Error("Choose up to three distinct valid hashtags per listed Mastodon server.");
   }

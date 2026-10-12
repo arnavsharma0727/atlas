@@ -27,6 +27,17 @@ describe("free-tier market assist", () => {
     vi.mocked(allowPublicMarketAssistRequest).mockResolvedValue("allowed");
   });
 
+  it("retains Hindi combining marks in translated hashtags", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ choices: [{ message: {
+      content: JSON.stringify({ query: "महंगाई", hashtags: ["महंगाई", "\u0301", "bad/tag"] }),
+    } }] })));
+    const response = await POST(makeRequest({ action: "prepare", topic: "inflation", country: "IN", aiEnabled: true }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ query: "महंगाई", hashtags: ["महंगाई"] });
+  });
+
   it("does not call an AI provider unless explicitly enabled server-side", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);

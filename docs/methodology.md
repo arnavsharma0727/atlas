@@ -1,5 +1,7 @@
 # Atlas search methodology and limits
 
+Mastodon query construction preserves a small reviewed set of compound market subjects (for example, `natural gas` → `#NaturalGas`, rather than unrelated `#Natural` and `#Gas` searches). The exact tags remain visible per source, with a maximum of three tags per server. Hindi vowel signs and other combining marks are retained rather than stripped. This is bounded tag construction, not general synonym coverage, arbitrary full-text search, or verified community representation. Retrieved records still pass the full-topic relevance screen; matching a tag alone is not evidence of a market view.
+
 Atlas discovers current public conversation around a researcher-entered market interest. It is not a survey, sentiment score, attention measure, causal model, thesis generator, or investment recommendation.
 
 A provider language label or writing system describes the text, not the author's nationality, residence, or a source's geography. A Korean-language post is not proof that its author is in South Korea. Country selection is a query lens only; returned records are not a national sample.

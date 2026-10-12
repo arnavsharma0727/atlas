@@ -24,6 +24,13 @@ const post = {
 };
 
 describe("searchPublicHashtag", () => {
+  it("encodes Hindi combining marks without changing the requested hashtag", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([post]));
+    const results = await searchPublicHashtag("महंगाई", fetchMock, Date.parse("2026-10-01T00:00:00Z"));
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(decodeURIComponent(url.pathname)).toBe("/api/v1/timelines/tag/महंगाई");
+    expect(results).toHaveLength(1);
+  });
   it.each([null, {}, { error: "schema changed" }])("does not treat malformed timeline payloads as a successful empty search: %j", async (body) => {
     await expect(searchPublicHashtag("semiconductor", vi.fn(async () => Response.json(body)))).rejects.toThrow("unrecognized timeline response");
   });

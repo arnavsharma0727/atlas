@@ -4,7 +4,7 @@ import { serverSupabase } from "../../../../lib/server-supabase";
 import { marketCountry } from "../../../../lib/market-countries";
 import type { SummaryValidationFailure } from "../../../../lib/market-summary";
 import { hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
-import { topicHashtags } from "../../../../lib/topic-hashtags";
+import { isValidTopicHashtag, topicHashtags } from "../../../../lib/topic-hashtags";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const tags = Array.isArray(prepared?.hashtags)
       ? prepared.hashtags.filter((v): v is string => typeof v === "string")
         .map((v) => v.replace(/^#+/, "").slice(0, 50))
-        .filter((v, index, values) => /^[\p{L}\p{N}_-]{1,50}$/u.test(v) &&
+        .filter((v, index, values) => isValidTopicHashtag(v) &&
           values.findIndex((candidate) => candidate.normalize("NFKC").toLocaleLowerCase() === v.normalize("NFKC").toLocaleLowerCase()) === index)
         .slice(0, 3)
       : [];
