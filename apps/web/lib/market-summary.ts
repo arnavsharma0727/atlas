@@ -74,7 +74,7 @@ const QUERY_INTENT_TERMS = new Set([
 const MARKET_TOPIC_ALIASES: string[][] = [
   ["semiconductor", "semiconductors", "chip", "chips", "gpu", "gpus", "wafer", "wafers"],
   ["oil", "crude", "petroleum", "brent", "wti"],
-  ["natural gas", "lng", "gas"],
+  ["natural gas", "lng", "henry hub"],
   ["bitcoin", "btc"],
   ["ethereum", "ether", "eth"],
   ["electric vehicle", "electric vehicles", "ev", "evs"],
@@ -83,18 +83,29 @@ const MARKET_TOPIC_ALIASES: string[][] = [
 /** Require evidence to mention the searched subject, not merely generic market vocabulary. */
 export function hasTopicSignalTerms(excerpt: string, topic: string): boolean {
   const normalizedExcerpt = excerpt.normalize("NFKC").toLocaleLowerCase();
-  const topicTerms = (topic.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
+  const normalizedTopic = topic.normalize("NFKC").toLocaleLowerCase();
+  const isNaturalGasQuery = /(?:^|[^\p{L}\p{N}])natural\s+gas(?:$|[^\p{L}\p{N}])/u.test(normalizedTopic);
+  const topicTerms = (normalizedTopic.match(/[\p{L}\p{N}]+/gu) ?? [])
     .filter((term) => !QUERY_INTENT_TERMS.has(term));
-  if (!topicTerms.length) return false;
+  // A generic “gas” token is too ambiguous to link natural-gas searches to gasoline,
+  // exhaust, or unrelated emissions chatter. Require a natural-gas market term instead.
+  if (isNaturalGasQuery) {
+    const naturalGasTerms = new Set(["natural", "gas"]);
+    for (let index = topicTerms.length - 1; index >= 0; index -= 1) {
+      if (naturalGasTerms.has(topicTerms[index])) topicTerms.splice(index, 1);
+    }
+  }
   const matches = (term: string) => {
     if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(term)) return normalizedExcerpt.includes(term);
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     return new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`, "iu").test(normalizedExcerpt);
   };
   for (const aliasGroup of MARKET_TOPIC_ALIASES) {
-    if (topicTerms.some((term) => aliasGroup.includes(term)) && aliasGroup.some(matches)) return true;
+    const queryMatchesAlias = topicTerms.some((term) => aliasGroup.includes(term)) ||
+      (isNaturalGasQuery && aliasGroup.includes("natural gas"));
+    if (queryMatchesAlias && aliasGroup.some(matches)) return true;
   }
-  return topicTerms.some(matches);
+  return topicTerms.length > 0 && topicTerms.some(matches);
 }
 
 /** High-confidence stock-pitch patterns are visible source material, not independent community views. */

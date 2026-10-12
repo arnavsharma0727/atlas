@@ -194,6 +194,14 @@ describe("market summary evidence contracts", () => {
     expect(hasTopicSignalTerms("Supply is tightening.", "demand and supply")).toBe(false);
   });
 
+  it("does not confuse natural-gas searches with generic gas or gasoline chatter", () => {
+    expect(hasTopicSignalTerms("Gas prices rose after a refinery outage.", "natural gas prices")).toBe(false);
+    expect(hasTopicSignalTerms("Gasoline prices rose as refinery inventories fell.", "natural gas prices")).toBe(false);
+    expect(hasTopicSignalTerms("Natural gas demand rose as storage levels fell.", "natural gas prices")).toBe(true);
+    expect(hasTopicSignalTerms("LNG demand rose as Asian spot prices climbed.", "natural gas prices")).toBe(true);
+    expect(hasTopicSignalTerms("Henry Hub prices fell after storage data.", "natural gas prices")).toBe(true);
+  });
+
   it("filters off-topic displayed evidence while preserving raw provider counts and per-lens wording", () => {
     const rows = [
       result("bluesky", "Bluesky", [
