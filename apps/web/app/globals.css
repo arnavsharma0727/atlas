@@ -158,6 +158,7 @@ summary{line-height:1.5}
 .market-summary h3{margin:5px 0 0;color:#f7f7fb;font-size:19px;letter-spacing:-.02em}
 .market-summary>header>span{color:#c0c5d5;font-size:10px}
 .market-summary-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.market-summary-columns--single{grid-template-columns:minmax(0,1fr)}
 .market-summary-columns article,.market-summary-comparison{min-width:0;border-top:2px solid #e57200;background:#111831;padding:14px}
 .market-summary h4{margin:0 0 8px;color:#f7f7fb;font-size:13px}
 .summary-sample-meta{margin:0 0 9px!important;color:#aeb6ca!important;font-size:10px!important;line-height:1.45!important;white-space:normal!important}

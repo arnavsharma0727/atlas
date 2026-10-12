@@ -204,7 +204,9 @@ export default function ResearchSweep({
       <p className="market-attribution">By: <a href="https://www.linkedin.com/in/arnavsharma0727/" target="_blank" rel="noreferrer">Arnav Sharma UVA30’</a></p>
 
       {searched && !loading && <>
-        <p className="country-lens-note">Selected lens: {searchedCountry.name} · {searchedCountry.languageName} language/community. Local query used: “{searchedLocalQuery}” ({localQueryMethod === "researcher" ? "entered by you" : localQueryMethod === "translated" ? "automatically translated; review it below" : localQueryMethod === "original" ? "original phrase; translation unavailable" : "same baseline phrase"}). This does not verify poster location or represent a national sample.</p>
+        {searchedCountryCode === "US"
+          ? <p className="country-lens-note">English-language baseline only. Sources do not verify contributor location, so this is not a U.S. sample or a national view.</p>
+          : <p className="country-lens-note">Selected lens: {searchedCountry.name} · {searchedCountry.languageName} language/community. Local query used: “{searchedLocalQuery}” ({localQueryMethod === "researcher" ? "entered by you" : localQueryMethod === "translated" ? "automatically translated; review it below" : localQueryMethod === "original" ? "original phrase; translation unavailable" : "same baseline phrase"}). This does not verify poster location or represent a national sample.</p>}
         {searchedCountryCode !== "US" && <form className="local-query-refinement" onSubmit={(event) => { event.preventDefault(); void search(searchedQuery, localQueryOverride.trim(), searchedCountryCode); }}>
           <label htmlFor="local-query-override">Prefer a specific {searchedCountry.languageName} search phrase?</label>
           <div><input id="local-query-override" value={localQueryOverride} onChange={(event) => setLocalQueryOverride(event.target.value)} maxLength={100} placeholder={`Optional phrase in ${searchedCountry.languageName}`} /><button type="submit" disabled={loading || !localQueryOverride.trim()}>Search this phrase</button></div>
@@ -241,24 +243,24 @@ export default function ResearchSweep({
               </div>
                 <span>{summaryMode === "ai" ? "AI summary" : summaryMode === "unavailable" ? "AI unavailable" : "Local overview"}</span>
             </header>
-            <div className="market-summary-columns">
+            <div className={`market-summary-columns${searchedCountryCode === "US" ? " market-summary-columns--single" : ""}`}>
               <article>
-                <h4>Baseline search · language varies by provider</h4>
+                <h4>English-language baseline · provider language varies</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.baseline)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.baseline) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.baseline)}</p>}
                 <SummaryPassageText passage={summary.usSummary} />
               </article>
-              <article>
+              {searchedCountryCode !== "US" && <article>
                 <h4>{searchedCountry.name} selection · {searchedCountry.languageName} search lens</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
                 <SummaryPassageText passage={summary.localSummary} />
-              </article>
+              </article>}
             </div>
-            <article className="market-summary-comparison">
+            {searchedCountryCode !== "US" ? <article className="market-summary-comparison">
               <h4>Comparison</h4>
               <SummaryPassageText passage={summary.comparison} />
-            </article>
+            </article> : <p className="market-summary-caveat">Choose another language/community lens to compare against this baseline; Atlas cannot verify that baseline contributors are in the United States.</p>}
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             <p className="market-summary-caveat">For social posts with attribution, no more than one excerpt per displayed account from each provider/network enters an overview. Account labels are used only to limit concentration; they are not sent to AI and do not verify a person's identity.</p>
             <p className="market-summary-caveat">Social posts containing an external link, explicitly crediting a publisher, or matching a high-confidence stock-promotion/clickbait phrase screen remain visible in Sources but are excluded from the AI overview. Phrase screens can miss subtle promotion or flag a legitimate post; review each source note.</p>
