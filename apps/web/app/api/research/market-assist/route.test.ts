@@ -358,7 +358,7 @@ describe("free-tier market assist", () => {
     vi.stubEnv("GROQ_API_KEY", "test-key");
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        baselineClaims: [{ text: "Semiconductor demand is rising.", citations: ["C99"] }], localClaims: [], comparisonClaims: [],
+        baselineClaims: [{ text: "One retrieved post describes uncertain semiconductor demand.", citations: ["C1", "C99"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand remains uncertain" }] }], localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
         baselineClaims: [{ text: "One retrieved post describes an uncertain semiconductor-demand outlook.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand remains uncertain" }] }], localClaims: [], comparisonClaims: [],
@@ -375,6 +375,8 @@ describe("free-tier market assist", () => {
     const retrySystemPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "system").content;
     expect(retryPrompt).toContain("corrected, compact JSON summary");
     expect(retrySystemPrompt).toContain("Keep each claim text a short paraphrase");
+    expect(retrySystemPrompt).toContain("citation-unknown check in baselineClaims");
+    expect(retrySystemPrompt).not.toContain("C99");
     expect(retryPrompt).not.toContain("C99");
   });
 
@@ -394,7 +396,7 @@ describe("free-tier market assist", () => {
     }));
 
     expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation" });
+    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation", validation: { code: "quote-not-exact", group: "baselineClaims" } });
     expect(fetch).toHaveBeenCalledTimes(2);
     const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
     expect(retryPrompt).toContain("exact verbatim substring of that citation's excerpt");

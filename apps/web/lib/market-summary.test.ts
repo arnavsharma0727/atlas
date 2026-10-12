@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
@@ -545,7 +545,7 @@ describe("market summary evidence contracts", () => {
 
   it("accepts only citations present in the corresponding submitted evidence group", () => {
     const summary = normalizeMarketSummary({
-      baselineClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1", "C99"], supportingQuotes: [{ citationId: "C1", quote: "Market supply constraints were noted." }] }],
+      baselineClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Market supply constraints were noted." }] }],
       localClaims: [{ text: "The selected-language records discuss prices.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: "선택된 기록은 가격을 논의했다." }] }],
       comparisonClaims: [{ text: "These samples are not directly comparable.", citations: ["C1", "C2"], supportingQuotes: [
         { citationId: "C1", quote: "Market supply constraints were noted." },
@@ -559,6 +559,43 @@ describe("market summary evidence contracts", () => {
     expect(summary?.usSummary.citations).toEqual(["C1"]);
     expect(summary?.comparison.citations).toEqual(["C1", "C2"]);
     expect(summary?.comparison.supportingQuotes?.map(({ citationId }) => citationId)).toEqual(["C1", "C2"]);
+  });
+
+  it.each([
+    ["invented alongside valid", ["C1", "C99"], "citation-unknown"],
+    ["wrong group alongside valid", ["C1", "C2"], "citation-unknown"],
+    ["duplicate", ["C1", "C1"], "citation-list"],
+    ["non-string", ["C1", 1], "citation-list"],
+    ["empty", [], "citation-list"],
+    ["oversized", Array.from({ length: 9 }, (_, index) => `C${index + 1}`), "citation-list"],
+  ])("rejects the complete claim for %s citations instead of silently repairing it", (_description, citations, code) => {
+    const invalid = vi.fn();
+    const summary = normalizeMarketSummary({
+      baselineClaims: [{ text: "One retrieved post describes uncertain supply.", citations }], localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set(["C2"]) }, invalid);
+    expect(summary).toBeNull();
+    expect(invalid).toHaveBeenCalledExactlyOnceWith({ code, group: "baselineClaims" });
+  });
+
+  it("rejects an overlong claim rather than truncating away a qualification", () => {
+    const invalid = vi.fn();
+    const summary = normalizeMarketSummary({
+      baselineClaims: [{ text: "One retrieved post says supply is tight.".padEnd(400, " ") + "However, the same source disputes that interpretation.", citations: ["C1"] }],
+      localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set() }, invalid);
+    expect(summary).toBeNull();
+    expect(invalid).toHaveBeenCalledExactlyOnceWith({ code: "claim-length", group: "baselineClaims" });
+  });
+
+  it("reports only bounded diagnostic codes, never submitted excerpts or model text", () => {
+    const invalid = vi.fn();
+    normalizeMarketSummary({
+      baselineClaims: [{ text: "One retrieved post describes uncertain supply.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Invented private-to-this-test material." }] }],
+      localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set(), evidenceText: { us: new Map([["C1", "Market supply remains uncertain."]]), local: new Map() } }, invalid);
+    expect(invalid).toHaveBeenCalledExactlyOnceWith({ code: "quote-not-exact", group: "baselineClaims" });
+    expect(JSON.stringify(invalid.mock.calls)).not.toContain("material");
+    expect(JSON.stringify(invalid.mock.calls)).not.toContain("supply");
   });
 
   it("requires one exact excerpt substring for each AI citation and rejects cross-source quote swaps", () => {

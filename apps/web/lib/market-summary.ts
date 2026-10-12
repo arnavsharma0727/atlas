@@ -540,7 +540,14 @@ export function isNearDuplicateExcerpt(left: string, right: string): boolean {
   return shared / smaller.size >= 0.9;
 }
 
-/** Validate model-returned citations against the exact evidence sent in that request. */
+export type SummaryValidationFailure = {
+  group: "response" | "baselineClaims" | "localClaims" | "comparisonClaims";
+  code: "response-shape" | "claim-count" | "claim-shape" | "claim-length" | "claim-text" |
+    "citation-list" | "citation-unknown" | "comparison-sides" | "quote-count" | "quote-shape" |
+    "quote-reference" | "quote-not-exact" | "quote-duplicate" | "verbatim-copy" | "unsupported-number";
+};
+
+/** Validate the complete model output; invalid references must never be silently removed. */
 export function normalizeMarketSummary(
   value: unknown,
   available: {
@@ -548,43 +555,53 @@ export function normalizeMarketSummary(
     local: Set<string>;
     evidenceText?: { us: Map<string, string>; local: Map<string, string> };
   },
+  onInvalid?: (failure: SummaryValidationFailure) => void,
 ): MarketSummary | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  let reportedFailure = false;
+  const fail = (code: SummaryValidationFailure["code"], group: SummaryValidationFailure["group"] = "response"): null => {
+    if (!reportedFailure) onInvalid?.({ code, group });
+    reportedFailure = true;
+    return null;
+  };
+  if (!value || typeof value !== "object" || Array.isArray(value)) return fail("response-shape");
   const record = value as Record<string, unknown>;
-  const passage = (key: string, allowed: Set<string>, requireBothGroups = false): SummaryPassage | null => {
+  const passage = (key: Exclude<SummaryValidationFailure["group"], "response">, allowed: Set<string>, requireBothGroups = false): SummaryPassage | null => {
+    const reject = (code: SummaryValidationFailure["code"]) => fail(code, key);
     const rawClaims = record[key];
-    if (!Array.isArray(rawClaims) || rawClaims.length !== 1) return null;
+    if (!Array.isArray(rawClaims) || rawClaims.length !== 1) return reject("claim-count");
     const claims: Array<{ text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] }> = [];
     for (const rawClaim of rawClaims) {
-      if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return null;
+      if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return reject("claim-shape");
       const claim = rawClaim as Record<string, unknown>;
-      let text = typeof claim.text === "string" ? claim.text.trim().slice(0, 400) : "";
+      let text = typeof claim.text === "string" ? claim.text.trim() : "";
+      // Truncating here can remove a qualification or counterpoint and alter the claim.
+      if (text.length > 400) return reject("claim-length");
       if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text) ||
         /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(text) || /(?:^|\s)@[A-Za-z0-9_.-]{2,}/u.test(text) ||
-        !isSingleSentence(text)) return null;
-      const citations = Array.isArray(claim.citations)
-        ? [...new Set(claim.citations.filter((id): id is string => typeof id === "string" && allowed.has(id)))].slice(0, 8)
-        : [];
+        !isSingleSentence(text)) return reject("claim-text");
+      if (!Array.isArray(claim.citations) || !claim.citations.length || claim.citations.length > 8 ||
+        new Set(claim.citations).size !== claim.citations.length || claim.citations.some((id) => typeof id !== "string")) return reject("citation-list");
+      if (claim.citations.some((id: string) => !allowed.has(id))) return reject("citation-unknown");
+      const citations = claim.citations as string[];
       // Reject the whole output if a factual claim is uncited or its cited IDs
       // do not resolve to evidence actually submitted for this summary.
-      if (!citations.length) return null;
-      if (requireBothGroups && (!citations.some((id) => available.us.has(id)) || !citations.some((id) => available.local.has(id)))) return null;
+      if (requireBothGroups && (!citations.some((id) => available.us.has(id)) || !citations.some((id) => available.local.has(id)))) return reject("comparison-sides");
       let supportingQuotes: SummarySupportQuote[] | undefined;
       if (available.evidenceText) {
-        if (!Array.isArray(claim.supportingQuotes) || claim.supportingQuotes.length !== citations.length) return null;
+        if (!Array.isArray(claim.supportingQuotes) || claim.supportingQuotes.length !== citations.length) return reject("quote-count");
         supportingQuotes = [];
         for (const rawQuote of claim.supportingQuotes) {
-          if (!rawQuote || typeof rawQuote !== "object" || Array.isArray(rawQuote)) return null;
+          if (!rawQuote || typeof rawQuote !== "object" || Array.isArray(rawQuote)) return reject("quote-shape");
           const quoteRecord = rawQuote as Record<string, unknown>;
           const citationId = typeof quoteRecord.citationId === "string" ? quoteRecord.citationId : "";
           const quote = typeof quoteRecord.quote === "string" ? quoteRecord.quote.trim() : "";
-          if (!citations.includes(citationId) || Array.from(quote).length < 8 || quote.length > 240) return null;
+          if (!citations.includes(citationId) || Array.from(quote).length < 8 || quote.length > 240) return reject("quote-reference");
           const sourceExcerpt = available.evidenceText.us.get(citationId) ?? available.evidenceText.local.get(citationId);
-          if (!sourceExcerpt || !sourceExcerpt.includes(quote)) return null;
-          if (supportingQuotes.some((item) => item.citationId === citationId)) return null;
+          if (!sourceExcerpt || !sourceExcerpt.includes(quote)) return reject("quote-not-exact");
+          if (supportingQuotes.some((item) => item.citationId === citationId)) return reject("quote-duplicate");
           supportingQuotes.push({ citationId, quote });
         }
-        if (citations.some((id) => !supportingQuotes!.some((quote) => quote.citationId === id))) return null;
+        if (citations.some((id) => !supportingQuotes!.some((quote) => quote.citationId === id))) return reject("quote-count");
         // Supporting excerpts are shown in a separate audit disclosure; the
         // overview must synthesize rather than simply paste a long excerpt.
         const normalizedText = (value: string) => value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/gu, " ").trim();
@@ -595,7 +612,7 @@ export function normalizeMarketSummary(
           const normalizedExcerpt = normalizedText(excerpt);
           return normalizedExcerpt.length >= MIN_VERBATIM_COPY_REJECTION_CHARS && normalizedClaim.includes(normalizedExcerpt);
         });
-        if (copiesLongQuote || copiesLongExcerpt) return null;
+        if (copiesLongQuote || copiesLongExcerpt) return reject("verbatim-copy");
       }
       // Models can ignore attribution instructions and restate a forum user's
       // precise statistic like an established market fact. Keep a deterministic
@@ -608,7 +625,7 @@ export function normalizeMarketSummary(
       });
       const numericTokens = extractNumericTokens(text);
       if (numericTokens.length && (!citedEvidence.length || numericTokens.some((token) =>
-        !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return null;
+        !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return reject("unsupported-number");
       // A matching number proves only that the submitted post contained it,
       // not that the number is accurate. If the model fails to attribute it,
       // wrap it deterministically as an unverified social-post claim.
