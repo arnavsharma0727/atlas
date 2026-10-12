@@ -203,6 +203,10 @@ for (const [name, route, resultKey] of [
     });
     const body = await response.json().catch(() => null);
     const results = body && Array.isArray(body[resultKey]) ? body[resultKey] : null;
+    if (route.endsWith("sec-edgar") && response.status === 503 && body?.code === "not_configured") {
+      fail(`${name} route`, "SEC_USER_AGENT is not configured in production; add a descriptive User-Agent containing a real contact email to Vercel Production");
+      continue;
+    }
     const issuerValid = !route.endsWith("sec-edgar") || body?.issuer?.ticker === "AAPL";
     if (response.ok && results && issuerValid && results.every((item) => typeof item.title === "string" && typeof item.url === "string")) {
       pass(`${name} route`, `HTTP ${response.status}; ${results.length} valid metadata records`);
