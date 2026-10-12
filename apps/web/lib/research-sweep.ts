@@ -202,7 +202,11 @@ export async function runResearchSweep(
         });
         if (!response.ok) throw new Error("ECB daily reference data is temporarily unavailable.");
         const body = await response.json();
-        if (!Array.isArray(body?.evidence) || !publicationDateFromISO(body.observedDate) || body.observedDate > asOf.slice(0, 10) || publicationTimestampUTC(body.fetchedAt) === null || Date.parse(body.fetchedAt) > Date.now()) throw new Error("Unexpected ECB response.");
+        // The server validates against its own clock. Comparing server fetch time
+        // to a visitor's clock can reject valid data, especially at UTC midnight.
+        if (!Array.isArray(body?.evidence) || !publicationDateFromISO(body.observedDate) ||
+          publicationTimestampUTC(body.fetchedAt) === null || body.observedDate > body.fetchedAt.slice(0, 10) ||
+          typeof body.stale !== "boolean") throw new Error("Unexpected ECB response.");
         const seen = new Set<string>();
         const evidence = body.evidence.filter((item: ResearchEvidence) => {
           if (!item || typeof item.id !== "string") return false;
@@ -214,7 +218,7 @@ export async function runResearchSweep(
           seen.add(code); return true;
         }).slice(0, 2);
         const missing = requested.filter((code) => !seen.has(code));
-        const stale = Date.parse(asOf.slice(0, 10)) - Date.parse(body.observedDate) > 7 * 86400000;
+        const stale = body.stale;
         const notes = [missing.length ? `No usable reference quote for ${missing.join(", ")}.` : "", stale ? "Snapshot is more than seven calendar days old." : ""].filter(Boolean);
         return { key, label, query, asOf, retrievedAt: body.fetchedAt, window, evidence, error: null,
           status: notes.length ? "partial" as const : "complete" as const,

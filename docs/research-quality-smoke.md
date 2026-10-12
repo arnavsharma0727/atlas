@@ -1,5 +1,11 @@
 # Atlas research-quality smoke check
 
+## Deployed browser verification and clock-skew follow-up — 2026-10-12
+
+Vercel's deployment list now shows implementation 4ac624b ready (deployment 9pciKb6mAr8hSLLQ6hKBd7eRUhnq). Production confirms SEC HTTP 410 disabled and ECB HTTP 200 with two non-stale USD/KRW records observed 2026-10-12. The first broader verifier run passed 44/45 checks: its obsolete SEC-disclosure expectation failed. Inspection also found an outdated methodology paragraph still describing SEC configuration, which is corrected in this follow-up.
+
+More importantly, a fresh production browser currency search displayed Unexpected ECB response despite successful endpoint retrieval. A new failing regression reproduces rejection when the server fetch clock leads the browser clock. The client had compared the server's fetch timestamp to the visitor's Date.now, requiring clocks to agree. It now checks observation/fetch date consistency on the server timeline and uses the server-computed stale flag; the server still rejects future/impossible observation dates. Provider fetch time remains unchanged. This removes an inappropriate client-clock dependency, not a source freshness safeguard. Verification after the fix: 981 tests across 91 files, typecheck, optimized build, script syntax and whitespace checks pass. A successful endpoint alone was insufficient evidence of a working result card. The follow-up still needs deployment and another actual browser check before the UI defect can be called resolved.
+
 ## Simulated panel, SEC disabled, daily ECB context — 2026-10-12
 
 Release follow-up: implementation commit 4ac624bcf11ae1fa3316329f9ab445c0f738790b is confirmed on origin/main. GitHub reports no deployment status for it. Production still returns 404 for the new ECB route and the previous not-configured SEC bridge response, so the changes are not claimed live. One ordinary Vercel production deployment was submitted for this exact commit. Its browser dialog remains Loading with no new deployment in a separately loaded list; it was not canceled or resubmitted. The original Chrome tab is retained as a handoff for checking that pending submission, not restarting it. No upgrade, quota workaround or new credential was used. Screenshot: /tmp/atlas-deployment-pending.png.

@@ -424,6 +424,19 @@ describe("runResearchSweep", () => {
     expect(selectBalancedEvidence([result], new Map())).toEqual([]);
   });
 
+  it("does not reject server-validated ECB dates because the browser clock is slightly behind", async () => {
+    const { parseEcbReference } = await import("./ecb-reference");
+    const clientNow = Date.now();
+    const serverNow = clientNow + 120000;
+    const date = new Date(serverNow).toISOString().slice(0, 10);
+    const sample = parseEcbReference(`<Envelope><Cube><Cube time="${date}"><Cube currency="USD" rate="1.12"/><Cube currency="JPY" rate="170"/></Cube></Cube></Envelope>`, "US", serverNow);
+    const fetcher = vi.fn(async () => Response.json(sample));
+    const [result] = await runResearchSweep("currency", { ecbCountryCode: "US", lemmy: false }, fetcher, clientNow);
+    expect(result.status).toBe("complete");
+    expect(result.evidence).toHaveLength(1);
+    expect(result.retrievedAt).toBe(sample.fetchedAt);
+  });
+
   it("reports SEC as disabled without any network request for older callers", async () => {
     const fetcher = vi.fn();
     const [result] = await runResearchSweep("AAPL", { secEdgar: true, lemmy: false }, fetcher, NOW);

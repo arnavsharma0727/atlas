@@ -234,16 +234,17 @@ try {
     sourcesResponse.text(), privacyResponse.text(), methodologyResponse.text(),
   ]);
   if (sourcesResponse.ok && privacyResponse.ok && methodologyResponse.ok &&
-    sourcesPage.includes("SEC EDGAR") && sourcesPage.includes("Visitor-triggered exact company-name or ticker lookup") &&
-    sourcesPage.includes("descriptive User-Agent") &&
-    privacyPage.includes("The text you typed is") && privacyPage.includes("not sent to the SEC") &&
-    methodologyPage.includes("A no-match means only that this exact phrase did not match the issuer index")) {
-    pass("SEC issuer source disclosure", "exact-issuer coverage, contact User-Agent, query privacy, and no-match limits are documented");
+    sourcesPage.includes("SEC EDGAR") && sourcesPage.includes("Disabled by operator policy") &&
+    sourcesPage.includes("ECB · daily euro reference rates") &&
+    privacyPage.includes("SEC requests are disabled by operator policy") &&
+    methodologyPage.includes("SEC requests are disabled by operator policy") &&
+    !methodologyPage.includes("When the operator configures SEC_USER_AGENT")) {
+    pass("operator source-policy disclosure", "SEC is explicitly disabled; dated ECB context is disclosed without obsolete setup instructions");
   } else {
-    fail("SEC issuer source disclosure", "SEC scope, privacy, or no-match disclosures are missing");
+    fail("operator source-policy disclosure", "SEC-disabled/ECB disclosures are missing or obsolete setup instructions remain");
   }
 } catch (error) {
-  fail("SEC issuer source disclosure", error instanceof Error ? error.message : "request failed");
+  fail("operator source-policy disclosure", error instanceof Error ? error.message : "request failed");
 }
 
 try {
