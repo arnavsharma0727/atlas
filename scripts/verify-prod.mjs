@@ -92,7 +92,7 @@ try {
     sourcesPage.includes("SEC EDGAR") && sourcesPage.includes("Visitor-triggered exact company-name or ticker lookup") &&
     sourcesPage.includes("descriptive User-Agent") &&
     privacyPage.includes("The text you typed is") && privacyPage.includes("not sent to the SEC") &&
-    methodologyPage.includes("An exact-name/ticker miss is not a topic-wide or global absence claim")) {
+    methodologyPage.includes("A no-match means only that this exact phrase did not match the issuer index")) {
     pass("SEC issuer source disclosure", "exact-issuer coverage, contact User-Agent, query privacy, and no-match limits are documented");
   } else {
     fail("SEC issuer source disclosure", "SEC scope, privacy, or no-match disclosures are missing");

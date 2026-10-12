@@ -8,7 +8,11 @@ const sections = [
   },
   {
     title: "Keep evidence types separate",
-    body: "The live search currently returns public social discussion from Bluesky and Lemmy, hashtag posts from Mastodon, title-only questions from the Economics, Quantitative Finance, and Personal Finance Stack Exchange communities, and Japanese, Portuguese, or Spanish Stack Overflow questions for the corresponding selected language lens. Non-U.S. searches also include headline metadata from Global Voices reporting. Q&A and reporting are separate evidence classes, not forum opinion. Scheduled operational feeds shown in the source register are not mixed into this visitor search.",
+    body: "Search can return public discussion from Bluesky, Lemmy, and Mastodon; title-only expert Q&A from Stack Exchange; reporting and expert-analysis headlines from Global Voices and The Conversation; title-level scholarly records from Crossref, OpenAlex, and arXiv; and play-money forecasts from Manifold. These are separate evidence classes, not interchangeable measures of opinion. When configured, SEC EDGAR filing links are an additional primary-source context for exact issuer-name or ticker searches. Scheduled operational feeds shown in the source register are not mixed into the visitor search.",
+  },
+  {
+    title: "Use SEC filings as primary-source context",
+    body: "When the operator configures SEC_USER_AGENT with a descriptive name and contact email, Atlas checks exact issuer names or tickers against the public SEC issuer index and returns up to ten recent 10-K, 10-Q, 8-K, 20-F, 40-F, or 6-K filing links from the past three years. Atlas retrieves filing-index metadata, not the document body; filing links remain separate from discussion summaries and are never sent to the AI summarizer. EDGAR covers SEC registrants, including some foreign issuers, not the global company universe. A no-match means only that this exact phrase did not match the issuer index; it does not mean the company, topic, or filings are absent elsewhere. If the contact User-Agent is not configured, Atlas marks this source not searched.",
   },
   {
     title: "Read the original before drawing a conclusion",
