@@ -11,7 +11,7 @@ import { selectOverviewEvidence } from "../../lib/overview-evidence";
 import { buildSearchAudit, type AuditRunIdentity } from "../../lib/search-audit";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
-import { marketDiscussionQueries, MARKET_QUERY_PLAN_NOTE } from "../../lib/market-query-plan";
+import { marketDiscussionQueries, marketTopicHashtags, MARKET_QUERY_PLAN_NOTE } from "../../lib/market-query-plan";
 import { selectedCountryContext } from "../../lib/country-context";
 import { comparisonReadiness } from "../../lib/comparison-readiness";
 
@@ -97,8 +97,8 @@ export default function ResearchSweep({
       const localQuery = preparation.query || topic;
       setSearchedLocalQuery(activeCountryCode === "US" ? topic : localQuery);
       setLocalQueryMethod(preparation.mode === "researcher" ? "researcher" : preparation.mode === "english-fallback" || preparation.mode === "unavailable" ? "original" : activeCountryCode === "US" ? "baseline" : "translated");
-      const localHashtags = (preparation.hashtags.length ? preparation.hashtags : topicHashtags(localQuery)).filter(Boolean).slice(0, 3);
-      const baseMastodon = topicHashtags(topic).map((hashtag) => ({ hashtag, instance: "mastodon.social" as const }));
+      const localHashtags = marketTopicHashtags(localQuery, activeCountry.language, preparation.hashtags);
+      const baseMastodon = marketTopicHashtags(topic, "en").map((hashtag) => ({ hashtag, instance: "mastodon.social" as const }));
       const baseSearch = runResearchSweep(topic, {
         globalVoices: false,
         // Default search is a country comparison, not a general-purpose source catalog.

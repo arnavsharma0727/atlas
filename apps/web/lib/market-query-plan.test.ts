@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { marketDiscussionQueries } from "./market-query-plan";
+import { marketDiscussionQueries, marketTopicHashtags } from "./market-query-plan";
 import { hasMarketSignalTerms } from "./market-summary";
 
 describe("bounded transparent market-discussion query plan", () => {
@@ -18,6 +18,11 @@ describe("bounded transparent market-discussion query plan", () => {
     expect(marketDiscussionQueries("solar panels", "en")).toEqual(["solar panels", "solar panels prices", "photovoltaics"]);
     expect(marketDiscussionQueries("Solarmodule", "de")).toEqual(["Solarmodule", "Solarmodule Preise", "Photovoltaik"]);
     expect(marketDiscussionQueries("solar panels in Germany", "en")).toEqual(["solar panels in Germany", "solar panels in Germany prices"]);
+  });
+  it("preserves a compound subject and one reviewed adjacent hashtag without generic split tags", () => {
+    expect(marketTopicHashtags("solar panels", "en", ["SolarPanels", "SolarEnergy", "finance"])).toEqual(["SolarPanels", "Photovoltaics", "SolarEnergy"]);
+    expect(marketTopicHashtags("Solarmodule", "de", ["Photovoltaik", "Erneuerbare"])).toEqual(["Solarmodule", "Photovoltaik", "Erneuerbare"]);
+    expect(marketTopicHashtags("GPU", "en", ["bad/tag", "AI"])).toEqual(["GPU", "AI"]);
   });
   it("does not truncate a topic, infer an unsupported language or exceed the query cap", () => {
     expect(marketDiscussionQueries("x".repeat(100), "en")).toEqual(["x".repeat(100)]);

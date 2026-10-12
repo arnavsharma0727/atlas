@@ -1,5 +1,7 @@
 /** Preserve compound subjects; split words can change a market into an unrelated hashtag. */
 const COMPOUND_SUBJECTS: readonly [RegExp, string][] = [
+  [/\bsolar\s+panels?\b/giu, "SolarPanels"],
+  [/\bsolar\s+modules?\b/giu, "SolarModules"],
   [/\bnatural\s+gas\b/giu, "NaturalGas"],
   [/\belectric\s+vehicles?\b/giu, "ElectricVehicles"],
   [/\bartificial\s+intelligence\b/giu, "ArtificialIntelligence"],

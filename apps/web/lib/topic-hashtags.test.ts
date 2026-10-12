@@ -9,6 +9,8 @@ describe("topicHashtags", () => {
     for (const value of ["\u0301", "---", "a/b", "<script>", "a".repeat(51)]) expect(isValidTopicHashtag(value)).toBe(false);
   });
   it.each([
+    ["solar panels demand", ["SolarPanels"]],
+    ["solar modules prices", ["SolarModules"]],
     ["natural gas demand", ["NaturalGas"]],
     ["Shell natural gas supply", ["Shell", "NaturalGas"]],
     ["electric vehicle demand", ["ElectricVehicles"]],
