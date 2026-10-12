@@ -326,6 +326,22 @@ export default async function Sources() {
       ],
     },
     {
+      name: "EIA · U.S. energy benchmark prices",
+      key: "eia-energy-prices",
+      enabled: Boolean(process.env.EIA_API_KEY),
+      onDemand: true,
+      detail:
+        "Optional free U.S. Energy Information Administration API source. Requires the operator to register for a free API key and personally accept EIA's API terms; Atlas does not create the account or accept terms for the operator. When configured, visitor-triggered searches for crude oil/WTI/Brent, natural gas/Henry Hub, or broad energy prices retrieve up to five latest daily points per matched benchmark. Atlas shows the exact observation date, units, benchmark, and original EIA chart link. A source with no requested-series observations or latest data more than 14 days old is marked partial. These are U.S.-based reference prices—not prices for the selected country, not a global quote, and not public opinion. It is never sent to Groq. The key is stored only in private server environment settings, never sent to the browser, and never committed to GitHub. Identical query responses are cached in volatile server memory for 15 minutes; request limits are best-effort per server instance. API terms allow building search/display/analyze services and require EIA attribution; EIA data is U.S. government public-domain material. Access is free but not guaranteed and the API requires registration.",
+      referenceUrl: "https://www.eia.gov/opendata/documentation.php",
+      referenceLabel: "EIA API technical documentation",
+      secondaryReferenceUrl: "https://www.eia.gov/opendata/terms-of-service.php",
+      secondaryReferenceLabel: "EIA API Terms of Service",
+      additionalReferences: [
+        { url: "https://www.eia.gov/opendata/register.php", label: "Register for a free EIA API key" },
+        { url: "https://www.eia.gov/about/copyrights_reuse.php", label: "EIA public-domain data and attribution" },
+      ],
+    },
+    {
       name: "SEC EDGAR",
       key: "sec-edgar",
       enabled: Boolean(process.env.SEC_USER_AGENT),

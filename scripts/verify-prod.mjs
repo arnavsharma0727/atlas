@@ -99,6 +99,37 @@ try {
 }
 
 try {
+  const [sourcesResponse, privacyResponse, eiaResponse] = await Promise.all([
+    fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/api/research/eia`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "crude oil" }),
+      signal: AbortSignal.timeout(15000),
+    }),
+  ]);
+  const [sourcesPage, privacyPage, eiaBody] = await Promise.all([
+    sourcesResponse.text(), privacyResponse.text(), eiaResponse.json().catch(() => null),
+  ]);
+  const safeResult = eiaResponse.status === 503 && eiaBody?.code === "not_configured" ||
+    eiaResponse.ok && Array.isArray(eiaBody?.evidence) && eiaBody.evidence.every((item) =>
+      typeof item.id === "string" && /^eia:(?:RWTC|RBRTE|RNGWHHD):\d{4}-\d{2}-\d{2}$/.test(item.id) &&
+      item.evidenceClass === "official statistical data" && typeof item.url === "string" && item.url.startsWith("https://www.eia.gov/opendata/browser/"));
+  if (sourcesResponse.ok && privacyResponse.ok &&
+    sourcesPage.includes("EIA · U.S. energy benchmark prices") &&
+    sourcesPage.includes("personally accept EIA") &&
+    sourcesPage.includes("never sent to Groq") &&
+    privacyPage.includes("registered key") && safeResult) {
+    pass("EIA free-source and key boundary", eiaResponse.status === 503 ? "registered free key is not configured; missing-key state is explicit and fails closed" : "configured server-side EIA route returned bounded, attributed benchmark evidence");
+  } else {
+    fail("EIA free-source and key boundary", "free-registration disclosure, private-key handling, or route contract is missing");
+  }
+} catch (error) {
+  fail("EIA free-source and key boundary", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const [sourcesResponse, privacyResponse, methodologyResponse] = await Promise.all([
     fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
     fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),

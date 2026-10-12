@@ -86,6 +86,7 @@ export default function ResearchSweep({
         manifoldForecasts: true,
         secEdgar: true,
         worldBankCountryCode: activeCountryCode,
+        eiaEnergyPrices: true,
         bluesky: true,
         blueskyQueries: [topic.length <= 92 ? `${topic} lang:en` : topic],
         // Keep these specialist Q&A communities as an explicitly separate evidence class.
@@ -131,7 +132,7 @@ export default function ResearchSweep({
       const markedResults = flagRepeatedEvidenceViews(filterResultsToTopic(merged, topic, localQuery, activeCountry.language));
       setResults(markedResults);
       const citations = buildCitationIds(markedResults);
-      const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && key !== "world-bank-macro" && !key.startsWith("the-conversation:"));
+      const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && key !== "world-bank-macro" && key !== "eia-energy-prices" && !key.startsWith("the-conversation:"));
       const localEvidenceResults = markedResults.filter(({ key }) => key.startsWith("local:") && key !== "local:global-voices" && !key.startsWith("local:the-conversation:"));
       const includedEvidenceKeys = new Set<string>();
       let baselineScreenedOut = 0;
@@ -374,7 +375,7 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
       </header>
       <p className="source-window">{result.window}</p>
       <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
-      <p className="source-overview-count">{result.key === "world-bank-macro" ? "Official statistical context · excluded from community overviews" : `${summaryCandidateCount} unique excerpt${summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.`}</p>
+      <p className="source-overview-count">{result.key === "world-bank-macro" || result.key === "eia-energy-prices" ? "Official statistical context · excluded from community overviews" : `${summaryCandidateCount} unique excerpt${summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.`}</p>
       {result.coverageNote && <p className="source-coverage-warning" role="status">{result.coverageNote}</p>}
       {result.sourceNote && <p className="source-coverage-warning" role="status">{result.sourceNote}</p>}
       {result.error ? (

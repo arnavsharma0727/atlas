@@ -24,6 +24,29 @@ describe("summary evidence links", () => {
     expect(html).toContain("2 unique excerpts pass overview filters before platform/account balancing and the eight-item cap.");
   });
 
+  it("labels official market statistics as context excluded from community overviews", () => {
+    const html = renderToStaticMarkup(createElement(SourceResults, {
+      result: {
+        key: "eia-energy-prices", label: "EIA · U.S. energy benchmark prices", query: "crude oil", asOf: "2026-10-10T00:00:00.000Z",
+        retrievedAt: "2026-10-10T00:00:01.000Z", window: "WTI / Brent · five daily observations", evidence: [], error: null, status: "complete",
+      },
+      evidence: [{
+        id: "eia:RWTC:2026-10-09", title: "WTI · USD 72.20 · 2026-10-09", url: "https://www.eia.gov/opendata/browser/petroleum/pri/spt?series=RWTC",
+        source: "EIA", evidenceClass: "official statistical data", language: "Not applicable", timeLabel: "Observation date", timeValue: "2026-10-09T00:00:00.000Z",
+        context: "U.S. benchmark only; not the selected country's price or public opinion.", attribution: "EIA · public-domain data",
+      }],
+      returnedCount: 1,
+      duplicateCount: 0,
+      summaryCandidateCount: 0,
+      citationIds: new Map([[citationKey("eia-energy-prices", "eia:RWTC:2026-10-09"), "C1"]]),
+      summaryCitationIds: new Set<string>(),
+    }));
+
+    expect(html).toContain("Official statistical context · excluded from community overviews");
+    expect(html).toContain("U.S. benchmark only; not the selected country&#x27;s price or public opinion.");
+    expect(html).toContain("EIA · public-domain data");
+  });
+
   it("recognizes bare external domains in social text as link-sharing provenance", () => {
     expect(includesExternalLink("Publisher source: news.ikbc.co.kr/article/story")).toBe(true);
     expect(includesExternalLink("More on the topic at BigEarthData.ai")).toBe(true);

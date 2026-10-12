@@ -136,6 +136,7 @@ export function filterResultsToTopic(
   return results.map((result) => {
     const topic = result.key.startsWith("local:") ? localTopic : baselineTopic;
     const evidence = result.evidence.filter((item) =>
+      ((result.key === "world-bank-macro" || result.key === "eia-energy-prices") && item.evidenceClass === "official statistical data") ||
       hasTopicSignalTerms(`${item.title} ${item.transientPreview ?? ""}`, topic),
     ).map((item) => {
       const copy = `${item.title} ${item.transientPreview ?? ""}`;

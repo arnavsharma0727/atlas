@@ -17,6 +17,20 @@ function evidence(id: string, source: string, excerpt: string, operator = source
 }
 
 describe("market summary evidence contracts", () => {
+  it("keeps explicitly mapped official energy benchmark records for a broad energy query", () => {
+    const row = {
+      id: "eia:RWTC:2026-10-09", title: "U.S. energy benchmark · Cushing WTI crude · 72.20 USD/barrel · 2026-10-09",
+      url: "https://www.eia.gov/opendata/browser/petroleum/pri/spt?series=RWTC", source: "EIA",
+      evidenceClass: "official statistical data" as const, language: "Not applicable", timeLabel: "Observation date",
+      timeValue: "2026-10-09T00:00:00.000Z", context: "U.S.-based benchmark, not a local price or public opinion.",
+    };
+    const [screened] = filterResultsToTopic([result("eia-energy-prices", "EIA", [row])], "energy prices");
+    expect(screened.evidence).toEqual([row]);
+    const koreanMacro = { ...row, id: "world-bank:FP.CPI.TOTL.ZG:KOR:2025", title: "Korea · Inflation, consumer prices · 2025" };
+    const [localized] = filterResultsToTopic([result("world-bank-macro", "World Bank", [koreanMacro])], "물가상승");
+    expect(localized.evidence).toEqual([koreanMacro]);
+  });
+
   it("reports per-source overview candidates before the final platform cap", () => {
     const rows = result("bluesky", "Bluesky", [
       evidence("one", "Bluesky", "Solar demand rose as module prices fell.", "bluesky"),

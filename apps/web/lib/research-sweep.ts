@@ -14,6 +14,7 @@ import { searchManifoldForecasts } from "./manifold-search";
 import type { OpenAlexWork } from "./openalex-search";
 import type { SecFilingSearch } from "./sec-edgar-research-search";
 import { searchWorldBankMacro, worldBankCountryCodes, worldBankIndicatorForQuery } from "./world-bank-macro";
+import { eiaSeriesForQuery } from "./eia-energy-search";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -33,6 +34,8 @@ export type ResearchSweepSelection = {
   secEdgar?: boolean;
   /** Narrow keyless macro context; never treated as public conversation or summarized by AI. */
   worldBankCountryCode?: string;
+  /** Optional server-side-only EIA market context; queried only for exact energy concepts. */
+  eiaEnergyPrices?: boolean;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -148,7 +151,7 @@ export async function runResearchSweep(
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
   const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
-  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -194,6 +197,69 @@ export async function runResearchSweep(
         };
       })());
     }
+  }
+  if (selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) {
+    const label = "EIA · U.S. energy benchmark prices";
+    tasks.push((async () => {
+      const window = `${eiaSeriesForQuery(query).map(({ id }) => id).join(" / ")} · up to five latest daily observations per mapped series`;
+      try {
+        const response = await boundedFetch("/api/research/eia", {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        const retrievedAt = new Date().toISOString();
+        if (response.status === 503) {
+          const unavailable = await response.json().catch(() => null) as { code?: unknown } | null;
+          if (unavailable?.code === "not_configured") return {
+            key: "eia-energy-prices", label, query, asOf, retrievedAt, window, evidence: [],
+            error: "Not searched: the operator must add a free EIA_API_KEY to private server settings after registering with EIA and accepting its API terms.",
+            status: "not-searched" as const,
+          };
+        }
+        if (!response.ok) throw new Error(response.status === 429 ? "EIA search limit reached. Try again in one minute." : "EIA data is temporarily unavailable.");
+        const payload = await response.json() as { evidence?: unknown; retrievedAt?: unknown };
+        if (!Array.isArray(payload.evidence)) throw new Error("EIA returned an unexpected response.");
+        const allowedSeries = new Set(eiaSeriesForQuery(query).map(({ id }) => id));
+        const evidence = payload.evidence.flatMap((value) => {
+          if (!value || typeof value !== "object") return [];
+          const item = value as ResearchEvidence;
+          let url: URL;
+          try { url = new URL(item.url); } catch { return []; }
+          if (typeof item.id !== "string" || !/^eia:(?:RWTC|RBRTE|RNGWHHD):\d{4}-\d{2}-\d{2}$/.test(item.id) ||
+            !allowedSeries.has(item.id.split(":")[1] as "RWTC" | "RBRTE" | "RNGWHHD") ||
+            typeof item.title !== "string" || typeof item.context !== "string" || item.evidenceClass !== "official statistical data" ||
+            url.protocol !== "https:" || url.hostname !== "www.eia.gov" || !url.pathname.startsWith("/opendata/browser/")) return [];
+          return [item];
+        }).slice(0, 15);
+        const observedSeries = new Set(evidence.map(({ id }) => id.split(":")[1]));
+        const requestedSeries = eiaSeriesForQuery(query);
+        const missingSeries = requestedSeries.filter(({ id }) => !observedSeries.has(id));
+        const staleSeries = requestedSeries.filter(({ id }) => {
+          const latest = evidence.filter((item) => item.id.split(":")[1] === id).map((item) => Date.parse(item.timeValue)).sort((a, b) => b - a)[0];
+          return latest !== undefined && now - latest > 14 * 24 * 60 * 60 * 1000;
+        });
+        const coverageNotes = [
+          missingSeries.length
+            ? evidence.length
+              ? `No usable daily observations were returned for ${missingSeries.map(({ label }) => label).join(", ")}; the remaining benchmark series are shown.`
+              : "The API returned no usable observations for the requested benchmarks; this does not mean energy-market data or discussion is absent."
+            : undefined,
+          staleSeries.length
+            ? `Latest available observations are more than 14 days old for ${staleSeries.map(({ label }) => label).join(", ")}; verify the publisher's update schedule before relying on them.`
+            : undefined,
+        ].filter(Boolean).join(" ");
+        return {
+          key: "eia-energy-prices", label, query, asOf,
+          retrievedAt: typeof payload.retrievedAt === "string" ? payload.retrievedAt : retrievedAt,
+          window, evidence, error: null,
+          status: evidence.length && !coverageNotes ? "complete" as const : "partial" as const,
+          ...(coverageNotes ? { coverageNote: coverageNotes } : {}),
+        };
+      } catch (cause) {
+        return { key: "eia-energy-prices", label, query, asOf, retrievedAt: new Date().toISOString(), window, evidence: [], error: cause instanceof Error ? cause.message : "EIA data is temporarily unavailable.", status: "unavailable" as const };
+      }
+    })());
   }
   if (selection.manifoldForecasts) {
     tasks.push(capture(

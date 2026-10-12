@@ -19,6 +19,43 @@ describe("runResearchSweep", () => {
     expect(result.evidence).toHaveLength(1);
   });
 
+  it("marks the free EIA source not searched until a private API key is configured", async () => {
+    const fetcher = vi.fn(async () => Response.json({ code: "not_configured", error: "not configured" }, { status: 503 }));
+    const [result] = await runResearchSweep("crude oil", { eiaEnergyPrices: true, lemmy: false }, fetcher, NOW);
+    expect(result).toMatchObject({
+      key: "eia-energy-prices",
+      status: "not-searched",
+      error: expect.stringContaining("free EIA_API_KEY"),
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks EIA benchmark coverage partial when only one crude series has observations", async () => {
+    const fetcher = vi.fn(async () => Response.json({ evidence: [{
+      id: "eia:RWTC:2026-09-29", title: "WTI", url: "https://www.eia.gov/opendata/browser/petroleum/pri/spt?series=RWTC",
+      source: "EIA", evidenceClass: "official statistical data", language: "Not applicable", timeLabel: "Observation date",
+      timeValue: "2026-09-29T00:00:00.000Z", context: "U.S. benchmark only.",
+    }] }));
+    const [result] = await runResearchSweep("crude oil", { eiaEnergyPrices: true, lemmy: false }, fetcher, NOW);
+    expect(result).toMatchObject({
+      key: "eia-energy-prices",
+      status: "partial",
+      coverageNote: expect.stringContaining("Europe Brent crude spot"),
+    });
+    expect(result.evidence).toHaveLength(1);
+  });
+
+  it("flags stale EIA daily observations instead of presenting them as current", async () => {
+    const fetcher = vi.fn(async () => Response.json({ evidence: [{
+      id: "eia:RNGWHHD:2026-08-01", title: "Henry Hub", url: "https://www.eia.gov/opendata/browser/natural-gas/pri/fut?series=RNGWHHD",
+      source: "EIA", evidenceClass: "official statistical data", language: "Not applicable", timeLabel: "Observation date",
+      timeValue: "2026-08-01T00:00:00.000Z", context: "U.S. benchmark only.",
+    }] }));
+    const [result] = await runResearchSweep("natural gas", { eiaEnergyPrices: true, lemmy: false }, fetcher, NOW);
+    expect(result.status).toBe("partial");
+    expect(result.coverageNote).toContain("more than 14 days old");
+  });
+
   it("uses a body-less Lemmy market-post title as transient AI evidence without duplicating it in the source preview", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => new URL(String(input)).pathname.endsWith("/site")
       ? Response.json({ all_languages: [{ id: 37, code: "en", name: "English" }] })

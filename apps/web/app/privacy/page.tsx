@@ -84,6 +84,15 @@ export default function Privacy() {
               The World Bank may process the request under its own policies.
             </p>
             <p>
+              If the operator has configured EIA_API_KEY, searches explicitly
+              about crude oil benchmarks or natural gas send that topic to
+              Atlas&apos;s server, which queries the EIA API using the
+              operator&apos;s registered key. The key is not sent to the
+              browser or Groq. EIA registration and its API terms are required;
+              energy data is shown separately and never included in the AI
+              overview. Without the key, the source is marked not searched.
+            </p>
+            <p>
               Atlas also has server-side operational data services for
               scheduled collection and source monitoring. These are separate
               from the on-demand search page. Historical records may remain in
