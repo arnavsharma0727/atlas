@@ -80,6 +80,81 @@ try {
 }
 
 try {
+  const [sourcesResponse, privacyResponse, methodologyResponse] = await Promise.all([
+    fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/methodology`, { signal: AbortSignal.timeout(15000) }),
+  ]);
+  const [sourcesPage, privacyPage, methodologyPage] = await Promise.all([
+    sourcesResponse.text(), privacyResponse.text(), methodologyResponse.text(),
+  ]);
+  if (sourcesResponse.ok && privacyResponse.ok && methodologyResponse.ok &&
+    sourcesPage.includes("batched follow-up request retrieves recent answers") &&
+    sourcesPage.includes("excluded from AI summaries") &&
+    sourcesPage.includes("If answer lookup fails") &&
+    privacyPage.includes("Stack Exchange question/answer") &&
+    privacyPage.includes("Stack Exchange excerpts are not sent to Groq") &&
+    methodologyPage.includes("at most one individually licensed answer per question")) {
+    pass("Stack Exchange licensed-answer boundaries", "individual CC BY-SA answers have author/source attribution, transient display, partial-failure disclosure, and exclusion from AI summaries");
+  } else {
+    fail("Stack Exchange licensed-answer boundaries", "answer attribution, transient handling, summary exclusion, or failure disclosure is missing");
+  }
+} catch (error) {
+  fail("Stack Exchange licensed-answer boundaries", error instanceof Error ? error.message : "request failed");
+}
+
+try {
+  const [sourcesResponse, privacyResponse, methodologyResponse, dataResponse] = await Promise.all([
+    fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/methodology`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/api/research/bis`, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ query: "USD currency", country: "KR" }),
+      signal: AbortSignal.timeout(20000),
+    }),
+  ]);
+  const [sourcesPage, privacyPage, methodologyPage, data] = await Promise.all([
+    sourcesResponse.text(), privacyResponse.text(), methodologyResponse.text(),
+    dataResponse.json().catch(() => null),
+  ]);
+  const evidence = data && typeof data === "object" && Array.isArray(data.evidence) ? data.evidence : [];
+  const validEvidence = evidence.length === 4 && evidence.every((item) =>
+    item && typeof item.id === "string" && /^bis-eer:(?:US|KR):[NR]:d{4}-d{2}$/.test(item.id) &&
+    item.evidenceClass === "official statistical data" && item.sourceOperatorKey === "bis-statistics" &&
+    typeof item.context === "string" && item.context.includes("2020 = 100") &&
+    typeof item.url === "string" && item.url.startsWith("https://data.bis.org/topics/EER/"));
+  if (sourcesResponse.ok && privacyResponse.ok && methodologyResponse.ok && dataResponse.ok &&
+    sourcesPage.includes("BIS · effective exchange-rate context") &&
+    sourcesPage.includes("not a bilateral spot exchange rate") &&
+    sourcesPage.includes("Terms of permitted statistical use") &&
+    privacyPage.includes("topic is used only to decide whether that source applies") &&
+    methodologyPage.includes("Country indices use their own 2020=100 bases") && validEvidence) {
+    pass("BIS FX context and permission boundaries", "keyless U.S./selected-country indices are live, attributed, freshness-labeled, excluded from discussion summaries, and represented as non-comparable indices");
+  } else {
+    fail("BIS FX context and permission boundaries", `source disclosure, privacy/methodology boundary, or live four-series validation failed (HTTP ${dataResponse.status}; ${evidence.length} rows)`);
+  }
+} catch (error) {
+  fail("BIS FX context and permission boundaries", error instanceof Error ? error.message : "request failed");
+}
+
+try {
+  const response = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
+  const page = await response.text();
+  if (response.ok &&
+    page.includes("YouTube comments · excluded from cross-source summaries") &&
+    page.includes("prohibit aggregating API data across different content owners") &&
+    page.includes("https://developers.google.com/youtube/terms/developer-policies")) {
+    pass("YouTube cross-source permission boundary", "the otherwise-free API remains disabled because its aggregation and derived-data rules conflict with Atlas's use case");
+  } else {
+    fail("YouTube cross-source permission boundary", "the API exclusion or the operator policy basis is missing");
+  }
+} catch (error) {
+  fail("YouTube cross-source permission boundary", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const [sourcesResponse, privacyResponse] = await Promise.all([
     fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
     fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),

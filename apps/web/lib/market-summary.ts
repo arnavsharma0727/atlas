@@ -154,7 +154,7 @@ export function filterResultsToTopic(
   return results.map((result) => {
     const topic = result.key.startsWith("local:") ? localTopic : baselineTopic;
     const evidence = result.evidence.filter((item) =>
-      ((result.key === "world-bank-macro" || result.key === "eia-energy-prices") && item.evidenceClass === "official statistical data") ||
+      ((result.key === "world-bank-macro" || result.key === "eia-energy-prices" || result.key === "bis-effective-exchange") && item.evidenceClass === "official statistical data") ||
       hasTopicSignalTerms(`${item.title} ${item.transientPreview ?? ""}`, topic),
     ).map((item) => {
       const copy = `${item.title} ${item.transientPreview ?? ""}`;
@@ -365,6 +365,7 @@ export function selectBalancedEvidence(
 
   for (const result of results) {
     for (const item of result.evidence) {
+      if (item.summaryEligible === false) continue;
       if (expectedLanguage && !matchesLanguageLens(item.language, expectedLanguage, item.transientPreview ?? item.title)) continue;
       const redactedExcerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
       const excerpt = item.linkSharing && redactedExcerpt && !redactedExcerpt.includes("[link]")

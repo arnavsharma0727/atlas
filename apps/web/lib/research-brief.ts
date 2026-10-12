@@ -24,6 +24,8 @@ export type ResearchEvidence = {
   sourceOperatorLabel?: string;
   /** Ephemeral source preview for in-browser review; strip before adding a citation to a brief. */
   transientPreview?: string;
+  /** Licensed expert-answer excerpts are displayed for review but not transmitted to AI. */
+  summaryEligible?: boolean;
   /** True when the public post includes an external URL; linked content may not be the author's own view. */
   linkSharing?: boolean;
 };

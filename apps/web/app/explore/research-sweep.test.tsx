@@ -47,6 +47,28 @@ describe("summary evidence links", () => {
     expect(html).toContain("EIA · public-domain data");
   });
 
+  it("preserves month-only precision for BIS observations instead of inventing a first-of-month date", () => {
+    const html = renderToStaticMarkup(createElement(SourceResults, {
+      result: {
+        key: "bis-effective-exchange", label: "BIS · official effective-exchange-rate context", query: "USD currency", asOf: "2026-10-12T00:00:00.000Z",
+        retrievedAt: "2026-10-12T00:00:01.000Z", window: "Monthly index observations", evidence: [], error: null, status: "complete",
+      },
+      evidence: [{
+        id: "bis-eer:KR:N:2026-08", title: "South Korea · nominal effective exchange rate (broad basket)", url: "https://data.bis.org/topics/EER/BIS%2CWS_EER%2C1.0/M.N.B.KR",
+        source: "Bank for International Settlements (BIS)", evidenceClass: "official statistical data", language: "Not applicable", timeLabel: "Latest monthly observation", timeValue: "2026-08",
+        context: "Index 89.15 (2020 = 100).",
+      }],
+      returnedCount: 1,
+      duplicateCount: 0,
+      summaryCandidateCount: 0,
+      citationIds: new Map([[citationKey("bis-effective-exchange", "bis-eer:KR:N:2026-08"), "C1"]]),
+      summaryCitationIds: new Set<string>(),
+    }));
+
+    expect(html).toContain("<time dateTime=\"2026-08\">2026-08</time>");
+    expect(html).not.toContain("2026-08-01T00:00:00.000Z");
+  });
+
   it("recognizes bare external domains in social text as link-sharing provenance", () => {
     expect(includesExternalLink("Publisher source: news.ikbc.co.kr/article/story")).toBe(true);
     expect(includesExternalLink("More on the topic at BigEarthData.ai")).toBe(true);

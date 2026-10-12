@@ -6,6 +6,29 @@ import { citationKey } from "./perspective-snapshot";
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("loads BIS statistics only as separately labeled FX context, not summary evidence", async () => {
+    const row = {
+      id: "bis-eer:KR:N:2026-08", title: "South Korea · nominal effective exchange rate (broad basket)",
+      url: "https://data.bis.org/topics/EER/BIS%2CWS_EER%2C1.0/M.N.B.KR", source: "Bank for International Settlements (BIS)",
+      evidenceClass: "official statistical data" as const, language: "Not applicable", timeLabel: "Latest monthly observation",
+      timeValue: "2026-08", context: "Index 89.15 (2020 = 100).", summaryEligible: false,
+      licenseUrl: "https://data.bis.org/help/legal", sourceOperatorKey: "bis-statistics",
+    };
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe("/api/research/bis");
+      return Response.json({ evidence: [row], missingSeries: [], staleSeries: [], failedAreas: [], retrievedAt: "2026-10-12T02:15:00Z" });
+    }) as unknown as typeof fetch;
+    const [result] = await runResearchSweep("USD currency", { bisCountryCode: "KR", lemmy: false }, fetcher, NOW);
+    expect(result).toMatchObject({
+      key: "bis-effective-exchange",
+      status: "complete",
+      query: "USD currency",
+      evidence: [row],
+      sourceNote: expect.stringContaining("not a bilateral spot quote"),
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it("marks World Bank context partial when a requested geography has no usable annual observation", async () => {
     const fetcher = vi.fn(async () => Response.json([{}, [
       { country: { id: "US", value: "United States" }, countryiso3code: "USA", indicator: { id: "FP.CPI.TOTL.ZG" }, date: "2025", value: 2.9 },
@@ -336,7 +359,7 @@ describe("runResearchSweep", () => {
     const requests: string[] = [];
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
-      requests.push(url.searchParams.get("site") ?? "");
+      if (url.pathname.endsWith("/search/advanced")) requests.push(url.searchParams.get("site") ?? "");
       const site = url.searchParams.get("site")!;
       return new Response(JSON.stringify({ items: [{
         question_id: 42,
@@ -359,6 +382,26 @@ describe("runResearchSweep", () => {
       ["Personal Finance & Money", "expert Q&A", "CC BY-SA 4.0"],
     ]);
     expect(results.every(({ evidence }) => evidence[0].transientPreview === undefined)).toBe(true);
+  });
+
+  it("marks Stack Exchange coverage partial when question search works but answer lookup fails", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [{
+        question_id: 42,
+        title: "Semiconductor demand outlook",
+        link: "https://economics.stackexchange.com/questions/42/example",
+        creation_date: Math.floor((NOW - 60_000) / 1000),
+        content_license: "CC BY-SA 4.0",
+        owner: { display_name: "Researcher", link: "https://economics.stackexchange.com/users/9/researcher" },
+      }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response("unavailable", { status: 503 }));
+    const [result] = await runResearchSweep("semiconductor demand", {
+      stackExchangeQueries: [{ site: "economics", query: "semiconductor demand" }],
+      lemmy: false,
+    }, fetcher, NOW);
+    expect(result.status).toBe("partial");
+    expect(result.evidence).toHaveLength(1);
+    expect(result.sourceNote).toContain("answer lookup was unavailable");
   });
 
   it("reuses a matching live Stack Exchange request for 65 seconds", async () => {
@@ -612,7 +655,7 @@ describe("runResearchSweep", () => {
       wikimediaLanguage: "en",
     }, fetcher, NOW);
 
-    expect(fetcher).toHaveBeenCalledTimes(5);
+    expect(fetcher).toHaveBeenCalledTimes(6);
     expect(results.map(({ key, evidence, error }) => [key, evidence.length, error])).toEqual([
       ["stack-exchange:economics", 1, null],
       ["lemmy:lemmy.world", 1, null],
@@ -782,14 +825,14 @@ describe("runResearchSweep", () => {
         { site: "ja.stackoverflow", query: "インフレ 金利" },
       ],
     }, fetcher, NOW);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    expect(fetcher.mock.calls.map(([url]) => new URL(String(url)).searchParams.get("title"))).toEqual([
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(fetcher.mock.calls.filter(([url]) => new URL(String(url)).pathname.endsWith("/search/advanced")).map(([url]) => new URL(String(url)).searchParams.get("title"))).toEqual([
       "inflación tipos de interés",
       "インフレ 金利",
     ]);
     expect(results.map(({ key, evidence }) => [key, evidence[0]?.language, evidence[0]?.context])).toEqual([
-      ["stack-exchange:es.stackoverflow", "Spanish", expect.stringContaining("title-only query")],
-      ["stack-exchange:ja.stackoverflow", "Japanese", expect.stringContaining("title-only query")],
+      ["stack-exchange:es.stackoverflow", "Spanish", expect.stringContaining("question title search")],
+      ["stack-exchange:ja.stackoverflow", "Japanese", expect.stringContaining("question title search")],
     ]);
     expect(results.flatMap(({ evidence }) => evidence).map(({ context }) => context ?? "").join(" ")).not.toContain("inflación tipos de interés");
     expect(results.flatMap(({ evidence }) => evidence).map(({ context }) => context ?? "").join(" ")).not.toContain("インフレ 金利");

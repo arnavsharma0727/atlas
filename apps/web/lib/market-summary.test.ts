@@ -31,6 +31,25 @@ describe("market summary evidence contracts", () => {
     expect(localized.evidence).toEqual([koreanMacro]);
   });
 
+  it("keeps BIS exchange-rate statistics as citations but never chooses them for a discussion summary", () => {
+    const row = {
+      id: "bis-eer:KR:N:2026-08", title: "South Korea nominal effective exchange rate", url: "https://data.bis.org/topics/EER/BIS%2CWS_EER%2C1.0/M.N.B.KR",
+      source: "BIS", evidenceClass: "official statistical data" as const, language: "Not applicable", timeLabel: "Latest monthly observation",
+      timeValue: "2026-08", summaryEligible: false, transientPreview: "currency exchange rate index market change",
+    };
+    const [screened] = filterResultsToTopic([result("bis-effective-exchange", "BIS", [row])], "currency exchange rate");
+    expect(screened.evidence).toEqual([row]);
+    const selected = selectBalancedEvidence(
+      [screened],
+      new Map([[citationKey("bis-effective-exchange", row.id), "C1"]]),
+      8,
+      new Set(),
+      undefined,
+      () => true,
+    );
+    expect(selected).toEqual([]);
+  });
+
   it("reports per-source overview candidates before the final platform cap", () => {
     const rows = result("bluesky", "Bluesky", [
       evidence("one", "Bluesky", "Solar demand rose as module prices fell.", "bluesky"),
@@ -466,6 +485,18 @@ describe("market summary evidence contracts", () => {
     const results = [result("crossref", "Crossref research literature", [literature])];
     const citations = new Map([[citationKey("crossref", "paper"), "C1"]]);
     expect(selectBalancedEvidence(results, citations)).toEqual([]);
+  });
+
+  it("keeps licensed Stack Exchange answer excerpts visible as evidence but excludes them from AI summaries", () => {
+    const answer = {
+      ...evidence("answer", "Economics Stack Exchange", "Inflation expectations can lift nominal bond yields.", "stack-exchange"),
+      title: "Expert answer · question #7",
+      evidenceClass: "expert Q&A" as const,
+      summaryEligible: false,
+    };
+    const results = [result("stack-exchange:economics", "Economics Stack Exchange", [answer])];
+    expect(results[0].evidence).toContain(answer);
+    expect(selectBalancedEvidence(results, new Map([[citationKey(results[0].key, answer.id), "C1"]]))).toEqual([]);
   });
 
 

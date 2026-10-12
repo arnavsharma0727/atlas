@@ -15,6 +15,7 @@ import type { OpenAlexWork } from "./openalex-search";
 import type { SecFilingSearch } from "./sec-edgar-research-search";
 import { searchWorldBankMacro, worldBankCountryCodes, worldBankIndicatorForQuery } from "./world-bank-macro";
 import { eiaSeriesForQuery } from "./eia-energy-search";
+import { bisEerAppliesToQuery } from "./bis-effective-exchange";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -36,6 +37,8 @@ export type ResearchSweepSelection = {
   worldBankCountryCode?: string;
   /** Optional server-side-only EIA market context; queried only for exact energy concepts. */
   eiaEnergyPrices?: boolean;
+  /** Keyless BIS currency context, limited to effective-rate searches and excluded from AI discussion. */
+  bisCountryCode?: string;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -151,7 +154,7 @@ export async function runResearchSweep(
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
   const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
-  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !(selection.bisCountryCode && bisEerAppliesToQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -171,6 +174,66 @@ export async function runResearchSweep(
   }
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
   const conversationTasks: Promise<ResearchSweepSourceResult[]>[] = [];
+  if (selection.bisCountryCode && bisEerAppliesToQuery(query)) {
+    tasks.push((async () => {
+      const label = "BIS · official effective-exchange-rate context";
+      const window = "Monthly nominal and real broad-basket indices · U.S. and selected country · about 3 years";
+      try {
+        const response = await boundedFetch("/api/research/bis", {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ query, country: selection.bisCountryCode }),
+        });
+        if (!response.ok) throw new Error(response.status === 429
+          ? "BIS search limit reached. Try again in one minute."
+          : "BIS exchange-rate context is temporarily unavailable.");
+        const body = await response.json() as { evidence?: unknown; missingSeries?: unknown; staleSeries?: unknown; failedAreas?: unknown; retrievedAt?: unknown };
+        if (!Array.isArray(body.evidence) || !Array.isArray(body.missingSeries) || !Array.isArray(body.staleSeries) || !Array.isArray(body.failedAreas)) {
+          throw new Error("BIS returned an unexpected response.");
+        }
+        const evidence = body.evidence.flatMap((value) => {
+          if (!value || typeof value !== "object") return [];
+          const item = value as ResearchEvidence;
+          let url: URL;
+          let licenseUrl: URL;
+          try { url = new URL(item.url); licenseUrl = new URL(item.licenseUrl ?? ""); } catch { return []; }
+          if (typeof item.id !== "string" || !/^bis-eer:(?:US|KR|JP|DE|FR|BR|IN|ES):[NR]:\d{4}-\d{2}$/u.test(item.id) ||
+            typeof item.title !== "string" || typeof item.context !== "string" || item.evidenceClass !== "official statistical data" ||
+            url.protocol !== "https:" || url.hostname !== "data.bis.org" || !url.pathname.startsWith("/topics/EER/") ||
+            licenseUrl.toString() !== "https://data.bis.org/help/legal" || item.sourceOperatorKey !== "bis-statistics" ||
+            item.summaryEligible !== false) return [];
+          return [item];
+        }).slice(0, 4);
+        const missingSeries = body.missingSeries.filter((value): value is string => typeof value === "string").slice(0, 4);
+        const staleSeries = body.staleSeries.filter((value): value is string => typeof value === "string").slice(0, 4);
+        const failedAreas = body.failedAreas.filter((value): value is string => typeof value === "string").slice(0, 2);
+        const notes = [
+          failedAreas.length ? "BIS returned no usable response for " + failedAreas.join(", ") + "." : "",
+          missingSeries.length ? "No usable data for " + missingSeries.join(", ") + "." : "",
+          staleSeries.length ? "Latest observations are more than 100 days old for " + staleSeries.join(", ") + "." : "",
+          !evidence.length && !missingSeries.length ? "No valid BIS observations were returned; this does not indicate that the topic or currency is absent." : "",
+        ].filter(Boolean);
+        return {
+          key: "bis-effective-exchange",
+          label,
+          query,
+          asOf,
+          retrievedAt: typeof body.retrievedAt === "string" ? body.retrievedAt : new Date().toISOString(),
+          window,
+          evidence,
+          error: null,
+          ...(notes.length ? { coverageNote: notes.join(" ") } : {}),
+          status: evidence.length ? notes.length ? "partial" as const : "complete" as const : failedAreas.length ? "unavailable" as const : "partial" as const,
+          sourceNote: "Official trade-weighted index context only; not a bilateral spot quote, discussion sample, investor view, or AI-summary evidence.",
+        };
+      } catch (cause) {
+        return {
+          key: "bis-effective-exchange", label, query, asOf, retrievedAt: new Date().toISOString(), window,
+          evidence: [], error: cause instanceof Error ? cause.message : "BIS exchange-rate context is unavailable.", status: "unavailable" as const,
+        };
+      }
+    })());
+  }
   if (selection.worldBankCountryCode) {
     const indicator = worldBankIndicatorForQuery(query);
     if (indicator) {
@@ -620,7 +683,8 @@ export async function runResearchSweep(
       continue;
     }
     let reusedRecentSearch = false;
-    const loadEvidence = async () => (await searchLiveDiscussion(term, site, boundedFetch, now)).map((item) => ({
+    const loadEvidence = async () => (await searchLiveDiscussion(term, site, boundedFetch, now)).flatMap((item) => [
+      {
         id: `stackexchange:${item.url}`,
         title: item.title,
         url: item.url,
@@ -629,27 +693,56 @@ export async function runResearchSweep(
         language: item.language,
         timeLabel: "Published",
         timeValue: item.createdAt,
-        context: `Stack Exchange title search in ${item.language}; title-only query, not topic prevalence`,
-        attribution: `Author: ${item.author}`,
+        context: `Stack Exchange question title search in ${item.language}; title matches are not topic prevalence.${item.answerLookupIssue ? ` ${item.answerLookupIssue}` : ""}`,
+        attribution: `Question author: ${item.author}`,
         attributionUrl: item.authorUrl,
         licenseName: "CC BY-SA 4.0",
         licenseUrl: item.licenseUrl,
         sourceOperatorKey: "stack-exchange",
         sourceOperatorLabel: "Stack Exchange",
-      }));
-    const searchEvidence = fetcher === fetch
+        summaryEligible: false,
+      },
+      ...(item.answerExcerpt && item.answerUrl && item.answerAuthor && item.answerAuthorUrl && item.answerCreatedAt ? [{
+        id: `stackexchange-answer:${item.answerUrl}`,
+        title: `Expert answer · question #${item.id}`,
+        url: item.answerUrl,
+        source: item.community,
+        evidenceClass: "expert Q&A" as const,
+        language: item.language,
+        timeLabel: "Answered",
+        timeValue: item.answerCreatedAt,
+        context: "Answer excerpt shortened and HTML formatting removed for display. Expert Q&A is not a measure of general investor opinion or topic prevalence.",
+        attribution: `Answer author: ${item.answerAuthor}`,
+        attributionUrl: item.answerAuthorUrl,
+        licenseName: "CC BY-SA 4.0",
+        licenseUrl: item.licenseUrl,
+        sourceOperatorKey: "stack-exchange",
+        sourceOperatorLabel: "Stack Exchange",
+        transientPreview: item.answerExcerpt,
+        summaryEligible: false,
+      }] : []),
+    ]);
+    let answerLookupIncomplete = false;
+    const searchEvidenceBase = fetcher === fetch
       ? cachedStackExchangeSearch(site, term, now, loadEvidence, () => { reusedRecentSearch = true; })
       : loadEvidence();
+    const searchEvidence = searchEvidenceBase.then((items) => {
+      answerLookupIncomplete = items.some((item) => /answer lookup was unavailable|no shared API quota remaining for answer lookup/iu.test(item.context ?? ""));
+      return items;
+    });
     tasks.push(capture(
       `stack-exchange:${site}`,
       community.label,
       term,
       asOf,
-      "Title matches within 30 days",
+      "Recent title matches and individually licensed answer excerpts · last 30 days",
       () => searchEvidence,
       () => {
         const notes = [
           reusedRecentSearch ? "Reused a matching result retrieved within the past 65 seconds to respect the provider's duplicate-query guidance." : undefined,
+          answerLookupIncomplete
+            ? "Question-title search succeeded, but answer lookup was unavailable or the quota was exhausted; no answer excerpts are included."
+            : undefined,
         ];
         if (site === stackExchangeQueries[0]?.site) {
           const status = getStackExchangeThrottleStatus();
@@ -657,6 +750,7 @@ export async function runResearchSweep(
         }
         return notes.filter(Boolean).join(" ") || undefined;
       },
+      () => answerLookupIncomplete,
     ));
   }
   if (selection.lemmy) {
@@ -835,11 +929,12 @@ async function capture(
   window: string,
   search: () => Promise<ResearchEvidence[]>,
   getSourceNote?: () => string | undefined,
+  isPartial?: () => boolean,
 ): Promise<ResearchSweepSourceResult> {
   try {
     const evidence = await search();
     const sourceNote = getSourceNote?.();
-    return { key, label, query, asOf, retrievedAt: new Date().toISOString(), window, evidence, error: null, status: "complete", ...(sourceNote ? { sourceNote } : {}) };
+    return { key, label, query, asOf, retrievedAt: new Date().toISOString(), window, evidence, error: null, status: isPartial?.() ? "partial" : "complete", ...(sourceNote ? { sourceNote } : {}) };
   } catch (cause) {
     return {
       key,

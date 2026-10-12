@@ -174,7 +174,7 @@ export default async function Sources() {
         { url: "https://stackoverflow.com/help/licensing", label: "Stack Exchange content licensing" },
       ],
       detail:
-        "The visitor search queries the public Stack Exchange API for title matches in Economics, Quantitative Finance, and Personal Finance & Money. For the selected Japanese, Brazilian Portuguese, or Spanish lens, it also searches the corresponding public Stack Overflow language community; other selected languages have no configured localized Stack Exchange site. It returns only individually CC BY-SA 4.0 items, with unmodified title, original link, author/profile attribution, site, and license; question and answer bodies are not retrieved. Each provider query is bounded to recent title matches, and terms shorter than 3 or longer than 80 characters are explicitly marked not searched. Matching queries are reused for 65 seconds in the current browser session, and provider backoff instructions are honored; remaining quota is shown when the API reports it. The query is free to call and does not require a paid plan. This is specialist Q&A from one platform operator, not a general forum, independent operators, or representative public opinion; on-demand results are not stored. Scheduled collection is a separate optional feature and not mixed into the visitor search.",
+        "The visitor search queries the public Stack Exchange API for recent title matches in Economics, Quantitative Finance, and Personal Finance & Money. For the selected Japanese, Brazilian Portuguese, or Spanish lens, it also searches the corresponding public Stack Overflow language community; other selected languages have no configured localized Stack Exchange site. For at most eight matching questions, one batched follow-up request retrieves recent answers; Atlas displays at most one answer per question, only when the API reports CC BY-SA 4.0 for that item. Each question/answer links to its original post and the displayed author links to their profile. Answer excerpts are shortened and HTML formatting removed, are not persisted, and are excluded from AI summaries. If answer lookup fails, title results are retained and the source reports the partial limitation. Terms shorter than 3 or longer than 80 characters are explicitly marked not searched. Identical searches are reused for 65 seconds in the current browser session, and provider backoff instructions are honored; remaining quota is shown when the API reports it. The API is free to call and does not require a paid plan. This is specialist Q&A from one platform operator, not a general forum, independent operators, or representative public opinion; on-demand results are not stored. Scheduled collection is a separate optional feature and not mixed into the visitor search.",
     },
     {
       name: "Reddit · excluded from Atlas research search",
@@ -306,11 +306,30 @@ export default async function Sources() {
       secondaryReferenceLabel: "DEV Community Terms of Use",
     },
     {
-      name: "YouTube public comments (candidate)",
+      name: "YouTube comments · excluded from cross-source summaries",
       key: "youtube-comments",
       enabled: false,
       detail:
-        "Not implemented. Requires a Google API key; the default free quota is limited, API data must be refreshed or deleted within 30 days, and derived analytics require approved use-case terms. Selected video comments are not a representative investor-forum sample.",
+        "Not queried or scraped. The Data API requires a Google account/project and API key; its free default search quota is limited. More importantly, official policies prohibit aggregating API data across different content owners and prohibit using API data to create derived data/metrics except under specific approved exceptions. That conflicts with Atlas's cross-source comparison and AI-summary workflow. YouTube-specific branding and per-result attribution are also required. A free key or public endpoint is not sufficient permission; do not add without a compliant design and any required approval.",
+      referenceUrl: "https://developers.google.com/youtube/terms/developer-policies",
+      referenceLabel: "Official YouTube aggregation, derived-data, and display policies",
+      secondaryReferenceUrl: "https://developers.google.com/youtube/v3/getting-started",
+      secondaryReferenceLabel: "API registration and default quota",
+    },
+    {
+      name: "BIS · effective exchange-rate context",
+      key: "bis-effective-exchange",
+      enabled: true,
+      onDemand: true,
+      detail:
+        "Free, keyless SDMX API. Queried only when the search explicitly concerns currency, foreign exchange, or exchange rates. For the United States and selected country, Atlas requests monthly nominal and real broad-basket effective-exchange-rate indices for roughly three years, then shows the latest observation and a twelve-month index change where both periods exist. Values are indices (2020 = 100), not bilateral spot rates; each country's index has its own normalized base, so levels must not be compared directly. Missing or more-than-100-day-old series are disclosed. The topic is not sent to BIS. Identical country requests are cached in volatile server memory for 15 minutes, and request limiting is best-effort per server instance. BIS terms permit unrestricted use of the statistics provided the BIS is cited, no endorsement is implied, and uses are not misleading. This is official macro/foreign-exchange context—not public discussion, a country-opinion sample, or AI-summary evidence.",
+      referenceUrl: "https://stats.bis.org/api-doc/v1/",
+      referenceLabel: "BIS SDMX API documentation",
+      secondaryReferenceUrl: "https://data.bis.org/help/legal",
+      secondaryReferenceLabel: "BIS terms of permitted statistical use",
+      additionalReferences: [
+        { url: "https://data.bis.org/topics/EER", label: "Effective exchange-rate methodology and index units" },
+      ],
     },
     {
       name: "World Bank · annual macroeconomic context",

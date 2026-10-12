@@ -28,8 +28,13 @@ export default function Privacy() {
               APIs. Manifold search terms are also sent directly from your
               browser to its public, read-only API; returned forecast metadata
               is held transiently in the page and is not sent to Groq. Public
-              discussion excerpts and Q&amp;A titles are held transiently in
-              the page; Q&amp;A titles are not sent to Groq.
+              BIS currency-index requests go through an Atlas server endpoint;
+              the topic is used only to decide whether that source applies
+              and is not sent to BIS. Returned indices are held transiently
+              and are not sent to Groq. Public
+              discussion excerpts and Stack Exchange question/answer excerpts
+              are held transiently in the page; Stack Exchange excerpts are
+              not sent to Groq.
               Content-warning Mastodon posts are shown without a text preview.
               Those providers
               and Atlas&apos;s hosting infrastructure may process technical
