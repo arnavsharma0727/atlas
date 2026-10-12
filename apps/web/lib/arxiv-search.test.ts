@@ -12,6 +12,16 @@ function entry({ id = "2604.01234", title = "Semiconductor investment and chip s
 }
 
 describe("public arXiv metadata search", () => {
+  it("screens inflation using retained metadata, not discarded abstracts", async () => {
+    const fetcher = vi.fn(async () => new Response(feed([
+      entry({ title: "Inflation expectations", category: "econ.GN" }),
+      entry({ title: "Cosmological inflation", category: "astro-ph.CO" }),
+      entry({ title: "Quantum inflation: a Python library", category: "quant-ph" }),
+      entry({ title: "Inflation", category: "", summary: "Consumer prices and monetary economics" }),
+    ])));
+    expect((await searchArxiv("inflation", fetcher, NOW)).map((record) => record.title)).toEqual(["Inflation expectations"]);
+    expect((await searchArxiv("cosmological inflation", fetcher, NOW)).map((record) => record.title)).toEqual(["Cosmological inflation"]);
+  });
   it("queries a bounded title/abstract search and returns only matched titles and links", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => new Response(feed([entry()]), { status: 200 }));
     const records = await searchArxiv("semiconductor investment", fetcher as typeof fetch, NOW);

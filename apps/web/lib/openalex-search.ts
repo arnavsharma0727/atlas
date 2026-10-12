@@ -1,3 +1,5 @@
+import { matchesScholarlyContext } from "./scholarly-context-relevance";
+
 export type OpenAlexWork = {
   id: string;
   title: string;
@@ -79,7 +81,7 @@ export async function searchOpenAlexWorks(
     const rawId = typeof work.id === "string" ? work.id : "";
     const doi = typeof work.doi === "string" ? work.doi : "";
     const url = safeWorkUrl(doi, rawId);
-    if (!title || !url || !Number.isFinite(timestamp) || timestamp < oldestTime || timestamp > now ||
+    if (!title || !url || !Number.isFinite(timestamp) || timestamp < oldestTime || timestamp > now || !matchesScholarlyContext(query, title) ||
       (meaningful.length ? !meaningful.every((term) => titleNormalized.includes(term)) : !titleNormalized.includes(query.normalize("NFKC").toLocaleLowerCase()))) return [];
     return [{
       id: url,

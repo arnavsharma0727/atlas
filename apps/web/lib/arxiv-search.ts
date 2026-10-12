@@ -1,4 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
+import { matchesScholarlyContext } from "./scholarly-context-relevance";
 
 export type ArxivRecord = {
   id: string;
@@ -66,7 +67,7 @@ export async function searchArxiv(
       ? categoryValue["@_term"].slice(0, 40)
       : "";
     const url = safeArxivUrl(rawId);
-    if (!title || !url || !Number.isFinite(timestamp) || timestamp < oldest || timestamp > now || !titleMatches(title, normalizedQuery)) return [];
+    if (!title || !url || !Number.isFinite(timestamp) || timestamp < oldest || timestamp > now || !titleMatches(title, normalizedQuery) || !matchesScholarlyContext(query, title, "", category)) return [];
     return [{ id: url.split("/abs/")[1], title, url, publishedAt: new Date(timestamp).toISOString(), category }];
   }).slice(0, 12);
 }

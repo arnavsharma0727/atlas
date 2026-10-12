@@ -14,6 +14,15 @@ const work = (title: string, offsetDays = 1) => ({
 });
 
 describe("searchOpenAlexWorks", () => {
+  it("requires economic title context for ambiguous inflation without using hidden fields", async () => {
+    const fetcher = vi.fn(async () => Response.json({ results: [
+      work("Inflation and monetary policy"),
+      work("Cosmological inflation"),
+      { ...work("Inflation"), abstract_inverted_index: { economic: [0] } },
+    ] }));
+    expect((await searchOpenAlexWorks("inflation", fetcher, NOW)).map((record) => record.title)).toEqual(["Inflation and monetary policy"]);
+    expect((await searchOpenAlexWorks("cosmological inflation", fetcher, NOW)).map((record) => record.title)).toEqual(["Cosmological inflation"]);
+  });
   it("requests only selected title-level fields and returns recent complete title matches", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(String(input));

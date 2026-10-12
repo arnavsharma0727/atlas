@@ -15,6 +15,15 @@ function item(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Crossref public research metadata search", () => {
+  it("uses journal/title economic context but excludes physical and unresolved inflation", async () => {
+    const fetcher = vi.fn(async () => Response.json({ message: { items: [
+      item({ title: ["Inflation"], "container-title": ["Journal of Monetary Economics"] }),
+      item({ title: ["Inflation and consumer prices"], "container-title": [] }),
+      item({ title: ["Cosmological inflation"], "container-title": ["Economics"] }),
+      item({ title: ["Inflation"], "container-title": [], abstract: "consumer prices" }),
+    ] } }));
+    expect((await searchCrossrefWorks("inflation", fetcher, NOW)).map((record) => record.title)).toEqual(["Inflation", "Inflation and consumer prices"]);
+  });
   it("requests a small, recent title-only bibliographic result set and keeps DOI links", async () => {
     const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ message: { items: [item()] } }), { status: 200 }));
     const results = await searchCrossrefWorks("semiconductor investment", fetcher as typeof fetch, NOW);

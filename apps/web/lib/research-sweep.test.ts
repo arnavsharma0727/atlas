@@ -297,6 +297,19 @@ describe("runResearchSweep", () => {
     expect(JSON.stringify(results)).not.toContain("Feed summary");
   });
 
+  it("discloses economic disambiguation for each scholarly source even when no records remain", async () => {
+    const fetcher = vi.fn(async () => Response.json({ works: [], records: [] }));
+    const results = await runResearchSweep("inflation", { crossref: true, openAlex: true, arxiv: true, lemmy: false }, fetcher, NOW);
+    expect(results).toHaveLength(3);
+    for (const source of results) {
+      expect(source.query).toBe("inflation");
+      expect(source.window).toContain("English-only disambiguation");
+      expect(source.window).toContain("bounded upstream result set");
+      expect(source.status).toBe("complete");
+      expect(source.evidence).toEqual([]);
+    }
+  });
+
   it("adds Crossref title/DOI metadata as global research context, not discussion evidence", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe("/api/research/crossref");

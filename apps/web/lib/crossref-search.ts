@@ -1,3 +1,5 @@
+import { matchesScholarlyContext } from "./scholarly-context-relevance";
+
 export type CrossrefWork = {
   doi: string;
   title: string;
@@ -65,12 +67,13 @@ export async function searchCrossrefWorks(
   return (payload.message.items as CrossrefItem[]).flatMap((item) => {
     const doi = typeof item.DOI === "string" ? item.DOI.trim() : "";
     const title = Array.isArray(item.title) && typeof item.title[0] === "string" ? item.title[0].replace(/\s+/g, " ").trim().slice(0, 300) : "";
+    const containerTitle = Array.isArray(item["container-title"]) ? scalar(item["container-title"][0], 160) : "";
     const dateParts = item.published?.["date-parts"];
     const parts = Array.isArray(dateParts) && Array.isArray(dateParts[0]) ? dateParts[0] : [];
     const year = Number(parts[0]);
     const month = Number(parts[1] ?? 1);
     const day = Number(parts[2] ?? 1);
-    if (!/^10\.\d{4,9}\/\S+$/u.test(doi) || !title || !matchesTitle(title, query) ||
+    if (!/^10\.\d{4,9}\/\S+$/u.test(doi) || !title || !matchesTitle(title, query) || !matchesScholarlyContext(query, title, containerTitle) ||
       !Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return [];
     const timestamp = Date.UTC(year, month - 1, day);
     if (!Number.isFinite(timestamp) || timestamp < oldest || timestamp > now) return [];
@@ -80,7 +83,7 @@ export async function searchCrossrefWorks(
       title,
       url,
       publisher: scalar(item.publisher, 120),
-      containerTitle: Array.isArray(item["container-title"]) ? scalar(item["container-title"][0], 160) : "",
+      containerTitle,
       publishedAt: new Date(timestamp).toISOString(),
       language: "Not reported",
     }];
