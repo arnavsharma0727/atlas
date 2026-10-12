@@ -142,7 +142,7 @@ try {
       page.includes("each comparison claim must cite both sides") &&
       page.includes("Script detection identifies writing system, not nationality, residence, or community membership") &&
       page.includes("Every generated citation must include a verbatim substring") &&
-      page.includes("a matching quote can still be irrelevant to the claim") &&
+      page.includes("a matching quote does not prove it logically supports the claim") &&
       page.includes("Inspect the original record and its provenance")
   ) {
     pass("summary market-screen and evidence policy", "methodology describes the lexical gate, its evidence citations, and limits");
