@@ -2,6 +2,8 @@
 
 ## Mastodon raw retrieval provenance — 2026-10-12
 
+Release follow-up: commit `87f717f02cb361ef7ee3ce83313efa74c651b1aa` was pushed and Vercel reported success. Production Explore returned HTTP 200; its deployed assets contain both the new raw/safety-exclusion disclosure and the clarification that citable warning/automated records are not removed-record counts. This verifies deployment of the accounting change, not model efficacy, additional original-discussion coverage or human acceptance. This follow-up is retained in a local documentation commit to avoid a build solely for reporting.
+
 Inspection found that Mastodon's source result previously used its post-safety-filter record count as its provider-return count. The adapter now preserves raw returns and adapter exclusions, and the sweep passes them through the existing independent topic/display/audit accounting. Comparison-helper failures use null rather than inventing zero returns. Tests distinguish zero API records, all-safety-excluded results, unrelated topic matches, private/boost/stale/malformed records, and citable warning/automated-account records. The change adds no upstream requests and does not relax original-discussion eligibility. A bounded live `#GPU` read returned 20 API records, zero safety exclusions, one automated account and 20 link-sharing records; no author details or post text were retained in this report. Local verification: 928 tests across 88 files pass, with typecheck, optimized build and whitespace checks. Independent acceptance remains unproven; this is provenance repair, not a new community or an 8/10 claim. Deployment verification follows separately.
 
 ## Additional model grounding gate — 2026-10-12
