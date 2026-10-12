@@ -183,6 +183,8 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("a worker mentioning coffee, a café photo, or brewing instructions are not evidence of coffee-market views");
       expect(messages[0].content).toContain("does not establish a market thesis");
       expect(messages[0].content).toContain("Never call either set a national view or describe what a country's investors, consumers, residents, or population think");
+      expect(messages[0].content).toContain("describe text as a 'Korean-language excerpt/post' (or the evidenced language), never as a 'Korean source/community'");
+      expect(messages[0].content).toContain("Never infer source location from an instance domain");
       expect(messages[0].content).toContain("Never describe a company as U.S., Korean, or belonging to any country unless the submitted excerpt itself explicitly states that fact");
       expect(messages[0].content).toContain("do not label it U.S.");
       expect(messages[0].content).toContain("one exact, verbatim supporting quote from each cited excerpt");

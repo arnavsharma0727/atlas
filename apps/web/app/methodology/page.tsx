@@ -11,6 +11,10 @@ const sections = [
     body: "Search can return public discussion from Bluesky, Lemmy, and Mastodon; title-only expert Q&A from Stack Exchange; reporting and expert-analysis headlines from Global Voices and The Conversation; title-level scholarly records from Crossref, OpenAlex, and arXiv; and play-money forecasts from Manifold. These are separate evidence classes, not interchangeable measures of opinion. When configured, SEC EDGAR filing links are an additional primary-source context for exact issuer-name or ticker searches. Scheduled operational feeds shown in the source register are not mixed into the visitor search.",
   },
   {
+    title: "Language is not a location",
+    body: "A provider language label or writing system describes the text, not the author's nationality, residence, or a source's geography. A Korean-language post is not proof that its author is in South Korea. The selected country is a search lens only; Atlas never treats the returned set as a national sample.",
+  },
+  {
     title: "Use SEC filings as primary-source context",
     body: "When the operator configures SEC_USER_AGENT with a descriptive name and contact email, Atlas checks exact issuer names or tickers against the public SEC issuer index and returns up to ten recent 10-K, 10-Q, 8-K, 20-F, 40-F, or 6-K filing links from the past three years. Atlas retrieves filing-index metadata, not the document body; filing links remain separate from discussion summaries and are never sent to the AI summarizer. EDGAR covers SEC registrants, including some foreign issuers, not the global company universe. A no-match means only that this exact phrase did not match the issuer index; it does not mean the company, topic, or filings are absent elsewhere. If the contact User-Agent is not configured, Atlas marks this source not searched.",
   },
