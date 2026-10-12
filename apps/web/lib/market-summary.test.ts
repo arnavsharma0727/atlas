@@ -73,6 +73,18 @@ describe("market summary evidence contracts", () => {
     expect(selected).toEqual([]);
   });
 
+  it.each(["eurostat-industrial", "bls-us", "fed-policy", "bcb-selic"])("keeps %s visible but out of discussion AI", (key) => {
+    const row = {
+      id: `${key}:observation`, title: "Official market backdrop", url: "https://example.test/official",
+      source: "Official provider", evidenceClass: key === "fed-policy" ? "official policy release" as const : "official statistical data" as const,
+      language: "Not applicable", timeLabel: "Observation date", timeValue: "2026-10-10",
+      context: "Dated official context, not a company result.", summaryEligible: false,
+    };
+    const [screened] = filterResultsToTopic([result(key, key, [row])], "semiconductors");
+    expect(screened.evidence).toEqual([row]);
+    expect(selectBalancedEvidence([screened], new Map([[citationKey(key, row.id), "C1"]]))).toEqual([]);
+  });
+
   it("reports per-source overview candidates before the final platform cap", () => {
     const rows = result("bluesky", "Bluesky", [
       evidence("one", "Bluesky", "Solar demand rose as module prices fell.", "bluesky"),

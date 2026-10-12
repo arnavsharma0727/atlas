@@ -19,6 +19,8 @@ import { searchWorldBankMacro, worldBankCountryCodes, worldBankIndicatorForQuery
 import { eiaSeriesForQuery } from "./eia-energy-search";
 import { bisEerAppliesToQuery } from "./bis-effective-exchange";
 import { ecbCurrencies, ECB_REFERENCE, ECB_TERMS } from "./ecb-reference";
+import { LABOR_TERMS, officialDriverPlan } from "./official-driver-plan";
+import type { OfficialDriverResult } from "./official-driver-sources";
 import { publicationDateFromISO, publicationTimestampUTC } from "./publication-date";
 import { isValidTopicHashtag } from "./topic-hashtags";
 import { includesExternalLink } from "./external-links";
@@ -50,6 +52,8 @@ export type ResearchSweepSelection = {
   bisCountryCode?: string;
   /** Keyless latest daily euro reference snapshot; informational, never discussion/AI evidence. */
   ecbCountryCode?: string;
+  /** Four bounded official driver sources; never a community or AI-summary sample. */
+  officialDriversCountryCode?: string;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -170,7 +174,7 @@ export async function runResearchSweep(
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
   const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
-  if (!(selection.pytorch && pytorchAppliesToQuery(query)) && !selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !(selection.ecbCountryCode && bisEerAppliesToQuery(query)) && !(selection.bisCountryCode && bisEerAppliesToQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!(selection.pytorch && pytorchAppliesToQuery(query)) && !selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !(selection.ecbCountryCode && bisEerAppliesToQuery(query)) && !(selection.bisCountryCode && bisEerAppliesToQuery(query)) && !(selection.officialDriversCountryCode && officialDriverPlan(query, selection.officialDriversCountryCode).length) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -190,6 +194,33 @@ export async function runResearchSweep(
   }
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
   const conversationTasks: Promise<ResearchSweepSourceResult[]>[] = [];
+  if (selection.officialDriversCountryCode && officialDriverPlan(query, selection.officialDriversCountryCode).length) {
+    const country = selection.officialDriversCountryCode;
+    const plan = officialDriverPlan(query, country);
+    conversationTasks.push((async () => {
+      try {
+        const response = await boundedFetch("/api/research/official-drivers", {
+          method: "POST", headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ topic: query, country }),
+        });
+        if (!response.ok) throw new Error(response.status === 429 ? "Official-data request limit reached." : "Official-driver data unavailable.");
+        const body = await response.json() as { results?: OfficialDriverResult[]; retrievedAt?: string };
+        if (!Array.isArray(body.results) || body.results.length !== plan.length ||
+          body.results.some((result, index) => result.key !== plan[index] || !Array.isArray(result.evidence) || !["complete", "partial", "unavailable"].includes(result.status))) {
+          throw new Error("Unexpected official-driver response.");
+        }
+        return body.results.map((result) => ({ ...result, query: result.key === "eurostat-industrial" ? `sts_inpr_m · PRD.B-D.SCA.I21.${country}`
+          : result.key === "bls-us" ? `BLS series ${LABOR_TERMS.test(query) ? "LNS14000000" : "CUUR0000SA0"}`
+            : result.key === "fed-policy" ? "press_monetary.xml · fixed official feed" : "SGS 432 · bounded 45-day date window",
+          asOf, retrievedAt: body.retrievedAt,
+          sourceNote: "Official driver context only. These series and release headlines do not establish a company's earnings, valuation, or causal stock-price effect; none enter the community AI overview." }));
+      } catch (cause) {
+        return plan.map((key) => ({ key, label: key.replaceAll("-", " "), query, asOf, window: "Official driver context", evidence: [],
+          error: cause instanceof Error ? cause.message : "Official-driver data unavailable.", status: "unavailable" as const,
+          coverageNote: "No official value is inferred from an unavailable request." }));
+      }
+    })());
+  }
   if (selection.ecbCountryCode && bisEerAppliesToQuery(query)) {
     tasks.push((async () => {
       const key = "ecb-reference", label = "ECB · daily euro reference rates";

@@ -60,6 +60,46 @@ try {
 }
 
 try {
+  const disclosure = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
+  const page = await disclosure.text();
+  const scenarios = [
+    { topic: "industrial production", country: "DE", keys: ["eurostat-industrial"] },
+    { topic: "inflation", country: "US", keys: ["bls-us", "fed-policy"] },
+    { topic: "interest rates", country: "BR", keys: ["fed-policy", "bcb-selic"] },
+  ];
+  const seen = new Map();
+  for (const scenario of scenarios) {
+    const response = await fetch(`${base}/api/research/official-drivers`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ topic: scenario.topic, country: scenario.country }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !Array.isArray(body?.results)) throw new Error(`Official-driver route HTTP ${response.status}`);
+    for (const result of body.results) if (!seen.has(result.key)) seen.set(result.key, result);
+  }
+  const expected = [
+    ["eurostat-industrial", "eurostat", "official statistical data", "ec.europa.eu", "Eurostat · broad industrial production"],
+    ["bls-us", "bls", "official statistical data", "data.bls.gov", "U.S. Bureau of Labor Statistics · prices or unemployment"],
+    ["fed-policy", "federal-reserve-board", "official policy release", "www.federalreserve.gov", "Federal Reserve Board · monetary-policy releases"],
+    ["bcb-selic", "bcb", "official statistical data", "dadosabertos.bcb.gov.br", "Banco Central do Brasil · Selic target"],
+  ];
+  for (const [key, operator, evidenceClass, hostname, disclosureName] of expected) {
+    const result = seen.get(key);
+    const valid = disclosure.ok && page.includes(disclosureName) && result && ["complete", "partial"].includes(result.status) &&
+      Array.isArray(result.evidence) && result.evidence.length > 0 && result.evidence.every((item) => {
+        try { return item.sourceOperatorKey === operator && item.evidenceClass === evidenceClass && item.summaryEligible === false &&
+          new URL(item.url).hostname === hostname && typeof item.timeValue === "string" &&
+          Date.parse(item.timeValue) <= Date.now(); } catch { return false; }
+      });
+    if (valid) pass(`${key} live driver`, `${result.evidence.length} dated, attributed official record(s); excluded from discussion AI`);
+    else fail(`${key} live driver`, `missing disclosure, unavailable source, invalid date/provenance, or wrong evidence class (${result?.status ?? "no result"})`);
+  }
+} catch (error) {
+  fail("four live official drivers", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const [sourcesResponse, privacyResponse] = await Promise.all([
     fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
     fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),

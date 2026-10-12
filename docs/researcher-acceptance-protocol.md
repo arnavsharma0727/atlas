@@ -52,6 +52,8 @@ All gates must pass; report sample sizes and confidence intervals alongside rate
 
 These are minimum product gates, not a universal investment-research standard. A passing result would support—not guarantee—an 8/10 rating for this bounded use case. Investment performance, causal inference, and representativeness require different studies and are outside this protocol.
 
+The four new official-driver sources are separate from community evidence and do not improve the distinct-community gate. Before a research-quality rating covers Atlas's broader equity-driver experience, independently compare sampled Eurostat, BLS, Federal Reserve, and BCB records with their original dated releases: exact series/indicator, geography, observation date, unit, value or headline, source link, freshness state, and the UI's no-company/no-causality caveat. Check at least one unavailable/empty case per adapter. The existing eleven-gate worksheet evaluator does **not** score this official-driver audit; a passing community-evidence report alone would not establish that the wider product is 8/10. Store the separate audit without copying private data or unlicensed source text.
+
 ## Evidence package
 
 After completing the three sheets, run `npm run evaluate:acceptance`. The evaluator reports each gate as pass, fail, or insufficient; calculates Cohen's κ and Wilson 95% intervals; and emits per-provider/per-lens denominators, including summary quality per lens. Exit code 0 means the recorded evidence passes every configured gate; exit code 2 means it does not. The report is a calculation aid, not proof that entries are accurate or that the sample was drawn as specified.

@@ -117,6 +117,7 @@ export default function ResearchSweep({
         eiaEnergyPrices: true,
         bisCountryCode: activeCountryCode,
         ecbCountryCode: activeCountryCode,
+        officialDriversCountryCode: activeCountryCode,
         bluesky: true,
         blueskyQueries: marketDiscussionQueries(topic, "en"),
         blueskyLanguage: "en",
@@ -308,10 +309,23 @@ export default function ResearchSweep({
             <header>
               <div>
                 <p className="eyebrow">{missingSelectedEvidence ? "Coverage result" : summaryMode === "ai" ? "AI overview" : "Evidence overview"}</p>
-                <h3 id="market-summary-title">{missingSelectedEvidence ? "No supported country view yet" : "What the sources say"}</h3>
+                <h3 id="market-summary-title">{missingSelectedEvidence ? countryFacts.length ? "Official context; community view missing" : "No supported community view yet" : "Market evidence"}</h3>
               </div>
                 {!missingSelectedEvidence && <span>{summaryMode === "ai" ? "Checked against cited excerpts" : summaryMode === "evidence" ? "Evidence only" : "AI unavailable"}</span>}
             </header>
+            {countryFacts.length > 0 && <section className="country-context" aria-label={`Official data for ${searchedCountry.name}`}>
+              <h4>Official drivers · {searchedCountry.name}</h4>
+              <ul>{countryFacts.map(({ sourceKey, item, brief }) => {
+                const citationId = citationIds.get(citationKey(sourceKey, item.id));
+                return <li key={`${sourceKey}:${item.id}`}>
+                  <strong>{item.title}</strong>
+                  {brief && <span>{brief}</span>}
+                  <small>Observation {item.timeValue} · {item.source}</small>
+                  {citationId && <details><summary>Original source</summary><a href={`#citation-${citationId}`} onClick={revealCitation}>Open {citationId} in sources</a></details>}
+                </li>;
+              })}</ul>
+              <p>Dated macro or industry context, not an equity valuation. Check company revenue, margins, balance sheet, competition, regulation, and product-specific demand separately; an absent driver here is unknown, not neutral.</p>
+            </section>}
             <div className={`market-summary-columns${searchedCountryCode === "US" || missingSelectedEvidence ? " market-summary-columns--single" : ""}`}>
               {searchedCountryCode !== "US" && <article>
                 <h4>{searchedCountry.languageName} language/community search</h4>
@@ -328,19 +342,6 @@ export default function ResearchSweep({
                 <SummaryPassageText passage={summary.usSummary} onOpenCitation={revealCitation} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.usSummary.citations) : undefined} />
               </article>}
             </div>
-            {countryFacts.length > 0 && <section className="country-context" aria-label={`Official data for ${searchedCountry.name}`}>
-              <h4>Official data · {searchedCountry.name}</h4>
-              <ul>{countryFacts.map(({ sourceKey, item, brief }) => {
-                const citationId = citationIds.get(citationKey(sourceKey, item.id));
-                return <li key={`${sourceKey}:${item.id}`}>
-                  <strong>{item.title}</strong>
-                  {brief && <span>{brief}</span>}
-                  <small>Observation {item.timeValue} · {item.source}</small>
-                  {citationId && <details><summary>Original source</summary><a href={`#citation-${citationId}`} onClick={revealCitation}>Open {citationId} in sources</a></details>}
-                </li>;
-              })}</ul>
-              <p>Publisher observations for this topic, with their own dates and units. They are not community opinions or evidence of current prices.</p>
-            </section>}
             {searchedCountryCode !== "US" && readiness.state !== "insufficient" ? <article className="market-summary-comparison">
               <h4>Comparison</h4>
               <SummaryPassageText passage={summary.comparison} onOpenCitation={revealCitation} />
@@ -361,7 +362,7 @@ export default function ResearchSweep({
           </section>
 
           <details className="source-register" id="source-register">
-            <summary>View sources and citations <span>{(summaryBreadth?.baseline.excerptCount ?? 0) + (summaryBreadth?.selected.excerptCount ?? 0)} overview inputs · {displayResults.reduce((count, view) => count + view.evidence.length, 0)} topic-matched links</span></summary>
+            <summary>View sources and citations <span>{(summaryBreadth?.baseline.excerptCount ?? 0) + (summaryBreadth?.selected.excerptCount ?? 0)} overview inputs · {displayResults.reduce((count, view) => count + view.evidence.length, 0)} source links</span></summary>
           <section className="source-citations" aria-labelledby="source-citations-title">
             <header>
               <div>
@@ -495,7 +496,7 @@ export function SummaryPassageText({ passage, citedBreadth, onOpenCitation }: { 
 export function SourceResults({ result, evidence, returnedCount, duplicateCount, summaryCandidateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; summaryCandidateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
   const [showAll, setShowAll] = useState(false);
   const items = visibleSummaryEvidence(evidence, showAll, result.key, citationIds, summaryCitationIds);
-  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.adapterExcludedCount ? ` · ${result.adapterExcludedCount} source-safety exclusions` : ""}${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
+  const countsLabel = `${evidence.length} ${evidence.some((item) => item.evidenceClass === "official statistical data" || item.evidenceClass === "official policy release") ? "official records" : "topic matches"} · ${returnedCount} returned${result.adapterExcludedCount ? ` · ${result.adapterExcludedCount} source-safety exclusions` : ""}${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
   const statusLabel = result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? `Partial coverage · ${countsLabel}` : countsLabel;
   return (
     <section className="source-results" aria-label={result.label}>
@@ -505,7 +506,7 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
       </header>
       <p className="source-window">{result.window}</p>
       <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
-      <p className="source-overview-count">{["world-bank-macro", "eia-energy-prices", "bis-effective-exchange"].includes(result.key) ? "Official statistical context · excluded from community overviews" : `${summaryCandidateCount} unique excerpt${summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.`}</p>
+      <p className="source-overview-count">{result.key === "fed-policy" ? "Official policy context · excluded from community overviews" : ["world-bank-macro", "eia-energy-prices", "bis-effective-exchange", "ecb-reference", "eurostat-industrial", "bls-us", "bcb-selic"].includes(result.key) ? "Official statistical context · excluded from community overviews" : `${summaryCandidateCount} unique excerpt${summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.`}</p>
       {result.coverageNote && <p className="source-coverage-warning" role="status">{result.coverageNote}</p>}
       {result.sourceNote && <p className="source-coverage-warning" role="status">{result.sourceNote}</p>}
       {result.error ? (
@@ -516,7 +517,7 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
             <li key={item.id} id={`citation-${citationIds.get(citationKey(result.key, item.id))}`}>
               <span className="source-citation-ref">{citationIds.get(citationKey(result.key, item.id))}</span>
               <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
-              {(item.evidenceClass === "crowd forecast" || item.evidenceClass === "official statistical data" || hasMaterialEvidenceContext(item.context)) && <p className={item.evidenceClass === "crowd forecast" ? "source-context-note source-context-note--forecast" : "source-context-note"}>{item.context}</p>}
+              {(item.evidenceClass === "crowd forecast" || item.evidenceClass === "official statistical data" || item.evidenceClass === "official policy release" || hasMaterialEvidenceContext(item.context)) && <p className={item.evidenceClass === "crowd forecast" ? "source-context-note source-context-note--forecast" : "source-context-note"}>{item.context}</p>}
               {item.transientPreview && item.transientPreview !== item.title && <p className="source-preview" lang={languageTag(item.language)}>{compactPreview(item.transientPreview)}</p>}
               <p className="source-meta">{item.evidenceClass} · {item.source} · {item.language} · {item.timeLabel.toLowerCase()} <time dateTime={item.timeValue}>{/^\d{4}(?:-\d{2}){0,2}$/u.test(item.timeValue) ? item.timeValue : new Date(item.timeValue).toISOString().replace("T", " ").replace(".000Z", " UTC")}</time></p>
               {item.attribution && <p className="source-meta">Attribution: {item.attributionUrl

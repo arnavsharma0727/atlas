@@ -249,7 +249,8 @@ export function filterResultsToTopic(
   return results.map((result) => {
     const topic = result.key.startsWith("local:") ? localTopic : baselineTopic;
     const evidence = result.evidence.filter((item) =>
-      ((result.key === "world-bank-macro" || result.key === "eia-energy-prices" || result.key === "bis-effective-exchange" || result.key === "ecb-reference") && item.evidenceClass === "official statistical data") ||
+      ((["world-bank-macro", "eia-energy-prices", "bis-effective-exchange", "ecb-reference", "eurostat-industrial", "bls-us", "bcb-selic"].includes(result.key)) && item.evidenceClass === "official statistical data") ||
+      (result.key === "fed-policy" && item.evidenceClass === "official policy release") ||
       hasTopicSignalTerms(`${item.title} ${item.transientPreview ?? ""}`, topic),
     ).map((item) => {
       const copy = `${item.title} ${item.transientPreview ?? ""}`;

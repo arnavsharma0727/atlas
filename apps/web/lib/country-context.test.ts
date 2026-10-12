@@ -5,7 +5,7 @@ import type { ResearchSweepSourceResult } from "./research-sweep";
 const official = (id: string, title: string, context: string) => ({ id, title, context,
   url: "https://example.org/original", source: "Official publisher", evidenceClass: "official statistical data" as const,
   language: "Not applicable", timeLabel: "Observation date", timeValue: "2026-10-12", summaryEligible: false });
-const result = (key: string, evidence: ReturnType<typeof official>[], status: ResearchSweepSourceResult["status"] = "complete") => ({
+const result = (key: string, evidence: ResearchSweepSourceResult["evidence"], status: ResearchSweepSourceResult["status"] = "complete") => ({
   key, label: key, query: "currency exchange rate", asOf: "2026-10-12T00:00:00Z", window: "Latest observation", status, error: null, evidence,
 });
 
@@ -17,7 +17,7 @@ describe("selected country official context", () => {
       result("world-bank-macro", [official("world-bank:FP.CPI.TOTL.ZG:USA:2025", "US inflation", "2% annual change."), official("world-bank:FP.CPI.TOTL.ZG:KOR:2025", "Korea inflation", "3% annual change.")]),
     ] as ResearchSweepSourceResult[];
     const selected = selectedCountryContext(results, "KR");
-    expect(selected.map(({ item }) => item.id)).toEqual(["ecb-reference:KRW:2026-10-12", "bis-eer:KR:N:2026-08"]);
+    expect(selected.map(({ item }) => item.id)).toEqual(["ecb-reference:KRW:2026-10-12", "bis-eer:KR:N:2026-08", "world-bank:FP.CPI.TOTL.ZG:KOR:2025"]);
     expect(selected[1].brief).toBe("Index 89.15 (2020 = 100).");
     expect(selected[0].item.timeValue).toBe("2026-10-12");
   });
@@ -27,5 +27,14 @@ describe("selected country official context", () => {
       result("world-bank-macro", [official("world-bank:FP.CPI.TOTL.ZG:USA:2025", "US", "2% annual change.")])];
     expect(selectedCountryContext(results as ResearchSweepSourceResult[], "KR")).toEqual([]);
     expect(selectedCountryContext(results as ResearchSweepSourceResult[], "unknown")).toEqual([]);
+  });
+
+  it("shows policy and labor context for the U.S. without assigning it to another country", () => {
+    const results = [
+      result("bls-us", [official("bls:LNS14000000:2026-09", "U.S. unemployment", "4.2% of labor force.")]),
+      result("fed-policy", [{ ...official("fed-policy:monetary20261007a.htm", "FOMC minutes", "Open original before interpreting policy."), evidenceClass: "official policy release" }]),
+    ] as ResearchSweepSourceResult[];
+    expect(selectedCountryContext(results, "US").map(({ item }) => item.id)).toEqual(["bls:LNS14000000:2026-09", "fed-policy:monetary20261007a.htm"]);
+    expect(selectedCountryContext(results, "KR")).toEqual([]);
   });
 });

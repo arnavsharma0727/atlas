@@ -18,14 +18,18 @@ export function selectedCountryContext(results: ResearchSweepSourceResult[], cou
   const currency = selected.currency;
   const pick = (sourceKey: string, matches: (item: Evidence) => boolean) => {
     const result = results.find(({ key, status }) => key === sourceKey && status === "complete");
-    const item = result?.evidence.find((candidate) => candidate.evidenceClass === "official statistical data" && matches(candidate));
+    const item = result?.evidence.find((candidate) => (candidate.evidenceClass === "official statistical data" || candidate.evidenceClass === "official policy release") && matches(candidate));
     if (!item || !result) return null;
     const firstSentence = (item.context ?? "").match(/^.*?\.\s/u)?.[0]?.trim() ?? "";
     return { sourceKey: result.key, item, brief: firstSentence };
   };
   return [
+    countryCode === "BR" ? pick("bcb-selic", (item) => item.id.startsWith("bcb-selic:432:")) : null,
+    countryCode === "DE" || countryCode === "FR" || countryCode === "ES" ? pick("eurostat-industrial", (item) => item.id.startsWith(`eurostat-industrial:${countryCode}:`)) : null,
+    countryCode === "US" ? pick("bls-us", (item) => item.id.startsWith("bls:")) : null,
+    countryCode === "US" ? pick("fed-policy", (item) => item.id.startsWith("fed-policy:")) : null,
     currency && currency !== "EUR" ? pick("ecb-reference", (item) => item.id.startsWith(`ecb-reference:${currency}:`)) : null,
     pick("bis-effective-exchange", (item) => item.id.startsWith(`bis-eer:${countryCode}:N:`)),
     pick("world-bank-macro", (item) => item.id.includes(`:${selectedIso3}:`)),
-  ].filter((item): item is CountryContextFact => !!item).slice(0, 2);
+  ].filter((item): item is CountryContextFact => !!item).slice(0, 3);
 }

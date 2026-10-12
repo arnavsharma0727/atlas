@@ -72,6 +72,18 @@ export default function Privacy() {
               time, and these official rates are never sent to AI providers.
             </p>
             <p>
+              When the topic and country match one of the four additional official
+              driver sources, Atlas sends the topic and country code to its own
+              server endpoint. The endpoint translates that request into fixed
+              Eurostat, BLS, Federal Reserve, or Banco Central do Brasil
+              indicator/feed requests; it does not pass your typed topic to
+              those providers. Returned observations and release headlines
+              remain transient in the page, and a warm server instance may
+              cache the fixed indicator result for 30 minutes. None of this
+              official context is sent to the AI-summary providers. BLS
+              unregistered access can be rate-limited independently.
+            </p>
+            <p>
               When a visitor submits a search, Atlas automatically attempts
               AI translation and a summary by sending the topic and up to 16
               short public-source excerpts (with links, emails, and @handles
@@ -113,8 +125,8 @@ export default function Privacy() {
             </p>
             <p>
               Searches explicitly about inflation/CPI, GDP growth, or
-              unemployment may also send the topic and selected country code
-              to the public World Bank API for a small set of annual World
+              unemployment may map the topic to one exact indicator and send
+              that indicator code and selected country code to the public World Bank API for a small set of annual World
               Development Indicators. Those official statistics are displayed
               separately from community evidence and are never sent to AI providers.
               The World Bank may process the request under its own policies.

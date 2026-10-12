@@ -82,6 +82,29 @@ export default async function Sources() {
   const db = serverSupabase();
   const sources: SourceConfig[] = [
     {
+      name: "Eurostat · broad industrial production", key: "eurostat-industrial", enabled: true, onDemand: true,
+      referenceUrl: "https://ec.europa.eu/eurostat/web/user-guides/data-browser/api-data-access/api-introduction", referenceLabel: "Free official Statistics API",
+      secondaryReferenceUrl: "https://ec.europa.eu/eurostat/web/main/help/copyright-notice", secondaryReferenceLabel: "Eurostat reuse and attribution",
+      detail: "For explicit industry, manufacturing or physical-product-sector searches in Germany, France and Spain, Atlas requests one exact monthly, seasonally adjusted broad-industry production index (NACE B–D; 2021=100) and displays its latest non-future observation and month. More-than-five-month-old data is partial. It is an industry backdrop, not the searched company's output or a specific product's demand. No key, account, payment, or search text is sent upstream; this is excluded from discussion AI summaries.",
+    },
+    {
+      name: "U.S. Bureau of Labor Statistics · prices or unemployment", key: "bls-us", enabled: true, onDemand: true,
+      referenceUrl: "https://www.bls.gov/developers/home.htm", referenceLabel: "BLS public API",
+      secondaryReferenceUrl: "https://www.bls.gov/developers/api_faqs.htm", secondaryReferenceLabel: "Unregistered limit of 25 calls per day",
+      detail: "Only explicit inflation/consumer-price or labor/employment searches call the keyless BLS v1 API for one exact monthly U.S. CPI level or unemployment-rate series. The CPI index level is not a percent inflation rate. Provider rate limits and stale or missing data are disclosed; no key or payment is needed. These U.S. aggregates are not company financials, a selected-country value, or social opinion; they are excluded from community AI summaries.",
+    },
+    {
+      name: "Federal Reserve Board · monetary-policy releases", key: "fed-policy", enabled: true, onDemand: true,
+      referenceUrl: "https://www.federalreserve.gov/feeds/feeds.htm", referenceLabel: "Official monetary-policy RSS feed",
+      secondaryReferenceUrl: "https://www.federalreserve.gov/disclaimer.htm", secondaryReferenceLabel: "Board public-domain and citation notice",
+      detail: "Only explicit rates, monetary-policy or inflation searches read the official monetary-policy press-release feed. Atlas shows at most two release headlines from the prior 90 days with original links and dates. The headline is not a parsed policy-rate change, proof of an equity effect, investor opinion, or a national conversation sample. No user query is sent to the feed; headline text is excluded from the community AI overview.",
+    },
+    {
+      name: "Banco Central do Brasil · Selic target", key: "bcb-selic", enabled: true, onDemand: true,
+      referenceUrl: "https://dadosabertos.bcb.gov.br/dataset/432-taxa-de-juros---meta-selic-definida-pelo-copom", referenceLabel: "Official SGS 432 dataset and ODbL license",
+      detail: "Brazil searches request a bounded recent window of the official daily Copom Selic policy-rate target and display the latest non-future observation in percent per year. This is a policy-rate level, not any issuer's borrowing cost or a forecast of stock returns. The BCB dataset is published under the Open Data Commons ODbL, with attribution and a source link. No key, account, payment, or search text is sent upstream; it is excluded from community AI summaries.",
+    },
+    {
       name: "PyTorch Forums · bounded technical discussions",
       key: "pytorch", enabled: true, onDemand: true,
       referenceUrl: "https://discuss.pytorch.org/tos", referenceLabel: "Forum terms",

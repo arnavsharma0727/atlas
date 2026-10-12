@@ -1,4 +1,4 @@
-export type ResearchEvidenceClass = "expert Q&A" | "social discussion" | "news coverage" | "editorial discussion" | "expert analysis" | "research literature" | "community forum" | "official company disclosure" | "official statistical data" | "survey research" | "crowd forecast";
+export type ResearchEvidenceClass = "expert Q&A" | "social discussion" | "news coverage" | "editorial discussion" | "expert analysis" | "research literature" | "community forum" | "official company disclosure" | "official statistical data" | "official policy release" | "survey research" | "crowd forecast";
 
 export type ResearchEvidence = {
   id: string;
