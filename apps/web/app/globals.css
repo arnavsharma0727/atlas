@@ -211,3 +211,8 @@ summary{line-height:1.5}
   .source-results{padding:15px}
   .search-loading{justify-content:flex-start;line-height:1.5}
 }
+
+.search-audit{margin:0 0 20px;padding:12px 0;border-bottom:1px solid var(--line)}
+.search-audit summary{cursor:pointer;font-size:13px;font-weight:600}
+.search-audit p{max-width:72ch;margin:10px 0;color:var(--muted);font-size:13px;line-height:1.6}
+.search-audit button:disabled{opacity:.6;cursor:wait}

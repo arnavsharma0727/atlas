@@ -11,13 +11,26 @@ export default function Privacy() {
         <article className="max-w-3xl">
           <div className="eyebrow mb-4">Privacy</div>
           <h1 className="text-4xl font-extrabold">How Atlas search handles information</h1>
-          <p className="mt-3 text-sm text-muted">Last updated: October 11, 2026</p>
+          <p className="mt-3 text-sm text-muted">Last updated: October 12, 2026</p>
           <section className="mt-8 space-y-6 leading-7 text-muted">
             <p>
               Atlas is a public-conversation search tool. Search terms and
               results are held in the page while you use it; the current search
               interface does not create an account, save a personal search
               history, or save research briefs.
+            </p>
+            <p>
+              The optional Search audit download is generated locally in your
+              browser, not uploaded to Atlas. It includes your search phrases,
+              provider queries, source states and counts, language labels,
+              citation references, and the public deployment commit when available.
+              It excludes source text, titles, URLs, author details, summary
+              wording, and supporting quotes. Record fingerprints use a random
+              per-search salt that stays in page memory and is not downloaded;
+              they are pseudonymous references, not a guarantee of anonymity.
+              Review your queries before sharing the file. Original sources
+              must be reviewed in the open search because the audit cannot
+              reconstruct their links or content.
             </p>
             <p>
               Search requests are sent to the relevant public search provider.

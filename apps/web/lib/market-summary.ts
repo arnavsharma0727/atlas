@@ -499,7 +499,8 @@ export function matchesLanguageLens(reported: string, expected: string, text = "
   return languageLensMatchMethod(reported, expected, text) !== null;
 }
 
-function normalizeSourceUrl(value: string) {
+/** Shared canonical identity for summary deduplication and per-run audit fingerprints. */
+export function normalizeSourceUrl(value: string) {
   try {
     const url = new URL(value);
     url.hostname = url.hostname.toLocaleLowerCase().replace(/^www\./u, "");

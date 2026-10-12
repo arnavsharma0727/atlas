@@ -9,15 +9,18 @@ import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
 import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, selectBalancedEvidence, summarizeEvidenceBreadth, type EvidenceBreadth, type MarketSummary } from "../../lib/market-summary";
 import { selectOverviewEvidence } from "../../lib/overview-evidence";
+import { buildSearchAudit, type AuditRunIdentity } from "../../lib/search-audit";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
 export default function ResearchSweep({
   initialTopic,
   onSearchTopic,
+  deploymentCommit = null,
 }: {
   initialTopic: string;
   onSearchTopic: (topic: string) => void;
+  deploymentCommit?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [countryCode, setCountryCode] = useState("KR");
@@ -35,6 +38,10 @@ export default function ResearchSweep({
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [auditRun, setAuditRun] = useState<AuditRunIdentity | null>(null);
+  const [overviewInputIds, setOverviewInputIds] = useState<string[]>([]);
+  const [auditPending, setAuditPending] = useState(false);
+  const [auditError, setAuditError] = useState("");
   const citationIds = buildCitationIds(results);
   const displayResults = collapseRepeatedEvidenceViews(results);
   const searchedCountry = marketCountry(searchedCountryCode);
@@ -64,6 +71,9 @@ export default function ResearchSweep({
     setSummaryCandidateCounts({});
     setResults([]);
     setError("");
+    setAuditRun(typeof globalThis.crypto?.randomUUID === "function" ? { id: crypto.randomUUID(), privateSalt: crypto.randomUUID() } : null);
+    setOverviewInputIds([]);
+    setAuditError("");
     onSearchTopic(topic);
 
     try {
@@ -143,6 +153,7 @@ export default function ResearchSweep({
         selected: summarizeEvidenceBreadth(candidateEvidence.local),
       });
       const evidenceForAi = candidateEvidence;
+      setOverviewInputIds([...candidateEvidence.us, ...candidateEvidence.local].map(({ citationId }) => citationId));
       setScreenedOutCounts(excludedCounts);
       const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
         ? await requestMarketAssist({ action: "summarize", topic, localTopic: localQuery, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
@@ -158,6 +169,32 @@ export default function ResearchSweep({
       setError(cause instanceof Error ? cause.message : "The search could not be completed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function downloadAudit() {
+    if (!auditRun || !summary || auditPending) return;
+    setAuditPending(true);
+    setAuditError("");
+    let objectUrl: string | undefined;
+    try {
+      const snapshot = await buildSearchAudit({
+        run: auditRun, deploymentCommit, topic: searchedQuery, localQuery: searchedLocalQuery,
+        countryCode: searchedCountryCode, language: searchedCountry.language, queryMethod: localQueryMethod,
+        results, candidateCounts: summaryCandidateCounts, overviewInputIds, summary, summaryMode,
+      });
+      objectUrl = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `atlas-audit-${auditRun.id}.json`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch {
+      setAuditError("The local audit could not be created. Your search has not been changed or uploaded.");
+    } finally {
+      if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl!), 1000);
+      setAuditPending(false);
     }
   }
 
@@ -267,6 +304,12 @@ export default function ResearchSweep({
               </div>
               <p>Original links and provider-specific coverage, collected below the summary.</p>
             </header>
+            <details className="search-audit">
+              <summary>Search audit</summary>
+              <p>Download queries, source states, counts, and pseudonymous record references. No forum text, author details, source links, or summary wording is included. Your search phrases are included; review before sharing. This is an observation log, not a research-quality assessment.</p>
+              <button className="show-more-results" type="button" onClick={() => void downloadAudit()} disabled={!auditRun || auditPending}>{auditPending ? "Preparing audit…" : "Download audit JSON"}</button>
+              {auditError && <p role="alert">{auditError}</p>}
+            </details>
             <div className="market-results-grid">
               {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} summaryCandidateCount={summaryCandidateCounts[view.result.key] ?? 0} citationIds={citationIds} summaryCitationIds={new Set([...summary.usSummary.citations, ...summary.localSummary.citations, ...summary.comparison.citations])} />)}
             </div>
