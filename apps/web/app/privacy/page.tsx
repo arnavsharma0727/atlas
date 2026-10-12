@@ -28,7 +28,9 @@ export default function Privacy() {
               wording, and supporting quotes. Record fingerprints use a random
               per-search salt that stays in page memory and is not downloaded;
               they are pseudonymous references, not a guarantee of anonymity.
-              Review your queries before sharing the file. Original sources
+              You may also explicitly copy the same JSON to your system
+              clipboard; other applications or clipboard-sync services may
+              then access it. Review your queries before sharing. Original sources
               must be reviewed in the open search because the audit cannot
               reconstruct their links or content.
             </p>

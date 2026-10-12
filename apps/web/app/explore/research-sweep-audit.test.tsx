@@ -56,4 +56,35 @@ describe("search audit UI", () => {
     expect(JSON.parse(serialized)).toMatchObject({ schema: "atlas-search-audit/v1", deploymentCommit: "abcdef1", search: { topic: "solar" } });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("offers a local clipboard alternative without attempting a download or network call", async () => {
+    state.completed = true;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    vi.stubGlobal("fetch", fetchMock);
+    const createObjectURL = vi.spyOn(URL, "createObjectURL");
+    const tree = ResearchSweep({ initialTopic: "", onSearchTopic: vi.fn(), deploymentCommit: "abcdef1" });
+    const button = nodes(tree).find(({ type, props }) => type === "button" && props.children === "Copy audit JSON");
+    button!.props.onClick();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    expect(writeText.mock.calls[0][0]).not.toContain("PRIVATE_");
+    expect(JSON.parse(writeText.mock.calls[0][0])).toMatchObject({ schema: "atlas-search-audit/v1", search: { topic: "solar" } });
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("starts a promise-backed clipboard write synchronously inside the click", async () => {
+    state.completed = true;
+    let itemData: Record<string, Promise<Blob>> = {};
+    vi.stubGlobal("ClipboardItem", class { constructor(data: Record<string, Promise<Blob>>) { itemData = data; } });
+    const write = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { write } });
+    const tree = ResearchSweep({ initialTopic: "", onSearchTopic: vi.fn() });
+    nodes(tree).find(({ type, props }) => type === "button" && props.children === "Copy audit JSON")!.props.onClick();
+    expect(write).toHaveBeenCalledOnce();
+    const blob = await itemData["text/plain"];
+    expect(blob.type).toBe("text/plain");
+    expect(await blob.text()).not.toContain("PRIVATE_");
+  });
 });

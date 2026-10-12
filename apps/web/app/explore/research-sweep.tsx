@@ -42,6 +42,7 @@ export default function ResearchSweep({
   const [overviewInputIds, setOverviewInputIds] = useState<string[]>([]);
   const [auditPending, setAuditPending] = useState(false);
   const [auditError, setAuditError] = useState("");
+  const [auditMessage, setAuditMessage] = useState("");
   const citationIds = buildCitationIds(results);
   const displayResults = collapseRepeatedEvidenceViews(results);
   const searchedCountry = marketCountry(searchedCountryCode);
@@ -74,6 +75,7 @@ export default function ResearchSweep({
     setAuditRun(typeof globalThis.crypto?.randomUUID === "function" ? { id: crypto.randomUUID(), privateSalt: crypto.randomUUID() } : null);
     setOverviewInputIds([]);
     setAuditError("");
+    setAuditMessage("");
     onSearchTopic(topic);
 
     try {
@@ -172,18 +174,31 @@ export default function ResearchSweep({
     }
   }
 
-  async function downloadAudit() {
+  async function downloadAudit(action: "download" | "copy" = "download") {
     if (!auditRun || !summary || auditPending) return;
     setAuditPending(true);
     setAuditError("");
+    setAuditMessage("");
     let objectUrl: string | undefined;
     try {
-      const snapshot = await buildSearchAudit({
+      const snapshot = buildSearchAudit({
         run: auditRun, deploymentCommit, topic: searchedQuery, localQuery: searchedLocalQuery,
         countryCode: searchedCountryCode, language: searchedCountry.language, queryMethod: localQueryMethod,
         results, candidateCounts: summaryCandidateCounts, overviewInputIds, summary, summaryMode,
       });
-      objectUrl = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
+      const serialized = snapshot.then((value) => JSON.stringify(value, null, 2));
+      if (action === "copy") {
+        // Initiate the clipboard operation during the click itself. WebKit
+        // requires user activation; the expensive data may resolve afterward.
+        if (typeof ClipboardItem === "function" && typeof navigator.clipboard?.write === "function") {
+          await navigator.clipboard.write([new ClipboardItem({ "text/plain": serialized.then((value) => new Blob([value], { type: "text/plain" })) })]);
+        } else {
+          await navigator.clipboard.writeText(await serialized);
+        }
+        setAuditMessage("Audit JSON copied to your clipboard. Review search phrases before sharing.");
+        return;
+      }
+      objectUrl = URL.createObjectURL(new Blob([await serialized], { type: "application/json" }));
       const anchor = document.createElement("a");
       anchor.href = objectUrl;
       anchor.download = `atlas-audit-${auditRun.id}.json`;
@@ -191,7 +206,7 @@ export default function ResearchSweep({
       anchor.click();
       anchor.remove();
     } catch {
-      setAuditError("The local audit could not be created. Your search has not been changed or uploaded.");
+      setAuditError("The local audit could not be exported. Try the other option; your search has not been changed or uploaded.");
     } finally {
       if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl!), 1000);
       setAuditPending(false);
@@ -308,6 +323,8 @@ export default function ResearchSweep({
               <summary>Search audit</summary>
               <p>Download queries, source states, counts, and pseudonymous record references. No forum text, author details, source links, or summary wording is included. Your search phrases are included; review before sharing. This is an observation log, not a research-quality assessment.</p>
               <button className="show-more-results" type="button" onClick={() => void downloadAudit()} disabled={!auditRun || auditPending}>{auditPending ? "Preparing audit…" : "Download audit JSON"}</button>
+              <button className="show-more-results" type="button" onClick={() => void downloadAudit("copy")} disabled={!auditRun || auditPending}>Copy audit JSON</button>
+              {auditMessage && <p role="status">{auditMessage}</p>}
               {auditError && <p role="alert">{auditError}</p>}
             </details>
             <div className="market-results-grid">

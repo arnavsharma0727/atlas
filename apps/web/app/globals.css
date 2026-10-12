@@ -216,3 +216,4 @@ summary{line-height:1.5}
 .search-audit summary{cursor:pointer;font-size:13px;font-weight:600}
 .search-audit p{max-width:72ch;margin:10px 0;color:var(--muted);font-size:13px;line-height:1.6}
 .search-audit button:disabled{opacity:.6;cursor:wait}
+.search-audit button+button{margin-left:16px}
