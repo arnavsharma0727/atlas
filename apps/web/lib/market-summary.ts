@@ -439,7 +439,12 @@ export function selectBalancedEvidence(
   const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[]; authorKey?: string }>>();
   const seenText = new Set<string>();
   const seenRecords = new Set<string>();
-  const seenNearDuplicateText: string[] = [];
+  // Only selected excerpts are published into excludedKeys. Reuse those long
+  // texts when selecting the second lens, without penalizing unselected rows.
+  const sharedTextPrefix = "cross-operator-text\u0000";
+  const seenNearDuplicateText = [...excludedKeys]
+    .filter((key) => key.startsWith(sharedTextPrefix))
+    .map((key) => key.slice(sharedTextPrefix.length));
 
   for (const result of results) {
     for (const item of result.evidence) {
@@ -453,7 +458,8 @@ export function selectBalancedEvidence(
       if (!excerpt || !citationId || !/^C\d{1,4}$/.test(citationId)) continue;
 
       // Replicated federation copies can be linked below, but must not become
-      // extra weight in an AI summary. Only exact normalized text is collapsed.
+      // extra weight in an AI summary. Exact and conservative near-copies are
+      // collapsed within this selection and against previously selected lenses.
       const operator = item.sourceOperatorKey ?? item.source;
       const normalizedText = excerpt.normalize("NFKC").replace(/\s+/g, " ").toLocaleLowerCase();
       const textKey = normalizedText.length >= 80

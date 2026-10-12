@@ -3,7 +3,7 @@ import { allowPublicMarketAssistRequest } from "../../../../lib/public-api-rate-
 import { serverSupabase } from "../../../../lib/server-supabase";
 import { marketCountry } from "../../../../lib/market-countries";
 import type { SummaryValidationFailure } from "../../../../lib/market-summary";
-import { hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
+import { hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isNearDuplicateExcerpt, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { isValidTopicHashtag, topicHashtags } from "../../../../lib/topic-hashtags";
 import { publicationTimestampUTC } from "../../../../lib/publication-date";
 
@@ -249,6 +249,18 @@ function parseEvidence(value: unknown, baselineTopic: string, localTopic: string
     ? local.filter((item) => matchesLanguageLens(item.language, expectedLocalLanguage, item.excerpt))
     : local;
   if (matchingLocalLanguage.some((item) => !isIndependentDiscussionEvidence(item) || !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, localTopic))) return null;
+  // Distinct citation IDs do not establish independent evidence. Recheck all
+  // retained groups before spending quota or accepting client-side selection.
+  // At most 16 short excerpts are compared; none are persisted by this check.
+  const retained = [...us, ...matchingLocalLanguage];
+  for (let left = 0; left < retained.length; left++) {
+    for (let right = left + 1; right < retained.length; right++) {
+      const a = retained[left].excerpt.normalize("NFKC").toLocaleLowerCase();
+      const b = retained[right].excerpt.normalize("NFKC").toLocaleLowerCase();
+      const sameSource = retained[left].source.trim().toLocaleLowerCase() === retained[right].source.trim().toLocaleLowerCase();
+      if ((a === b && (a.length >= 80 || sameSource)) || isNearDuplicateExcerpt(a, b)) return null;
+    }
+  }
   return {
     us,
     local: matchingLocalLanguage,

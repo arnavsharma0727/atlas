@@ -655,6 +655,18 @@ describe("market summary evidence contracts", () => {
     expect(secondSide).toEqual([]);
   });
 
+  it("shares near-copy exclusions across comparison sides without suppressing changed quantities", () => {
+    const text = "Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. This remains uncertain.";
+    const base = result("base", "Bluesky", [evidence("a", "Bluesky", text)]);
+    const local = result("local", "Mastodon", [evidence("b", "Mastodon", text.replace("uncertain.", "uncertain today."))]);
+    const citations = new Map([[citationKey("base", "a"), "C1"], [citationKey("local", "b"), "C2"]]);
+    const sharedKeys = new Set<string>();
+    expect(selectBalancedEvidence([base], citations, 8, sharedKeys)).toHaveLength(1);
+    expect(selectBalancedEvidence([local], citations, 8, sharedKeys)).toEqual([]);
+    const changed = result("local", "Mastodon", [evidence("b", "Mastodon", text.replace("This remains uncertain.", "The estimated cost is $6 million."))]);
+    expect(selectBalancedEvidence([changed], citations, 8, sharedKeys)).toHaveLength(1);
+  });
+
   it("accepts only citations present in the corresponding submitted evidence group", () => {
     const summary = normalizeMarketSummary({
       baselineClaims: [{ text: "The English-language records mention supply constraints.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Market supply constraints were noted." }] }],

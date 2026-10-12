@@ -103,6 +103,39 @@ describe("free-tier market assist", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it.each(["exact", "near"])("rejects %s long-copy evidence under distinct citations before quota or model calls", async (kind) => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const text = "Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. This remains uncertain.";
+    const first = { citationId: "C1", source: "Bluesky", title: "Post", excerpt: text, language: "en" };
+    const second = { ...first, citationId: "C2", source: "Mastodon", excerpt: kind === "near" ? text.replace("uncertain.", "uncertain today.") : text };
+    for (const evidence of [{ us: [first, second], local: [] }, { us: [first], local: [second] }]) {
+      const response = await POST(makeRequest({ action: "summarize", topic: "chips", country: "US", aiEnabled: true, evidence }));
+      expect(response.status).toBe(400);
+    }
+    expect(fetch).not.toHaveBeenCalled();
+    expect(allowPublicMarketAssistRequest).not.toHaveBeenCalled();
+  });
+
+  it.each(["figure", "scale", "short"])("retains %s differences at the server copy boundary", async (kind) => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValue("limited");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const text = kind === "short" ? "GPU prices seem high to me." : "GPU spending is $5 million. Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook.";
+    const first = { citationId: "C1", source: "Bluesky", title: "Post", excerpt: text, language: "en" };
+    const second = { ...first, citationId: "C2", source: "Mastodon", excerpt: kind === "figure" ? text.replace("$5", "$6") : kind === "scale" ? text.replace("million", "billion") : text };
+    const response = await POST(makeRequest({ action: "summarize", topic: "GPU", country: "US", aiEnabled: true, evidence: { us: [first], local: [second] } }));
+    // Valid distinct quantities, and short generic wording across operators,
+    // reach quota validation rather than being over-rejected as long copies.
+    expect(response.status).toBe(429);
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledOnce();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects generic market-language excerpts that do not mention the searched topic", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
