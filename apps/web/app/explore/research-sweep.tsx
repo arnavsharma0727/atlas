@@ -7,7 +7,8 @@ import { LEMMY_INSTANCES } from "../../lib/lemmy-public";
 import { runResearchSweep, type ResearchSweepSourceResult } from "../../lib/research-sweep";
 import { buildCitationIds, citationKey } from "../../lib/perspective-snapshot";
 import { languageTag } from "../../lib/language-tag";
-import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, selectBalancedEvidence, summarizeEvidenceBreadth, type EvidenceBreadth, type MarketSummary, type ModelEvidence } from "../../lib/market-summary";
+import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, selectBalancedEvidence, summarizeEvidenceBreadth, type EvidenceBreadth, type MarketSummary } from "../../lib/market-summary";
+import { selectOverviewEvidence } from "../../lib/overview-evidence";
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 
@@ -133,29 +134,16 @@ export default function ResearchSweep({
       const markedResults = flagRepeatedEvidenceViews(filterResultsToTopic(merged, topic, localQuery, activeCountry.language));
       setResults(markedResults);
       const citations = buildCitationIds(markedResults);
-      const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && key !== "world-bank-macro" && key !== "eia-energy-prices" && key !== "bis-effective-exchange" && !key.startsWith("the-conversation:"));
-      const localEvidenceResults = markedResults.filter(({ key }) => key.startsWith("local:") && key !== "local:global-voices" && !key.startsWith("local:the-conversation:"));
-      const includedEvidenceKeys = new Set<string>();
-      let baselineScreenedOut = 0;
-      let selectedScreenedOut = 0;
-      const candidateCounts: Record<string, number> = {};
-      const countCandidate = (sourceKey: string) => { candidateCounts[sourceKey] = (candidateCounts[sourceKey] ?? 0) + 1; };
-      const marketTopicEligibility = (searchPhrase: string) => (item: ModelEvidence) =>
-        isIndependentDiscussionEvidence(item) && hasMarketSignalTerms(item) && hasTopicSignalTerms(item.excerpt, searchPhrase);
-      const candidateEvidence = {
-        us: selectBalancedEvidence(baselineResults, citations, 8, includedEvidenceKeys, undefined, marketTopicEligibility(topic), () => baselineScreenedOut++, countCandidate),
-        local: selectBalancedEvidence(localEvidenceResults, citations, 8, includedEvidenceKeys, searchedCountry.language, marketTopicEligibility(localQuery), () => selectedScreenedOut++, countCandidate),
-      };
+      const { evidence: candidateEvidence, candidateCounts, excludedCounts } = selectOverviewEvidence(markedResults, citations, {
+        topic, localTopic: localQuery, selectedLanguage: activeCountry.language,
+      });
       setSummaryCandidateCounts(candidateCounts);
       setSummaryBreadth({
         baseline: summarizeEvidenceBreadth(candidateEvidence.us),
         selected: summarizeEvidenceBreadth(candidateEvidence.local),
       });
       const evidenceForAi = candidateEvidence;
-      setScreenedOutCounts({
-        baseline: baselineScreenedOut,
-        selected: selectedScreenedOut,
-      });
+      setScreenedOutCounts(excludedCounts);
       const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
         ? await requestMarketAssist({ action: "summarize", topic, localTopic: localQuery, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
         : { mode: "unavailable", query: "", hashtags: [], summary: null };
