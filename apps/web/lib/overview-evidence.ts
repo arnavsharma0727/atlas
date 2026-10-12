@@ -17,7 +17,7 @@ export function selectOverviewEvidence(
   const eligible = (topic: string) => (item: ModelEvidence) =>
     isIndependentDiscussionEvidence(item) && hasMarketSignalTerms(item) && hasTopicSignalTerms(item.excerpt, topic);
   const evidence = {
-    us: selectBalancedEvidence(baselineResults, citationIds, 8, includedKeys, undefined, eligible(search.topic), () => excludedCounts.baseline++, onCandidate),
+    us: selectBalancedEvidence(baselineResults, citationIds, 8, includedKeys, "en", eligible(search.topic), () => excludedCounts.baseline++, onCandidate),
     local: selectBalancedEvidence(localResults, citationIds, 8, includedKeys, search.selectedLanguage, eligible(search.localTopic), () => excludedCounts.selected++, onCandidate),
   };
   return { evidence, excludedCounts, candidateCounts };

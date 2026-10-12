@@ -134,6 +134,21 @@ describe("free-tier market assist", () => {
     expect(allowPublicMarketAssistRequest).not.toHaveBeenCalled();
   });
 
+  it.each(["de", "und"])('rejects %s-labelled posts from the English baseline before quota or AI calls', async (language) => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "inflation", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Mastodon", title: "Public discussion post",
+        excerpt: "Inflation is slowing as consumer prices stabilize.", language }], local: [] },
+    }));
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(allowPublicMarketAssistRequest).not.toHaveBeenCalled();
+  });
+
   it("admits accented French market evidence through the server gate without an AI call in the test", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");

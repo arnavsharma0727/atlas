@@ -26,6 +26,15 @@ function row(key: string, language: string, text: string): ResearchSweepSourceRe
 }
 
 describe("overview selection uses the current search invocation", () => {
+  it("keeps German and unlabelled posts in citations but out of the English baseline overview", () => {
+    const english = row("bluesky:en", "en", "Inflation is slowing as consumer prices stabilize.");
+    const german = row("mastodon:de", "de", "Inflation sinkt, doch die Preise steigen weiter.");
+    const unlabelled = row("lemmy:und", "und", "Inflation happens while I try to save money.");
+    const rows = [english, german, unlabelled];
+    const selected = selectOverviewEvidence(rows, buildCitationIds(rows), { topic: "inflation", localTopic: "inflation", selectedLanguage: "en" });
+    expect(selected.evidence.us.map(({ excerpt }) => excerpt)).toEqual([english.evidence[0].transientPreview]);
+    expect(selected.candidateCounts).toEqual({ "bluesky:en": 1 });
+  });
   it("retains original purchase-price commentary without admitting links or dropping topic checks", () => {
     const independent = row("bluesky:1", "en", "GPU prices have stopped me from upgrading my desktop.");
     const linked = row("bluesky:2", "en", "GPU prices are rising; read this article.");
