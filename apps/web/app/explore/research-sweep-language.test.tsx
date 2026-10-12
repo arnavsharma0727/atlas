@@ -58,4 +58,20 @@ describe("async search language snapshot", () => {
     expect(submitted.evidence.local[0].language).toBe(language);
     expect(submitted.evidence.local[0].excerpt).toBe(text);
   });
+
+  it("does not spend AI quota on only the baseline when the selected lens has no qualifying discussion", async () => {
+    hookState.country = "DE";
+    hookState.previousCountry = "KR";
+    vi.mocked(runResearchSweep).mockImplementation(async (_query, selection) => selection.blueskyLanguage === "en"
+      ? [fixture("bluesky:baseline", "en", "Solar demand is rising while inventories decline.")]
+      : []);
+    const fetchMock = vi.fn(async (_url: unknown, _options?: RequestInit) => Response.json({ mode: "localized", query: "Solar", hashtags: ["Solar"] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const tree = ResearchSweep({ initialTopic: "", onSearchTopic: vi.fn() });
+    const form = tree.props.children.find((child: { type?: string } | null) => child?.type === "form");
+    form.props.onSubmit({ preventDefault: vi.fn() });
+    await vi.waitFor(() => expect(runResearchSweep).toHaveBeenCalledTimes(2));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string).action).toBe("prepare");
+  });
 });

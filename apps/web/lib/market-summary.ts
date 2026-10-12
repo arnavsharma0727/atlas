@@ -215,10 +215,17 @@ export function isAttributedReportShare(value: string): boolean {
   return /(?:\bsource\s*:\s*|\bvia\s*:\s*|\breported\s+by\s*:\s*|出典\s*[:：]|출처\s*[:：])[^\s,;]{2,80}/iu.test(value);
 }
 
+/** Personal purchase/utility-bill advice is not evidence of a market-wide view. */
+export function isHouseholdPurchaseAdvice(value: string): boolean {
+  const text = value.normalize("NFKC");
+  return /\b(?:my|your|our|their|his|her)\s+(?:own\s+)?(?:electric(?:ity)?|energy|utility|power)\s+bills?\b/iu.test(text) ||
+    /\b(?:my|your|our)\s+own\s+(?:solar\s+panels?|home\s+batter(?:y|ies)|rooftop\s+solar)\b/iu.test(text);
+}
+
 /** Linked, explicitly attributed, or high-confidence promotional posts cannot support the overview. */
 export function isIndependentDiscussionEvidence(item: { linkSharing?: boolean; excerpt?: string }): boolean {
   const excerpt = item.excerpt ?? "";
-  return item.linkSharing !== true && !isLikelyMarketPromotion(excerpt) && !isAttributedReportShare(excerpt);
+  return item.linkSharing !== true && !isLikelyMarketPromotion(excerpt) && !isAttributedReportShare(excerpt) && !isHouseholdPurchaseAdvice(excerpt);
 }
 
 /** Filter displayed records by the phrase actually used for each search lens, preserving raw API counts. */
@@ -237,10 +244,11 @@ export function filterResultsToTopic(
       const copy = `${item.title} ${item.transientPreview ?? ""}`;
       const isPromotion = isLikelyMarketPromotion(copy);
       const isReportShare = isAttributedReportShare(copy);
+      const isHouseholdAdvice = isHouseholdPurchaseAdvice(copy);
       const detectedLanguage = result.key.startsWith("local:") && expectedLocalLanguage
         ? languageLensMatchMethod(item.language, expectedLocalLanguage, item.transientPreview ?? item.title)
         : null;
-      if ((item.evidenceClass !== "social discussion" || (!isPromotion && !isReportShare)) && detectedLanguage !== "script-detection") return item;
+      if ((item.evidenceClass !== "social discussion" || (!isPromotion && !isReportShare && !isHouseholdAdvice)) && detectedLanguage !== "script-detection") return item;
       return {
         ...item,
         context: [item.context, detectedLanguage === "script-detection"
@@ -249,6 +257,8 @@ export function filterResultsToTopic(
           ? "This excerpt matches a high-confidence stock-promotion/clickbait phrase screen; it remains visible but is excluded from the AI overview."
           : isReportShare
             ? "This post explicitly attributes its material to a publisher; it remains visible but is excluded as an independent community view."
+            : isHouseholdAdvice
+              ? "This post gives individual household purchase or utility-bill advice; it remains visible but does not support a market-wide discussion overview."
             : undefined].filter(Boolean).join(" "),
       };
     });

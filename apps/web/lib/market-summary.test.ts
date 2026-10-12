@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
+import { collapseRepeatedEvidenceViews, evidenceBreadthWarning, filterResultsToTopic, flagRepeatedEvidenceViews, hasMarketSignalTerms, hasTopicSignalTerms, isAttributedReportShare, isHouseholdPurchaseAdvice, isIndependentDiscussionEvidence, isLikelyMarketPromotion, isNearDuplicateExcerpt, languageLensMatchMethod, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, selectBalancedEvidence, summarizeEvidenceBreadth } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 import { summarizeCitedEvidenceBreadth } from "./market-summary";
@@ -202,6 +202,18 @@ describe("market summary evidence contracts", () => {
     expect(isIndependentDiscussionEvidence({ linkSharing: true })).toBe(false);
     expect(isIndependentDiscussionEvidence({ linkSharing: false })).toBe(true);
     expect(isIndependentDiscussionEvidence({})).toBe(true);
+  });
+
+  it("keeps household solar-bill advice visible but out of a fundamental-market overview", () => {
+    const advice = "Now would be a good time to make an investment in your own solar panels, a hybrid solar inverter and batteries to lessen your electric bill.";
+    expect(isHouseholdPurchaseAdvice(advice)).toBe(true);
+    expect(isIndependentDiscussionEvidence({ excerpt: advice })).toBe(false);
+    expect(isIndependentDiscussionEvidence({ excerpt: "Solar panel manufacturers report rising orders and falling inventory." })).toBe(true);
+    const screened = filterResultsToTopic([result("bluesky", "Bluesky", [{
+      id: "household", title: "Solar panels", url: "https://example.test/household", source: "Bluesky",
+      evidenceClass: "social discussion", language: "en", timeLabel: "Published", timeValue: "2026-10-11T00:00:00Z", transientPreview: advice,
+    }])], "solar panels");
+    expect(screened[0].evidence[0].context).toContain("individual household purchase");
   });
 
   it("keeps high-confidence stock-pitch copy visible but out of the community overview", () => {

@@ -115,8 +115,9 @@ try {
     privacyPage.includes("Stack Exchange question/answer") &&
     privacyPage.includes("Stack Exchange excerpts are") &&
     privacyPage.includes("not sent to AI providers") &&
-    methodologyPage.includes("at most one individually licensed answer per question")) {
-    pass("Stack Exchange licensed-answer boundaries", "individual CC BY-SA answers have author/source attribution, transient display, partial-failure disclosure, and exclusion from AI summaries");
+    methodologyPage.includes("specialist Q&A") &&
+    methodologyPage.includes("default comparison")) {
+    pass("Stack Exchange licensed-answer boundaries", "adapter remains documented with individual CC BY-SA attribution and transient handling, but is excluded from focused comparison and AI summaries");
   } else {
     fail("Stack Exchange licensed-answer boundaries", "answer attribution, transient handling, summary exclusion, or failure disclosure is missing");
   }

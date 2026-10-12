@@ -12,7 +12,7 @@ const sections = [
   },
   {
     title: "Keep evidence types separate",
-    body: "The focused search uses public discussion from Bluesky, Lemmy, and Mastodon. It requests official ECB/BIS currency, World Bank macro, or EIA energy context only when the topic applies. Official observations are dated, separate from conversation, and excluded from AI discussion summaries. Atlas no longer runs title-only academic searches, play-money forecasts, specialist Q&A, or software forums in the default comparison: those sources added volume without establishing a country perspective. SEC requests remain disabled by operator policy.",
+    body: "The focused search uses public discussion from Bluesky, Lemmy, and Mastodon. It requests official ECB/BIS currency, World Bank macro, or EIA energy context only when the topic applies. Official observations are dated, separate from conversation, and excluded from AI discussion summaries. Linked reports, promotional posts, and identifiable household-purchase or utility-bill advice remain citable but do not support an independent market overview. Atlas no longer runs title-only academic searches, play-money forecasts, specialist Q&A, or software forums in the default comparison: those sources added volume without establishing a country perspective. SEC requests remain disabled by operator policy.",
   },
   {
     title: "Official statistics are context, not a market quote",

@@ -12,7 +12,7 @@ Explicit currency, inflation/GDP/unemployment, and energy topics may show separa
 
 ## Evidence selection and comparison
 
-Atlas first applies transparent topic-term and market-language screens, source-safety exclusions, and duplicate/near-copy checks. The overview uses at most eight short public discussion excerpts per side, balanced by platform and displayed account. Linked reposts, explicitly attributed reporting, and high-confidence promotional posts remain inspectable as source records but do not support an independent-discussion overview. These conservative screens can miss relevant synonyms or subtle promotion; they are not semantic truth tests.
+Atlas first applies transparent topic-term and market-language screens, source-safety exclusions, and duplicate/near-copy checks. The overview uses at most eight short public discussion excerpts per side, balanced by platform and displayed account. Linked reposts, explicitly attributed reporting, high-confidence promotional posts, and identifiable household purchase/utility-bill advice remain inspectable as source records but do not support an independent-discussion overview. These conservative screens can miss relevant synonyms or subtle promotion; they are not semantic truth tests.
 
 The result explicitly says **not enough evidence to compare** if either side has no qualifying excerpts. It says **limited comparison** if either side has fewer than three selected excerpts or fewer than two platforms. A cross-community label means multiple selected excerpts and platforms, not national representativeness or agreement. Platform counts and retrieved-record counts must never be interpreted as prevalence, market share, or investor sentiment.
 

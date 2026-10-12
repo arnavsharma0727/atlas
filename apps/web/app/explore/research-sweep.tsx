@@ -171,16 +171,20 @@ export default function ResearchSweep({
       const evidenceForAi = candidateEvidence;
       setOverviewInputIds([...candidateEvidence.us, ...candidateEvidence.local].map(({ citationId }) => citationId));
       setScreenedOutCounts(excludedCounts);
-      const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
+      // A country search with no selected-lens discussion cannot produce the
+      // requested country overview. Do not spend AI quota summarizing only the
+      // unrelated English baseline in that case.
+      const hasRequestedView = activeCountryCode === "US" ? evidenceForAi.us.length > 0 : evidenceForAi.local.length > 0;
+      const generated = hasRequestedView
         ? await requestMarketAssist({ action: "summarize", topic, localTopic: localQuery, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
-        : { mode: "unavailable", query: "", hashtags: [], summary: null, reason: "no-evidence" };
+        : { mode: "unavailable", query: "", hashtags: [], summary: null, reason: "no-country-evidence" };
       if (generated.mode === "ai" && generated.summary) {
         setSummary(activeCountryCode === "US" ? sameCountrySummary(generated.summary) : generated.summary);
         setSummaryMode("ai");
         setSummaryProvider(generated.provider && generated.model ? `${generated.provider} · ${generated.model}` : null);
       } else {
         setSummary(buildEvidenceSummary(evidenceForAi.us, evidenceForAi.local, activeCountry.name, activeCountryCode === "US", generated.reason));
-        setSummaryMode("unavailable");
+        setSummaryMode(generated.reason === "no-country-evidence" ? "evidence" : "unavailable");
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The search could not be completed.");
@@ -302,7 +306,7 @@ export default function ResearchSweep({
                 <p className="eyebrow">{summaryMode === "ai" ? "AI overview" : "Evidence overview"}</p>
                 <h3 id="market-summary-title">What the sources say</h3>
               </div>
-                <span>{summaryMode === "ai" ? "Checked against cited excerpts" : "AI unavailable"}</span>
+                <span>{summaryMode === "ai" ? "Checked against cited excerpts" : summaryMode === "evidence" ? "No country evidence" : "AI unavailable"}</span>
             </header>
             <div className={`market-summary-columns${searchedCountryCode === "US" ? " market-summary-columns--single" : ""}`}>
               {searchedCountryCode !== "US" && <article>
@@ -422,6 +426,7 @@ function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, loc
 function aiFailureMessage(reason: string) {
   switch (reason) {
     case "no-evidence": return "No text excerpts qualified for an AI overview in this search; the source register still shows the original results.";
+    case "no-country-evidence": return "No selected-lens discussion qualified, so Atlas did not generate an AI overview of an unrelated baseline. The source register still shows the original results.";
     case "disabled": return "AI summaries are not enabled or configured by the operator; this local overview remains available.";
     case "rate-limited": return "The free AI provider reported a usage limit; this local overview is shown instead.";
     case "request-limited": return "Atlas's AI request limit was reached; this local overview is shown instead.";
