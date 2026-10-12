@@ -55,6 +55,17 @@ const MARKET_SIGNAL_TERMS: Record<string, RegExp> = {
   hi: /(?:बाज़ार|बाजार|मांग|आपूर्ति|कीमत|बिक्री|राजस्व|मुनाफ़ा|मुनाफा|शेयर|निवेश|लाभ|नुकसान|टैरिफ़|टैरिफ|निर्यात|आयात|उत्पादन|फ़सल|फसल|कमोडिटी|ब्याज दर|विनिमय दर|शेयर बाज़ार|शेयर बाजार|बाज़ार पूंजीकरण|बाजार पूंजीकरण|लाभांश|आपूर्ति श्रृंखला|मूल्यांकन)/u,
 };
 
+// JavaScript \b uses ASCII-style word characters even with the Unicode flag:
+// it misses a final é in marché and can match price inside éprice. Preserve
+// the reviewed vocabulary while making only its outer word boundaries Unicode-aware.
+const UNICODE_MARKET_SIGNAL_TERMS: Record<string, RegExp> = Object.fromEntries(
+  Object.entries(MARKET_SIGNAL_TERMS).map(([language, pattern]) => [language,
+    ["en", "pt", "es", "fr", "de"].includes(language)
+      ? new RegExp(`(?<![\\p{L}\\p{M}\\p{N}_])${pattern.source.slice(2, -2)}(?![\\p{L}\\p{M}\\p{N}_])`, pattern.flags)
+      : pattern,
+  ]),
+);
+
 const QUERY_INTENT_TERMS = new Set([
   "a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with",
   "market", "markets", "marketplace", "price", "prices", "pricing", "demand", "supply",
@@ -215,8 +226,9 @@ export function filterResultsToTopic(
 export function hasMarketSignalTerms(item: Pick<ModelEvidence, "excerpt" | "language">): boolean {
   const normalizedLanguage = item.language.trim().toLocaleLowerCase().split(/[-_]/u, 1)[0];
   const language = LANGUAGE_NAMES[normalizedLanguage] ?? normalizedLanguage;
-  const matcher = MARKET_SIGNAL_TERMS[language];
-  return matcher ? matcher.test(item.excerpt) : Object.values(MARKET_SIGNAL_TERMS).some((candidate) => candidate.test(item.excerpt));
+  const matcher = UNICODE_MARKET_SIGNAL_TERMS[language];
+  const excerpt = item.excerpt.normalize("NFKC");
+  return matcher ? matcher.test(excerpt) : Object.values(UNICODE_MARKET_SIGNAL_TERMS).some((candidate) => candidate.test(excerpt));
 }
 
 /** Remove direct links, emails, and @handles before a short discussion excerpt is sent to the model. */

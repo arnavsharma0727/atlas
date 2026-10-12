@@ -64,6 +64,23 @@ describe("free-tier market assist", () => {
     expect(allowPublicMarketAssistRequest).not.toHaveBeenCalled();
   });
 
+  it("admits accented French market evidence through the server gate without an AI call in the test", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValue("limited");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({
+      action: "summarize", topic: "copper", localTopic: "cuivre", country: "FR", aiEnabled: true,
+      evidence: { us: [], local: [{ citationId: "C1", source: "Mastodon", title: "Public discussion post",
+        excerpt: "Le marché du cuivre ralentit.", language: "fr" }] },
+    }));
+    // Valid evidence reaches the mocked quota guard; previously it failed 400.
+    expect(response.status).toBe(429);
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledOnce();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects duplicate citation IDs within or across evidence groups before calling Groq", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");

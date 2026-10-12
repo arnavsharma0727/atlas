@@ -26,6 +26,15 @@ function row(key: string, language: string, text: string): ResearchSweepSourceRe
 }
 
 describe("overview selection uses the current search invocation", () => {
+  it("does not drop a French market excerpt merely because marché ends in an accented letter", () => {
+    const rows = [row("local:mastodon:fr", "fr", "Le marché du cuivre ralentit.")];
+    const selected = selectOverviewEvidence(rows, buildCitationIds(rows), {
+      topic: "copper", localTopic: "cuivre", selectedLanguage: "fr",
+    });
+    expect(selected.evidence.local.map(({ excerpt }) => excerpt)).toEqual(["Le marché du cuivre ralentit."]);
+    expect(selected.excludedCounts.selected).toBe(0);
+  });
+
   it("switches across every configured language without inheriting the previous lens", () => {
     const rows = [row("bluesky", "en", "Solar supply is constrained by factory capacity."),
       ...Object.entries(localTexts).map(([language, text]) => row(`local:mastodon:${language}`, language, text))];

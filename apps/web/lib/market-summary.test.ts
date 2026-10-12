@@ -204,6 +204,24 @@ describe("market summary evidence contracts", () => {
     expect(hasMarketSignalTerms({ excerpt: "시장 수요가 증가했다.", language: "Lemmy language ID 0" })).toBe(true);
   });
 
+  it("recognizes accented French market vocabulary in either Unicode composition", () => {
+    const excerpt = "Le marché du cuivre ralentit.";
+    for (const language of ["fr", "French", "fr-FR", "not provided"]) {
+      expect(hasMarketSignalTerms({ excerpt, language })).toBe(true);
+      expect(hasMarketSignalTerms({ excerpt: excerpt.normalize("NFD"), language })).toBe(true);
+    }
+  });
+
+  it.each([
+    ["en", "price"], ["fr", "marché"], ["de", "preis"], ["es", "inversión"], ["pt", "preço"],
+  ])("uses Unicode token boundaries without expanding the %s vocabulary", (language, term) => {
+    expect(hasMarketSignalTerms({ excerpt: `(${term})`, language })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: term.toLocaleUpperCase(), language })).toBe(true);
+    for (const excerpt of [`é${term}`, `${term}é`, `${term}\u0301`, `क${term}`, `${term}क`, `_${term}`, `${term}_`]) {
+      expect(hasMarketSignalTerms({ excerpt, language }), excerpt).toBe(false);
+    }
+  });
+
   it("requires a topic match as well as market language and accepts a small set of clear market aliases", () => {
     expect(hasTopicSignalTerms("Critical minerals and industrial supply demand are changing.", "semiconductor demand")).toBe(false);
     expect(hasTopicSignalTerms("GPU chip demand is accelerating.", "semiconductor demand")).toBe(true);
