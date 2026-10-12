@@ -306,7 +306,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
     for (const item of result.evidence) {
       const operator = item.sourceOperatorKey ?? item.source;
       const recordKey = sourceRecordIdentity(item);
-      const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+      const text = item.evidenceClass === "official statistical data" ? "" : (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textKey = text ? `${operator}\u0000text\u0000${text}` : "";
       if (text) {
         if (text.length >= 80) {
@@ -347,7 +347,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
     const evidence = result.evidence.map((item) => {
       const operator = item.sourceOperatorKey ?? item.source;
       const recordViewsForItem = recordViews.get(sourceRecordIdentity(item));
-      const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+      const text = item.evidenceClass === "official statistical data" ? "" : (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textViewsForItem = textViews.get(`${operator}\u0000text\u0000${text}`);
       const crossOperatorViews = text.length >= 80 ? crossOperatorTextViews.get(text) : undefined;
       const crossOperatorDuplicate = (crossOperatorViews?.size ?? 0) > 1;

@@ -123,6 +123,24 @@ describe("market summary evidence contracts", () => {
     expect(selectBalancedEvidence(flagged, new Map())).toEqual([]);
   });
 
+  it("does not treat shared statistical descriptions as copied discussion across rows or operators", () => {
+    const description = "Official monthly currency exchange rate observation. Values use the published reference units and observation period, not the retrieval date. This description accompanies every row in the dataset.";
+    const point = (id: string, operator: string) => ({
+      ...evidence(id, operator, description, operator),
+      evidenceClass: "official statistical data" as const,
+      summaryEligible: false,
+    });
+    const raw = [
+      result("stats:a", "Dataset A", [point("USD:2026-09", "operator-a"), point("KRW:2026-09", "operator-a")]),
+      result("stats:b", "Dataset B", [point("JPY:2026-09", "operator-b")]),
+    ];
+    const flagged = flagRepeatedEvidenceViews(raw);
+    expect(flagged.map((view) => view.sourceNote)).toEqual([undefined, undefined]);
+    expect(flagged.flatMap((view) => view.evidence).map((item) => item.context)).toEqual(raw.flatMap((view) => view.evidence).map((item) => item.context));
+    expect(collapseRepeatedEvidenceViews(flagged).map((view) => view.evidence.length)).toEqual([2, 1]);
+    expect(selectBalancedEvidence(flagged, new Map())).toEqual([]);
+  });
+
   it("collapses a six-server Lemmy federation copy to one displayed source record", () => {
     const url = "https://lemmy.world/post/semiconductor-1";
     const hosts = ["lemmy.world", "discuss.tchncs.de", "feddit.org", "jlai.lu", "sopuli.xyz", "sh.itjust.works"];
