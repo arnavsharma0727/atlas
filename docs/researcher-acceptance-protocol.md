@@ -28,6 +28,8 @@ For each generated overview, label every claim against its cited original source
 
 If AI is unavailable, assess the deterministic overview separately and do not count it as an AI summary. If the result set is empty, label provider status and treat it as a coverage observation only—not proof that the topic or view is absent.
 
+Semantic support includes temporal meaning. A recently published post is not necessarily about current conditions: it can discuss a historical episode, forecast, hypothetical or analogy. A summary that removes a necessary historical actor/period, turns a forecast into an observed outcome, assigns an event date from a posting timestamp, or presents historical figures as current fails the existing semantic-support label. Unknown event timing must remain unknown; `reportedPostedAt` is unverified provider/client posting metadata, not an independently established event date. Include these cases in the preselected ambiguity/stress topics and review the full excerpt/original, not merely the model's chosen quote. Historical analogies may be relevant and should not be rejected merely for being historical; assess whether the summary preserves their actual role and uncertainty. The temporal prompt and timestamp plumbing do not satisfy this human review requirement.
+
 ## Minimum acceptance gates
 
 All gates must pass; report sample sizes and confidence intervals alongside rates. Do not pool language results to hide a failing lens.

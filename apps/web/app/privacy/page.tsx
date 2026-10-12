@@ -72,7 +72,10 @@ export default function Privacy() {
               When a visitor submits a search, Atlas automatically attempts
               AI translation and a summary by sending the topic and up to 16
               short public-source excerpts (with links, emails, and @handles
-              removed) to Groq. This feature requires a server-side Groq API
+              removed), their source/language labels and available public
+              posting timestamps to Groq. Posting timestamps are unverified
+              metadata and do not establish when the underlying event happened.
+              This feature requires a server-side Groq API
               key and a server configuration explicitly marked free-tier; Atlas does not
               upgrade an account or add billing details. The free-tier status
               must be confirmed by the project operator in Groq settings.

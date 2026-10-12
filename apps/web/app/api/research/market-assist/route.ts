@@ -5,6 +5,7 @@ import { marketCountry } from "../../../../lib/market-countries";
 import type { SummaryValidationFailure } from "../../../../lib/market-summary";
 import { hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { isValidTopicHashtag, topicHashtags } from "../../../../lib/topic-hashtags";
+import { publicationTimestampUTC } from "../../../../lib/publication-date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ type GroqResult<T> = { value: T | null; reason?: GroqFailureReason };
 const developmentWindows = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60_000;
 const DEVELOPMENT_MAX_PER_WINDOW = 6;
+const EVENT_TIME_INSTRUCTIONS = " Posting time and event time are different. reportedPostedAt is unverified provider/client metadata about when text was posted, not when its subject happened and not proof the post is current. Do not turn a historical anecdote, retrospective policy claim, forecast, hypothetical, or analogy into an observation of present market conditions. Preserve the historical actor or period when it is necessary to understand a cited claim; for example, a post about inflation during Reagan's presidency must remain explicitly about that historical period, not inflation today. If event timing is not explicit in the excerpt, leave it unknown instead of assigning a current date or inferring it from a posting timestamp. A forecast is a forecast, not an observed outcome. Do not infer causal truth from chronology. Do not add dates, historical background, or outside facts that are absent from the excerpt. Exact quote matching does not verify temporal interpretation.";
 
 /** Groq bridge for user-submitted searches. Server-side enablement and private credentials are still required. */
 export async function POST(request: NextRequest) {
@@ -123,7 +125,7 @@ async function groq<T>(
 ): Promise<GroqResult<T>> {
   const jsonMode = options.jsonMode !== false;
   const effectiveSystemPrompt = systemPrompt && options.summaryStyle
-    ? `${systemPrompt} Keep each claim text a short paraphrase of the market-relevant meaning; never paste a long supporting excerpt verbatim into claim text because its exact quote is displayed separately for audit. Describe text using language labels only, never infer source geography from language or instance domain.`
+    ? `${systemPrompt} Keep each claim text a short paraphrase of the market-relevant meaning; never paste a long supporting excerpt verbatim into claim text because its exact quote is displayed separately for audit. Describe text using language labels only, never infer source geography from language or instance domain.${EVENT_TIME_INSTRUCTIONS}`
     : systemPrompt;
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -226,6 +228,8 @@ function parseEvidence(value: unknown, baselineTopic: string, localTopic: string
         title: (row.title as string).slice(0, 240),
         excerpt: redactSummaryExcerpt((row.excerpt as string).slice(0, 600)),
         language: (row.language as string).slice(0, 24),
+        ...(publicationTimestampUTC(row.reportedPostedAt) !== null
+          ? { reportedPostedAt: row.reportedPostedAt as string } : {}),
         ...(row.linkSharing === true ? { linkSharing: true } : {}),
       });
     }

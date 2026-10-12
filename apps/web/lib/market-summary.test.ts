@@ -18,6 +18,20 @@ function evidence(id: string, source: string, excerpt: string, operator = source
 }
 
 describe("market summary evidence contracts", () => {
+  it("sends only supported public posting timestamps, never an inferred event date", () => {
+    const rows = [
+      evidence("valid", "Bluesky", "Inflation and prices changed during Reagan's presidency."),
+      { ...evidence("invalid", "Bluesky", "Inflation today remains uncertain."), timeValue: "2026-02-29T00:00:00Z" },
+      { ...evidence("missing", "Bluesky", "Inflation forecasts remain uncertain."), timeValue: "2026" },
+    ];
+    const selected = selectBalancedEvidence([result("bluesky", "Bluesky", rows)], new Map(rows.map((row, i) => [citationKey("bluesky", row.id), `C${i + 1}`])));
+    expect(selected).toHaveLength(3);
+    expect(selected[0].reportedPostedAt).toBe("2026-10-10T00:00:00.000Z");
+    expect(selected[1].reportedPostedAt).toBeUndefined();
+    expect(selected[2].reportedPostedAt).toBeUndefined();
+    expect(JSON.stringify(selected)).not.toContain("eventDate");
+    expect(JSON.stringify(selected)).not.toContain("private-handle");
+  });
   it("keeps explicitly mapped official energy benchmark records for a broad energy query", () => {
     const row = {
       id: "eia:RWTC:2026-10-09", title: "U.S. energy benchmark · Cushing WTI crude · 72.20 USD/barrel · 2026-10-09",

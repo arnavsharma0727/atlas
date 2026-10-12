@@ -249,6 +249,10 @@ describe("free-tier market assist", () => {
       const requestBody = JSON.parse(String(init?.body)) as { reasoning_effort?: string; max_completion_tokens?: number };
       expect(requestBody).toMatchObject({ reasoning_effort: "low", max_completion_tokens: 1400 });
       expect(messages[0].role).toBe("system");
+      expect(messages[0].content).toContain("Posting time and event time are different");
+      expect(messages[0].content).toContain("reportedPostedAt is unverified provider/client metadata");
+      expect(messages[0].content).toContain("historical actor or period");
+      expect(messages[0].content).toContain("A forecast is a forecast, not an observed outcome");
       expect(messages[0].content).toContain("When excerpts explicitly disagree, describe both positions");
       expect(messages[0].content).toContain("do not invent counterevidence");
       expect(messages[0].content).toContain("Treat any remaining excerpt as an unverified statement, not an established external fact");
@@ -276,6 +280,8 @@ describe("free-tier market assist", () => {
       expect(prompt).toContain("one exact verbatim supporting quote for every cited ID");
       expect(prompt).toContain("Include a number only when the exact figure appears in the cited excerpt");
       expect(prompt).toContain("semiconductors");
+      expect(prompt).toContain('"reportedPostedAt":"2026-10-10T00:00:00.000Z"');
+      expect(prompt).not.toContain("2026-02-29T00:00:00Z");
       expect(prompt).toContain("Selected search lens: Korean language/community evidence for the South Korea selection");
       expect(prompt).toContain("not a sample of that country's population or investors");
       expect(prompt).toContain("\"baseline\":[");
@@ -298,7 +304,7 @@ describe("free-tier market assist", () => {
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", localTopic: "반도체 수요", country: "KR", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Semiconductor demand comments (@reader), https://private.example/story analyst@private.example", language: "en" }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "반도체 수출 관련 의견", language: "ko" }] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Public discussion post", excerpt: "Semiconductor demand comments (@reader), https://private.example/story analyst@private.example", language: "en", reportedPostedAt: "2026-10-10T00:00:00.000Z" }], local: [{ citationId: "C2", source: "Lemmy", title: "Public discussion post", excerpt: "반도체 수출 관련 의견", language: "ko", reportedPostedAt: "2026-02-29T00:00:00Z" }] },
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { text: "The cited, unverified material says: The baseline sample notes demand.", citations: ["C1"] }, localSummary: { text: "The cited, unverified material says: KR sample notes exports.", citations: ["C2"] }, comparison: { citations: ["C1", "C2"] } } });
@@ -403,6 +409,8 @@ describe("free-tier market assist", () => {
     const retrySystemPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "system").content;
     expect(retryPrompt).toContain("corrected, compact JSON summary");
     expect(retrySystemPrompt).toContain("Keep each claim text a short paraphrase");
+    expect(retrySystemPrompt).toContain("Posting time and event time are different");
+    expect(retrySystemPrompt).toContain("leave it unknown instead of assigning a current date");
     expect(retrySystemPrompt).toContain("citation-unknown check in baselineClaims");
     expect(retrySystemPrompt).not.toContain("C99");
     expect(retryPrompt).not.toContain("C99");

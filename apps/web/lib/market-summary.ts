@@ -1,5 +1,6 @@
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
+import { publicationTimestampUTC } from "./publication-date";
 
 export type SummarySupportQuote = { citationId: string; quote: string };
 export type SummaryPassage = { text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] };
@@ -17,6 +18,8 @@ export type ModelEvidence = {
   title: string;
   excerpt: string;
   language: string;
+  /** Unverified provider/client metadata, never evidence of the underlying event date. */
+  reportedPostedAt?: string;
   linkSharing?: boolean;
 };
 
@@ -467,6 +470,8 @@ export function selectBalancedEvidence(
         title: item.evidenceClass === "social discussion" ? "Public discussion post" : item.title.slice(0, 180),
         excerpt,
         language: item.language.slice(0, 24),
+        ...(item.evidenceClass === "social discussion" && publicationTimestampUTC(item.timeValue) !== null
+          ? { reportedPostedAt: item.timeValue } : {}),
         ...(item.linkSharing ? { linkSharing: true } : {}),
       };
       if (!isEligible(modelEvidence)) {
