@@ -126,6 +126,7 @@ summary{line-height:1.5}
 .source-window{color:#aab0c3;font-size:11px}
 .source-window{margin:4px 0 0}
 .source-query-meta{margin:3px 0 0;color:#858b9b;font-size:10px;overflow-wrap:anywhere}
+.source-overview-count{margin:5px 0 0;color:#aab0c3;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
 .source-coverage-warning{margin:7px 0 0;border-left:2px solid #b88b36;padding-left:8px;color:#f0c776;font-size:11px;line-height:1.5}
 .source-results ul{margin:13px 0 0;border-top:1px solid #303750;list-style:none;padding:0}
 .source-results li{border-bottom:1px solid #303750;padding:13px 0}

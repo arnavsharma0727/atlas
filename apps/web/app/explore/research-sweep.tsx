@@ -353,7 +353,7 @@ export function SummaryPassageText({ passage }: { passage: MarketSummary["usSumm
 export function SourceResults({ result, evidence, returnedCount, duplicateCount, summaryCandidateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; summaryCandidateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
   const [showAll, setShowAll] = useState(false);
   const items = visibleSummaryEvidence(evidence, showAll, result.key, citationIds, summaryCitationIds);
-  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""} · ${summaryCandidateCount} pass overview filters${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
+  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
   const statusLabel = result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? `Partial coverage · ${countsLabel}` : countsLabel;
   return (
     <section className="source-results" aria-label={result.label}>
@@ -363,6 +363,7 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
       </header>
       <p className="source-window">{result.window}</p>
       <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
+      <p className="source-overview-count">{summaryCandidateCount} unique excerpt{summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.</p>
       {result.coverageNote && <p className="source-coverage-warning" role="status">{result.coverageNote}</p>}
       {result.sourceNote && <p className="source-coverage-warning" role="status">{result.sourceNote}</p>}
       {result.error ? (

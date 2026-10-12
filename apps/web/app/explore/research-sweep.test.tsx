@@ -20,7 +20,8 @@ describe("summary evidence links", () => {
       summaryCitationIds: new Set<string>(),
     }));
 
-    expect(html).toContain("0 topic matches · 9 returned · 2 pass overview filters");
+    expect(html).toContain("0 topic matches · 9 returned");
+    expect(html).toContain("2 unique excerpts pass overview filters before platform/account balancing and the eight-item cap.");
   });
 
   it("recognizes bare external domains in social text as link-sharing provenance", () => {
