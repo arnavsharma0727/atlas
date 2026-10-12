@@ -516,7 +516,9 @@ export function normalizeMarketSummary(
       if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return null;
       const claim = rawClaim as Record<string, unknown>;
       let text = typeof claim.text === "string" ? claim.text.trim().slice(0, 400) : "";
-      if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text) || !isSingleSentence(text)) return null;
+      if (!text || /https?:\/\/|\[\s*C\d{1,4}\s*\]/i.test(text) ||
+        /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(text) || /(?:^|\s)@[A-Za-z0-9_.-]{2,}/u.test(text) ||
+        !isSingleSentence(text)) return null;
       const citations = Array.isArray(claim.citations)
         ? [...new Set(claim.citations.filter((id): id is string => typeof id === "string" && allowed.has(id)))].slice(0, 8)
         : [];

@@ -4,7 +4,7 @@ Atlas discovers current public conversation around a researcher-entered market i
 
 A provider language label or writing system describes the text, not the author's nationality, residence, or a source's geography. A Korean-language post is not proof that its author is in South Korea. Country selection is a query lens only; returned records are not a national sample.
 
-AI claim text is expected to be concise and paraphrased; the exact supporting excerpt is displayed separately in a collapsed disclosure. Atlas rejects claim text that repeats a long supporting quote or the entire cited excerpt and retries once. If it still fails validation, the AI overview is withheld. A matching quote does not prove that the paraphrase is logically supported or true.
+AI claim text is expected to be concise and paraphrased; the exact supporting excerpt is displayed separately in a collapsed disclosure. Atlas rejects claim text that repeats a long supporting quote or the entire cited excerpt, or contains a URL, email address, or @handle, and retries once. If it still fails validation, the AI overview is withheld. A matching quote does not prove that the paraphrase is logically supported or true.
 
 ## Retrieval and comparison
 

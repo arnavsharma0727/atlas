@@ -16,7 +16,7 @@ const sections = [
   },
   {
     title: "Summaries paraphrase; evidence stays inspectable",
-    body: "AI claim text is expected to be concise and paraphrased. Each cited excerpt is separately shown in a collapsed disclosure so a researcher can inspect the exact submitted words. Atlas rejects a claim that simply repeats a long supporting quote or cited excerpt and retries once; if validation still fails, the AI overview is withheld. A matched quote still does not prove the paraphrase is logically supported or true.",
+    body: "AI claim text is expected to be concise and paraphrased. Each cited excerpt is separately shown in a collapsed disclosure so a researcher can inspect the exact submitted words. Atlas rejects a claim that repeats a long supporting quote or cited excerpt, or contains a URL, email address, or @handle; it retries once, then withholds the AI overview if validation still fails. A matched quote still does not prove the paraphrase is logically supported or true.",
   },
   {
     title: "Use SEC filings as primary-source context",

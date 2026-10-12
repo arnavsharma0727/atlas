@@ -144,6 +144,7 @@ try {
       page.includes("A Korean-language post is not proof that its author is in South Korea") &&
       page.includes("AI claim text is expected to be concise and paraphrased") &&
       page.includes("long supporting quote or cited excerpt") &&
+      page.includes("contains a URL, email address, or @handle") &&
       page.includes("Every generated citation must include a verbatim substring") &&
       page.includes("a matching quote does not prove it logically supports the claim") &&
       page.includes("Inspect the original record and its provenance")

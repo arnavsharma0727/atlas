@@ -531,6 +531,16 @@ describe("market summary evidence contracts", () => {
     expect(shortQuoteLongCopy).toBeNull();
   });
 
+  it("rejects generated email addresses and social handles", () => {
+    const evidenceText = { us: new Map([["C1", "Semiconductor demand may slow this quarter."]]), local: new Map<string, string>() };
+    const makeSummary = (text: string) => normalizeMarketSummary({
+      baselineClaims: [{ text, citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand may slow" }] }],
+      localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set(), evidenceText });
+    expect(makeSummary("@invented_handle says demand may slow.")).toBeNull();
+    expect(makeSummary("analyst@example.org says demand may slow.")).toBeNull();
+  });
+
   it("attributes model prose as unverified and rejects numeric details absent from cited text", () => {
     const valid = normalizeMarketSummary({
       baselineClaims: [
