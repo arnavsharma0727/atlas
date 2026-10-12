@@ -281,6 +281,23 @@ describe("market summary evidence contracts", () => {
     expect(selectBalancedEvidence(results, citations, 8)).toHaveLength(1);
   });
 
+  it("flags and excludes conservative near-copies syndicated across different operators", () => {
+    const firstText = "Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. This remains uncertain.";
+    const secondText = firstText.replace("This remains uncertain.", "The outlook remains uncertain.");
+    const input = [
+      result("blue:one", "Bluesky", [evidence("a", "Bluesky", firstText, "bluesky")]),
+      result("mastodon:one", "Mastodon", [evidence("b", "Mastodon", secondText, "mastodon-network")]),
+    ];
+    const flagged = flagRepeatedEvidenceViews(input);
+    expect(flagged[0].evidence[0].context).toContain("across different source operators");
+    expect(flagged[1].evidence[0].context).toContain("syndicated or cross-posted");
+    const citations = new Map([
+      [citationKey("blue:one", "a"), "C1"],
+      [citationKey("mastodon:one", "b"), "C2"],
+    ]);
+    expect(selectBalancedEvidence(flagged, citations, 8)).toHaveLength(1);
+  });
+
   it("balances distinct operators and omits source URLs, attribution handles, and authors from model input", () => {
     const results = [
       result("blue", "Bluesky", [evidence("b1", "Bluesky", "A first view from (@member123.example), contact analyst@private.example.", "bluesky"), evidence("b2", "Bluesky", "A second view", "bluesky")]),

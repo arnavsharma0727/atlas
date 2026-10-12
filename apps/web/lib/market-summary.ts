@@ -192,6 +192,8 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
   const textViews = new Map<string, Set<string>>();
   const crossOperatorTextViews = new Map<string, Map<string, Set<string>>>();
   const nearDuplicateItems = new Set<string>();
+  const crossOperatorNearDuplicateItems = new Set<string>();
+  const longTextItems: Array<{ operator: string; itemKey: string; text: string }> = [];
   const textItemsByOperator = new Map<string, Array<{ resultKey: string; itemKey: string; text: string }>>();
   for (const result of results) {
     for (const item of result.evidence) {
@@ -207,6 +209,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
           operators.set(operator, views);
           crossOperatorTextViews.set(text, operators);
         }
+        if (text.length >= 120) longTextItems.push({ operator, itemKey: `${result.key}\u0000${item.id}`, text });
         const rows = textItemsByOperator.get(operator) ?? [];
         rows.push({ resultKey: result.key, itemKey: `${result.key}\u0000${item.id}`, text });
         textItemsByOperator.set(operator, rows);
@@ -224,6 +227,14 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
       }
     }
   }
+  for (let left = 0; left < longTextItems.length; left++) {
+    for (let right = left + 1; right < longTextItems.length; right++) {
+      if (longTextItems[left].operator === longTextItems[right].operator) continue;
+      if (!isNearDuplicateExcerpt(longTextItems[left].text, longTextItems[right].text)) continue;
+      crossOperatorNearDuplicateItems.add(longTextItems[left].itemKey);
+      crossOperatorNearDuplicateItems.add(longTextItems[right].itemKey);
+    }
+  }
   return results.map((result) => {
     let repeated = 0;
     const evidence = result.evidence.map((item) => {
@@ -234,13 +245,16 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
       const crossOperatorViews = text.length >= 80 ? crossOperatorTextViews.get(text) : undefined;
       const crossOperatorDuplicate = (crossOperatorViews?.size ?? 0) > 1;
       const nearDuplicate = nearDuplicateItems.has(`${result.key}\u0000${item.id}`);
+      const crossOperatorNearDuplicate = crossOperatorNearDuplicateItems.has(`${result.key}\u0000${item.id}`);
       const otherViews = Math.max(recordViewsForItem?.size ?? 0, textViewsForItem?.size ?? 0) - 1;
-      if (otherViews < 1 && !nearDuplicate && !crossOperatorDuplicate) return item;
+      if (otherViews < 1 && !nearDuplicate && !crossOperatorDuplicate && !crossOperatorNearDuplicate) return item;
       repeated += 1;
       const reason = recordViewsForItem && recordViewsForItem.size > 1
         ? `Same source URL appears in ${recordViewsForItem.size} query/server views; repeated appearances are not independent evidence.`
         : crossOperatorDuplicate
           ? "Exact long-form text appears across multiple source operators; it may be cross-posted and is not independent corroboration."
+          : crossOperatorNearDuplicate
+            ? "Near-identical long-form text appears across different source operators; it may be syndicated or cross-posted and is not independent corroboration."
           : textViewsForItem && textViewsForItem.size > 1
           ? `Exact normalized text appears in ${textViewsForItem.size} query/server views; repeated appearances are not independent corroboration.`
           : "Near-identical long-form text appears in another record from the same source network; treat it as a possible copy, not independent corroboration.";
@@ -325,7 +339,7 @@ export function selectBalancedEvidence(
   const sources = new Map<string, Array<ModelEvidence & { dedupeKeys: string[]; authorKey?: string }>>();
   const seenText = new Set<string>();
   const seenRecords = new Set<string>();
-  const seenNearDuplicateText = new Map<string, string[]>();
+  const seenNearDuplicateText: string[] = [];
 
   for (const result of results) {
     for (const item of result.evidence) {
@@ -346,12 +360,10 @@ export function selectBalancedEvidence(
         : `${operator}\u0000text\u0000${normalizedText}`;
       const recordKey = `url\u0000${normalizeSourceUrl(item.url)}`;
       if (seenText.has(textKey) || seenRecords.has(recordKey) || excludedKeys.has(textKey) || excludedKeys.has(recordKey)) continue;
-      const nearMatches = seenNearDuplicateText.get(operator) ?? [];
-      if (nearMatches.some((text) => isNearDuplicateExcerpt(normalizedText, text))) continue;
+      if (seenNearDuplicateText.some((text) => isNearDuplicateExcerpt(normalizedText, text))) continue;
       seenText.add(textKey);
       seenRecords.add(recordKey);
-      nearMatches.push(normalizedText);
-      seenNearDuplicateText.set(operator, nearMatches);
+      seenNearDuplicateText.push(normalizedText);
 
       const modelEvidence: ModelEvidence = {
         citationId,

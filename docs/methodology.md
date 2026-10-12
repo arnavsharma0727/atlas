@@ -18,6 +18,8 @@ The code does not verify provider billing status. The operator must confirm free
 
 ## Interpretation
 
+For summary selection, long near-identical excerpts are checked across source operators as well as within an operator. The conservative check requires at least 120 characters and at least 90% shingle containment; detected copies stay visible and linked in the source results but only one is eligible for the AI overview. This is a copy-detection heuristic, not semantic story clustering: translations, paraphrases, shorter copies, and independently written discussion can be missed or falsely grouped. Treat duplicate flags as review cues, not proof of common authorship or coordination.
+
 Returned counts are records, not unique people, public sentiment, prevalence, attention, investor positioning, or national opinion. Platform members, ranking systems, community languages, source caps, translations, and API indexing differ. Empty results do not establish absence. Verify material claims against primary information such as filings, official data, and company disclosures. Do not infer a financial conclusion from conversation volume alone.
 
 The on-demand search is separate from protected scheduled ingestion, which may retain operational metadata in Supabase. See the [privacy notice](https://signal-scout-xi-ruby.vercel.app/privacy) and [source register](https://signal-scout-xi-ruby.vercel.app/sources).
