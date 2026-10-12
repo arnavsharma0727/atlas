@@ -389,6 +389,7 @@ describe("free-tier market assist", () => {
       expect(prompt).toContain("Use one to three distinct one-sentence claims");
       expect(prompt).toContain("give those positions separate claims with their own source IDs and exact quotes");
       expect(prompt).toContain("never pad the overview");
+      expect(prompt).toContain("never call an author or post local, since geography is unverified");
       expect(prompt).toContain("one exact verbatim supporting quote for every cited ID");
       expect(prompt).toContain("Copy 12–120 consecutive characters exactly from the corresponding excerpt");
       expect(prompt).toContain("Include a number only when the exact figure appears in the cited excerpt");
