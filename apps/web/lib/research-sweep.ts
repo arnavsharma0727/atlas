@@ -713,7 +713,7 @@ export async function runResearchSweep(
       continue;
     }
     let reusedRecentSearch = false;
-    const loadEvidence = async () => (await searchLiveDiscussion(term, site, boundedFetch, now)).flatMap((item) => [
+    const loadEvidence = async (): Promise<ResearchEvidence[]> => (await searchLiveDiscussion(term, site, boundedFetch, now)).flatMap((item) => [
       {
         id: `stackexchange:${item.url}`,
         title: item.title,
@@ -724,6 +724,7 @@ export async function runResearchSweep(
         timeLabel: "Published",
         timeValue: item.createdAt,
         context: `Stack Exchange question title search in ${item.language}; title matches are not topic prevalence.${item.answerLookupIssue ? ` ${item.answerLookupIssue}` : ""}`,
+        ...(item.answerLookupIssue ? { retrievalIncomplete: true } : {}),
         attribution: `Question author: ${item.author}`,
         attributionUrl: item.authorUrl,
         licenseName: "CC BY-SA 4.0",
@@ -757,7 +758,7 @@ export async function runResearchSweep(
       ? cachedStackExchangeSearch(site, term, now, loadEvidence, () => { reusedRecentSearch = true; })
       : loadEvidence();
     const searchEvidence = searchEvidenceBase.then((items) => {
-      answerLookupIncomplete = items.some((item) => /answer lookup was unavailable|no shared API quota remaining for answer lookup/iu.test(item.context ?? ""));
+      answerLookupIncomplete = items.some((item) => item.retrievalIncomplete === true);
       return items;
     });
     tasks.push(capture(
@@ -771,7 +772,7 @@ export async function runResearchSweep(
         const notes = [
           reusedRecentSearch ? "Reused a matching result retrieved within the past 65 seconds to respect the provider's duplicate-query guidance." : undefined,
           answerLookupIncomplete
-            ? "Question-title search succeeded, but answer lookup was unavailable or the quota was exhausted; no answer excerpts are included."
+            ? "Question-title search succeeded, but answer lookup was unavailable, deferred by provider backoff, or blocked by exhausted quota. Titles are retained; see their retrieval notes and do not infer answer absence."
             : undefined,
         ];
         if (site === stackExchangeQueries[0]?.site) {

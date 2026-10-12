@@ -10,6 +10,8 @@ export type ResearchEvidence = {
   timeLabel: string;
   timeValue: string;
   context?: string;
+  /** Supporting retrieval was deferred/failed; preserve this flag through cached source views. */
+  retrievalIncomplete?: boolean;
   /** Researcher-authored paraphrase of what this source contributes. */
   researcherNote?: string;
   /** Researcher attestation that the original citation was opened and checked. */

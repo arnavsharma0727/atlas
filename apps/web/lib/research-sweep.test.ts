@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { runResearchSweep } from "./research-sweep";
 import { filterResultsToTopic, hasMarketSignalTerms, isIndependentDiscussionEvidence, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
+import { resetStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-topic-search";
 
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
@@ -502,6 +503,35 @@ describe("runResearchSweep", () => {
     expect(result.status).toBe("partial");
     expect(result.evidence).toHaveLength(1);
     expect(result.sourceNote).toContain("answer lookup was unavailable");
+  });
+
+  it("preserves partial answer-backoff coverage through a reused Stack Exchange search", async () => {
+    resetStackExchangeThrottleStatus();
+    const payload = { items: [{ question_id: 43, title: "Semiconductor capacity",
+      link: "https://economics.stackexchange.com/questions/43/example",
+      creation_date: Math.floor((NOW - 60_000) / 1000), content_license: "CC BY-SA 4.0",
+      owner: { display_name: "Researcher", link: "https://economics.stackexchange.com/users/9/researcher" } }] };
+    const prime = vi.fn().mockResolvedValueOnce(Response.json(payload))
+      .mockResolvedValueOnce(Response.json({ items: [], backoff: 5 }));
+    const fetcher = vi.fn(async () => Response.json(payload));
+    try {
+      await searchLiveDiscussion("semiconductor", "economics", prime, NOW);
+      vi.stubGlobal("fetch", fetcher);
+      const selection = { stackExchangeQueries: [{ site: "economics", query: "semiconductor capacity" }], lemmy: false };
+      const first = await runResearchSweep("semiconductor capacity", selection, undefined, NOW + 1000);
+      const reused = await runResearchSweep("semiconductor capacity", selection, undefined, NOW + 2000);
+      for (const results of [first, reused]) {
+        expect(results[0].status).toBe("partial");
+        expect(results[0].evidence).toHaveLength(1);
+        expect(results[0].evidence[0].retrievalIncomplete).toBe(true);
+        expect(results[0].evidence[0].context).toContain("answer-endpoint backoff");
+      }
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(reused[0].sourceNote).toContain("within the past 65 seconds");
+    } finally {
+      vi.unstubAllGlobals();
+      resetStackExchangeThrottleStatus();
+    }
   });
 
   it("reuses a matching live Stack Exchange request for 65 seconds", async () => {
