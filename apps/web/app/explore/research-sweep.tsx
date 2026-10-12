@@ -304,17 +304,19 @@ export default function ResearchSweep({
           <section className="market-summary" aria-labelledby="market-summary-title">
             <header>
               <div>
-                <p className="eyebrow">{summaryMode === "ai" ? "AI overview" : "Evidence overview"}</p>
-                <h3 id="market-summary-title">What the sources say</h3>
+                <p className="eyebrow">{missingSelectedEvidence ? "Coverage result" : summaryMode === "ai" ? "AI overview" : "Evidence overview"}</p>
+                <h3 id="market-summary-title">{missingSelectedEvidence ? "No supported country view yet" : "What the sources say"}</h3>
               </div>
-                <span>{summaryMode === "ai" ? "Checked against cited excerpts" : summaryMode === "evidence" ? "No country evidence" : "AI unavailable"}</span>
+                {!missingSelectedEvidence && <span>{summaryMode === "ai" ? "Checked against cited excerpts" : summaryMode === "evidence" ? "Evidence only" : "AI unavailable"}</span>}
             </header>
             <div className={`market-summary-columns${searchedCountryCode === "US" || missingSelectedEvidence ? " market-summary-columns--single" : ""}`}>
               {searchedCountryCode !== "US" && <article>
                 <h4>{searchedCountry.languageName} language/community search</h4>
-                <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
-                {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
-                <SummaryPassageText passage={summary.localSummary} onOpenCitation={revealCitation} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.localSummary.citations) : undefined} />
+                {missingSelectedEvidence
+                  ? <p>No qualifying discussion was found in this bounded search. Try a more specific topic or refine the {searchedCountry.languageName} phrase. This does not show that the view is absent; provider status and original records are under Sources.</p>
+                  : <><p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
+                    {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
+                    <SummaryPassageText passage={summary.localSummary} onOpenCitation={revealCitation} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.localSummary.citations) : undefined} /></>}
               </article>}
               {!missingSelectedEvidence && <article>
                 <h4>English-language baseline · provider language varies</h4>
@@ -340,7 +342,7 @@ export default function ResearchSweep({
               <h4>Comparison</h4>
               <SummaryPassageText passage={summary.comparison} onOpenCitation={revealCitation} />
             </article> : searchedCountryCode === "US" ? <p className="market-summary-caveat">Choose another language/community lens to compare against this baseline; Atlas cannot verify that baseline contributors are in the United States.</p> : null}
-            <details className="summary-method"><summary>How to read this overview</summary>
+            <details className="summary-method"><summary>{missingSelectedEvidence ? "Search limits" : "How to read this overview"}</summary>
             {summaryProvider && <p className="market-summary-caveat">Generated with {summaryProvider}; an additional check used the same provider and model.</p>}
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             {summaryMode === "ai" && <p className="market-summary-caveat">An additional AI pass checks the draft against the same excerpts for unsupported meaning and omitted contrary views. This is not independent verification: both passes use the same provider/model and can share mistakes. Inspect the supporting quotes and originals.</p>}
