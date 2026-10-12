@@ -13,7 +13,7 @@ import type { ArxivRecord } from "./arxiv-search";
 import { searchManifoldForecasts } from "./manifold-search";
 import type { OpenAlexWork } from "./openalex-search";
 import type { SecFilingSearch } from "./sec-edgar-research-search";
-import { searchWorldBankMacro, worldBankIndicatorForQuery } from "./world-bank-macro";
+import { searchWorldBankMacro, worldBankCountryCodes, worldBankIndicatorForQuery } from "./world-bank-macro";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -148,7 +148,7 @@ export async function runResearchSweep(
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
   const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
-  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -180,11 +180,17 @@ export async function runResearchSweep(
           `${indicator.label} · latest three available annual observations for U.S., selected country, and world aggregate · no general keyword matching`,
           () => searchWorldBankMacro(query, selection.worldBankCountryCode!, boundedFetch),
         );
-        return result.evidence.length ? result : {
+        if (result.status !== "complete") return result;
+        const presentCountryCodes = new Set(result.evidence.map(({ id }) => id.split(":")[2]));
+        const missingCountryCodes = worldBankCountryCodes(selection.worldBankCountryCode!).filter((code) => !presentCountryCodes.has(code));
+        if (!missingCountryCodes.length) return result;
+        const missing = missingCountryCodes.join(", ");
+        return {
           ...result,
-          coverageNote: result.status === "complete"
-            ? "No observation was returned for the requested geographies. This does not mean the indicator or topic is absent; World Bank series can be incomplete or delayed."
-            : undefined,
+          status: result.evidence.length ? "partial" as const : "complete" as const,
+          coverageNote: result.evidence.length
+            ? `No usable annual observation was returned for ${missing}. Other requested geographies are shown; annual series coverage and publication lags vary.`
+            : "No observation was returned for the requested geographies. This does not mean the indicator or topic is absent; World Bank series can be incomplete or delayed.",
         };
       })());
     }

@@ -21,6 +21,12 @@ const countryCodes: Readonly<Record<string, string>> = {
   US: "USA", KR: "KOR", JP: "JPN", DE: "DEU", FR: "FRA", BR: "BRA", IN: "IND", ES: "ESP",
 };
 
+export function worldBankCountryCodes(selectedCountry: string): string[] {
+  const country = countryCodes[selectedCountry];
+  if (!country) throw new Error("World Bank context requires one of Atlas's supported country lenses.");
+  return [...new Set(["USA", country, "WLD"])];
+}
+
 export function worldBankIndicatorForQuery(query: string): WorldBankIndicator | null {
   return WORLD_BANK_INDICATORS.find(({ terms }) => terms.test(query)) ?? null;
 }
@@ -32,10 +38,7 @@ export async function searchWorldBankMacro(
 ): Promise<ResearchEvidence[]> {
   const indicator = worldBankIndicatorForQuery(query);
   if (!indicator) return [];
-  const country = countryCodes[selectedCountry];
-  if (!country) throw new Error("World Bank context requires one of Atlas's supported country lenses.");
-
-  const countryList = [...new Set(["USA", country, "WLD"])];
+  const countryList = worldBankCountryCodes(selectedCountry);
   const endpoint = new URL(`https://api.worldbank.org/v2/country/${countryList.join(";")}/indicator/${indicator.code}`);
   endpoint.searchParams.set("format", "json");
   endpoint.searchParams.set("mrnev", "3");

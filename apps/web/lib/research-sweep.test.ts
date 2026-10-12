@@ -6,6 +6,19 @@ import { citationKey } from "./perspective-snapshot";
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("marks World Bank context partial when a requested geography has no usable annual observation", async () => {
+    const fetcher = vi.fn(async () => Response.json([{}, [
+      { country: { id: "US", value: "United States" }, countryiso3code: "USA", indicator: { id: "FP.CPI.TOTL.ZG" }, date: "2025", value: 2.9 },
+    ]]));
+    const [result] = await runResearchSweep("inflation", { worldBankCountryCode: "KR", lemmy: false }, fetcher, NOW);
+    expect(result).toMatchObject({
+      key: "world-bank-macro",
+      status: "partial",
+      coverageNote: expect.stringContaining("KOR, WLD"),
+    });
+    expect(result.evidence).toHaveLength(1);
+  });
+
   it("uses a body-less Lemmy market-post title as transient AI evidence without duplicating it in the source preview", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL) => new URL(String(input)).pathname.endsWith("/site")
       ? Response.json({ all_languages: [{ id: 37, code: "en", name: "English" }] })
