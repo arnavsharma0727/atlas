@@ -1,4 +1,5 @@
 import { isValidTopicHashtag } from "./topic-hashtags";
+import { mastodonHasContentLink } from "./mastodon-content-links";
 
 export type MastodonPublicPost = {
   id: string;
@@ -12,6 +13,7 @@ export type MastodonPublicPost = {
   authorUrl: string;
   originServer: string;
   accountMarkedAutomated: boolean;
+  linkedContent: boolean;
 };
 
 /** Convert provider HTML to safe plain text for transient React rendering. */
@@ -71,6 +73,7 @@ type ApiPost = {
   spoiler_text?: string;
   language?: string | null;
   reblog?: unknown;
+  tags?: unknown;
   account?: {
     display_name?: string;
     acct?: string;
@@ -220,6 +223,7 @@ export async function searchPublicHashtag(
       authorUrl,
       originServer: new URL(postUrl).hostname,
       accountMarkedAutomated: post.account?.bot === true,
+      linkedContent: mastodonHasContentLink(post.content, post.tags, new URL(postUrl).hostname, instance),
     }];
   });
 }

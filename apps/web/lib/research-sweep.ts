@@ -17,6 +17,8 @@ import { searchWorldBankMacro, worldBankCountryCodes, worldBankIndicatorForQuery
 import { eiaSeriesForQuery } from "./eia-energy-search";
 import { bisEerAppliesToQuery } from "./bis-effective-exchange";
 import { isValidTopicHashtag } from "./topic-hashtags";
+import { includesExternalLink } from "./external-links";
+export { includesExternalLink } from "./external-links";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -830,11 +832,11 @@ export async function runResearchSweep(
           post.accountMarkedAutomated
             ? "This account is marked automated by the instance; shown with its source link but omitted from AI discussion synthesis."
             : undefined,
-          includesExternalLink(post.contentHtml) ? LINKED_POST_CAVEAT : undefined,
+          post.linkedContent ? LINKED_POST_CAVEAT : undefined,
         ].filter(Boolean).join(" "),
         attribution: `Author: ${post.authorHandle}`,
         attributionUrl: post.authorUrl,
-        linkSharing: includesExternalLink(post.contentHtml),
+        linkSharing: post.linkedContent,
         // The selected server is the query operator; multiple Mastodon servers are one network class.
         sourceOperatorKey: "mastodon-network",
         sourceOperatorLabel: "Mastodon public instances",
@@ -966,11 +968,4 @@ function concentratedBylineNote(bylines: string[]) {
   if (maximum / bylines.length < 0.6) return undefined;
   const share = Math.round((maximum / bylines.length) * 100);
   return `Sample composition: one displayed handle appears in ${maximum} of ${bylines.length} unique-text results (${share}%). This flags byline concentration; it does not verify identity or independence.`;
-}
-
-export function includesExternalLink(value: string | undefined) {
-  return typeof value === "string" && (
-    /(?:https?:\/\/|www\.)|<a\b[^>]*\bhref\s*=\s*["']https?:\/\//iu.test(value)
-    || /(?:^|[^\p{L}\p{N}])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+[\p{L}]{2,63}\b(?:[/:?#][^\s<]*)?/iu.test(value)
-  );
 }

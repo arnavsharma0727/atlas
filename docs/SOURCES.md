@@ -38,6 +38,10 @@ No separate public machine-translation endpoint is used. Groq can prepare a loca
 
 ## Operational ingestion is separate
 
+### Mastodon navigation versus content links
+
+Mastodon renders hashtags as clickable anchors. These are not automatically linked articles. Atlas parses the inert HTML and exempts an anchor from its content-link flag only when its visible label is exactly #tag, its class/rel identify hashtag navigation, its HTTPS /tags/ path matches a tag in the provider's structured metadata, and the URL is on the origin or queried instance without credentials, a custom port, query or fragment. Missing metadata, mismatched labels, off-instance destinations, ordinary article links and unresolved mention links remain conservatively flagged. Plain-text and entity-encoded URLs still count as links. The flag does not establish authorship, originality or independence; all other overview gates still apply. HTML parsing makes no network requests and does not render provider markup. Inputs over 65,536 characters or traversal bounds fail closed as linked/ambiguous.
+
 ### Lemmy post provenance and count scope
 
 Lemmy's `post.url` is an outgoing attachment, whereas `post.ap_id` identifies the original forum record. Atlas preserves the original-record citation and retains only a boolean attachment flag, not the attachment destination. An attachment-bearing post is excluded from the AI discussion sample even if its title/body contains no visible URL. This conservative rule may omit legitimate original commentary accompanied by a link; it prevents a linked headline from masquerading as an independent opinion. It does not prove that attachment-free text is original or independently authored.

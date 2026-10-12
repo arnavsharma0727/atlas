@@ -6,6 +6,24 @@ import { citationKey } from "./perspective-snapshot";
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("keeps original Mastodon hashtag commentary eligible but still excludes article sharing", async () => {
+    const tag = { name: "Solar", url: "https://mastodon.social/tags/solar" };
+    const hashtag = '<a href="https://mastodon.social/tags/solar" class="mention hashtag" rel="tag">#<span>Solar</span></a>';
+    const base = { visibility: "public", created_at: new Date(NOW - 1000).toISOString(), language: "en",
+      tags: [tag], account: { display_name: "Fixture", acct: "fixture", url: "https://mastodon.social/@fixture" } };
+    const fetcher = vi.fn(async () => Response.json([
+      { ...base, id: "original", url: "https://mastodon.social/@fixture/1", content: `<p>Solar demand is slowing. ${hashtag}</p>` },
+      { ...base, id: "article", url: "https://mastodon.social/@fixture/2", content: `<p>Solar supply is rising. ${hashtag} <a href="https://publisher.example/report">report</a></p>` },
+    ]));
+    const [result] = await runResearchSweep("solar", { lemmy: false, mastodon: { hashtag: "Solar", instance: "mastodon.social" } }, fetcher, NOW);
+    expect(result.evidence.map(({ linkSharing }) => linkSharing)).toEqual([false, true]);
+    expect(result.evidence[0].context).not.toContain("includes an external link");
+    const citations = new Map(result.evidence.map((item, index) => [citationKey(result.key, item.id), `C${index + 1}`]));
+    const selected = selectBalancedEvidence([result], citations, 8, new Set(), "en",
+      (item) => isIndependentDiscussionEvidence(item) && hasMarketSignalTerms(item));
+    expect(selected.map(({ citationId }) => citationId)).toEqual(["C1"]);
+  });
+
   it("loads BIS statistics only as separately labeled FX context, not summary evidence", async () => {
     const row = {
       id: "bis-eer:KR:N:2026-08", title: "South Korea · nominal effective exchange rate (broad basket)",
