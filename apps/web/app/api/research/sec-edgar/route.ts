@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   if (query.length < 2 || query.length > 100) return reply({ error: "Enter a 2–100 character company name or ticker." }, 400);
   const userAgent = process.env.SEC_USER_AGENT ?? "";
   if (!/(?:^|\s)[^\s@]+@[^\s@]+\.[^\s@]+(?:\s|$)/u.test(userAgent)) {
-    return reply({ error: "SEC EDGAR search is not configured with an operator contact email." }, 503);
+    return reply({ code: "not_configured", error: "SEC EDGAR search needs the operator to configure SEC_USER_AGENT with a contact email." }, 503);
   }
   const client = request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
   if (!allowRequest(client)) return reply({ error: "SEC EDGAR search limit reached. Try again in one minute." }, 429, { "Retry-After": "60" });

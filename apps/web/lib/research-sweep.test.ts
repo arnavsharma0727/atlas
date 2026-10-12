@@ -237,6 +237,15 @@ describe("runResearchSweep", () => {
     expect(result.coverageNote).toContain("Matched Apple Inc. (AAPL), but no qualifying filing metadata");
   });
 
+  it("labels SEC EDGAR as not searched when the production contact User-Agent is missing", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      code: "not_configured", error: "SEC EDGAR search needs the operator to configure SEC_USER_AGENT with a contact email.",
+    }), { status: 503 }));
+    const [result] = await runResearchSweep("AAPL", { secEdgar: true, lemmy: false }, fetcher, NOW);
+    expect(result).toMatchObject({ key: "sec-edgar", status: "not-searched", evidence: [] });
+    expect(result.error).toContain("operator needs to set SEC_USER_AGENT");
+  });
+
   it("adds arXiv title metadata as preprint context without abstract text", async () => {
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe("/api/research/arxiv");

@@ -197,6 +197,22 @@ export async function runResearchSweep(
           headers: { accept: "application/json", "content-type": "application/json" },
           body: JSON.stringify({ query }),
         });
+        if (response.status === 503) {
+          const unavailable = await response.json().catch(() => null) as { code?: unknown; error?: unknown } | null;
+          if (unavailable?.code === "not_configured") {
+            return {
+              key: "sec-edgar",
+              label,
+              query,
+              asOf,
+              retrievedAt: new Date().toISOString(),
+              window,
+              evidence: [],
+              error: "Not searched: the operator needs to set SEC_USER_AGENT to a descriptive name with a contact email.",
+              status: "not-searched" as const,
+            };
+          }
+        }
         if (!response.ok) throw new Error(response.status === 429
           ? "SEC EDGAR search limit reached. Try again in one minute."
           : "SEC EDGAR metadata is temporarily unavailable or not configured.");

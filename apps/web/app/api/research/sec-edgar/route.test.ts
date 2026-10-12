@@ -22,7 +22,9 @@ describe("SEC EDGAR visitor-search route", () => {
     vi.stubEnv("SEC_USER_AGENT", "");
     expect((await POST(request({ query: "A" }))).status).toBe(400);
     expect((await POST(request({ query: "AAPL" }, "192.0.2.92", "text/plain"))).status).toBe(415);
-    expect((await POST(request({ query: "AAPL" }, "192.0.2.93"))).status).toBe(503);
+    const unconfigured = await POST(request({ query: "AAPL" }, "192.0.2.93"));
+    expect(unconfigured.status).toBe(503);
+    expect(await unconfigured.json()).toMatchObject({ code: "not_configured" });
     expect(fetcher).not.toHaveBeenCalled();
 
     vi.stubEnv("SEC_USER_AGENT", "Atlas Research (atlas-test@example.test)");
