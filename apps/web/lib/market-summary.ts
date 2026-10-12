@@ -74,36 +74,43 @@ const QUERY_INTENT_TERMS = new Set([
 const MARKET_TOPIC_ALIASES: string[][] = [
   ["semiconductor", "semiconductors", "chip", "chips", "gpu", "gpus", "wafer", "wafers"],
   ["oil", "crude", "petroleum", "brent", "wti"],
-  ["natural gas", "lng", "henry hub"],
+  ["natural gas", "gas natural", "gás natural", "gaz naturel", "erdgas", "천연가스", "천연 가스", "天然ガス", "प्राकृतिक गैस", "lng", "henry hub"],
   ["bitcoin", "btc"],
   ["ethereum", "ether", "eth"],
   ["electric vehicle", "electric vehicles", "ev", "evs"],
+];
+
+const NATURAL_GAS_QUERY_PATTERNS = [
+  /(?:^|[^\p{L}\p{N}])natural\s+gas(?:$|[^\p{L}\p{N}])/u,
+  /(?:^|[^\p{L}\p{N}])gas\s+natural(?:$|[^\p{L}\p{N}])/u,
+  /(?:^|[^\p{L}\p{N}])gás\s+natural(?:$|[^\p{L}\p{N}])/u,
+  /(?:^|[^\p{L}\p{N}])gaz\s+naturel(?:$|[^\p{L}\p{N}])/u,
+  /erdgas\p{L}*/u,
+  /천연\s*가스/u,
+  /天然ガス/u,
+  /प्राकृतिक\s+गैस/u,
+];
+const NATURAL_GAS_EVIDENCE_PATTERNS = [
+  ...NATURAL_GAS_QUERY_PATTERNS,
+  /(?:^|[^\p{L}\p{N}])lng(?:$|[^\p{L}\p{N}])/iu,
+  /(?:^|[^\p{L}\p{N}])henry\s+hub(?:$|[^\p{L}\p{N}])/iu,
 ];
 
 /** Require evidence to mention the searched subject, not merely generic market vocabulary. */
 export function hasTopicSignalTerms(excerpt: string, topic: string): boolean {
   const normalizedExcerpt = excerpt.normalize("NFKC").toLocaleLowerCase();
   const normalizedTopic = topic.normalize("NFKC").toLocaleLowerCase();
-  const isNaturalGasQuery = /(?:^|[^\p{L}\p{N}])natural\s+gas(?:$|[^\p{L}\p{N}])/u.test(normalizedTopic);
+  const isNaturalGasQuery = NATURAL_GAS_QUERY_PATTERNS.some((pattern) => pattern.test(normalizedTopic));
+  if (isNaturalGasQuery) return NATURAL_GAS_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalizedExcerpt));
   const topicTerms = (normalizedTopic.match(/[\p{L}\p{N}]+/gu) ?? [])
     .filter((term) => !QUERY_INTENT_TERMS.has(term));
-  // A generic “gas” token is too ambiguous to link natural-gas searches to gasoline,
-  // exhaust, or unrelated emissions chatter. Require a natural-gas market term instead.
-  if (isNaturalGasQuery) {
-    const naturalGasTerms = new Set(["natural", "gas"]);
-    for (let index = topicTerms.length - 1; index >= 0; index -= 1) {
-      if (naturalGasTerms.has(topicTerms[index])) topicTerms.splice(index, 1);
-    }
-  }
   const matches = (term: string) => {
     if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(term)) return normalizedExcerpt.includes(term);
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     return new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`, "iu").test(normalizedExcerpt);
   };
   for (const aliasGroup of MARKET_TOPIC_ALIASES) {
-    const queryMatchesAlias = topicTerms.some((term) => aliasGroup.includes(term)) ||
-      (isNaturalGasQuery && aliasGroup.includes("natural gas"));
-    if (queryMatchesAlias && aliasGroup.some(matches)) return true;
+    if (topicTerms.some((term) => aliasGroup.includes(term)) && aliasGroup.some(matches)) return true;
   }
   return topicTerms.length > 0 && topicTerms.some(matches);
 }

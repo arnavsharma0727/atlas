@@ -202,6 +202,21 @@ describe("market summary evidence contracts", () => {
     expect(hasTopicSignalTerms("Henry Hub prices fell after storage data.", "natural gas prices")).toBe(true);
   });
 
+  it.each([
+    ["Spanish", "Gasolina y precios de combustibles", "Los precios del gas natural subieron por la demanda."],
+    ["Portuguese", "O preço da gasolina subiu após a refinaria", "A demanda por gás natural cresceu no inverno."],
+    ["French", "Le prix de l'essence augmente", "La demande de gaz naturel progresse en Europe."],
+    ["German", "Benzinpreise stiegen nach dem Raffinerieausfall", "Die Erdgaspreise steigen wegen höherer Nachfrage."],
+    ["Korean", "휘발유 가격이 상승했다.", "천연가스 수요와 가격이 상승했다."],
+    ["Japanese", "ガソリン価格が上昇した。", "天然ガスの需要と価格が上がった。"],
+    ["Hindi", "पेट्रोल की कीमतें बढ़ीं।", "प्राकृतिक गैस की मांग और कीमत बढ़ीं।"],
+  ])("disambiguates the natural-gas concept in %s queries", (_language, genericGas, naturalGas) => {
+    const localPhrase = naturalGas.match(/(?:gas\s+natural|gás\s+natural|gaz\s+naturel|erdgas|천연가스|天然ガス|प्राकृतिक\s+गैस)/iu)?.[0];
+    expect(localPhrase).toBeTruthy();
+    expect(hasTopicSignalTerms(genericGas, localPhrase!)).toBe(false);
+    expect(hasTopicSignalTerms(naturalGas, localPhrase!)).toBe(true);
+  });
+
   it("filters off-topic displayed evidence while preserving raw provider counts and per-lens wording", () => {
     const rows = [
       result("bluesky", "Bluesky", [
