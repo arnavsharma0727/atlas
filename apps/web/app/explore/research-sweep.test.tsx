@@ -6,6 +6,15 @@ import { includesExternalLink } from "../../lib/research-sweep";
 import { citationKey } from "../../lib/perspective-snapshot";
 
 describe("summary evidence links", () => {
+  it.each(["2026", "2026-02", "2026-02-28"])("renders provider calendar precision without invented date/time: %s", (value) => {
+    const html = renderToStaticMarkup(createElement(SourceResults, {
+      result: { key: "crossref", label: "Crossref", query: "inflation", asOf: "2026-10-12T00:00:00Z", window: "Five-year earliest-date screen", evidence: [], error: null, status: "complete" },
+      evidence: [{ id: "date", title: "Inflation", url: "https://doi.org/10.1234/date", source: "Crossref", evidenceClass: "research literature", language: "Not reported", timeLabel: "Published · provider date precision", timeValue: value, context: "Missing date parts are unknown." }],
+      returnedCount: 1, duplicateCount: 0, summaryCandidateCount: 0, citationIds: new Map(), summaryCitationIds: new Set<string>(),
+    }));
+    expect(html).toContain(`<time dateTime="${value}">${value}</time>`);
+    expect(html).not.toContain("00:00:00");
+  });
   it("distinguishes a one-platform cited basis from broader selected inputs", () => {
     const html = renderToStaticMarkup(createElement(SummaryPassageText, {
       passage: { text: "One retrieved post reports weaker demand.", citations: ["C1"] },

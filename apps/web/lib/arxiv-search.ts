@@ -1,5 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { matchesScholarlyContext } from "./scholarly-context-relevance";
+import { publicationTimestampUTC } from "./publication-date";
 
 export type ArxivRecord = {
   id: string;
@@ -61,13 +62,13 @@ export async function searchArxiv(
     const title = cleanText(entry.title, 300);
     const rawId = typeof entry.id === "string" ? entry.id : "";
     const rawDate = typeof entry.published === "string" ? entry.published : "";
-    const timestamp = Date.parse(rawDate);
+    const timestamp = publicationTimestampUTC(rawDate);
     const categoryValue = entry["arxiv:primary_category"];
     const category = categoryValue && typeof categoryValue === "object" && "@_term" in categoryValue && typeof categoryValue["@_term"] === "string"
       ? categoryValue["@_term"].slice(0, 40)
       : "";
     const url = safeArxivUrl(rawId);
-    if (!title || !url || !Number.isFinite(timestamp) || timestamp < oldest || timestamp > now || !titleMatches(title, normalizedQuery) || !matchesScholarlyContext(query, title, "", category)) return [];
+    if (!title || !url || timestamp === null || timestamp < oldest || timestamp > now || !titleMatches(title, normalizedQuery) || !matchesScholarlyContext(query, title, "", category)) return [];
     return [{ id: url.split("/abs/")[1], title, url, publishedAt: new Date(timestamp).toISOString(), category }];
   }).slice(0, 12);
 }

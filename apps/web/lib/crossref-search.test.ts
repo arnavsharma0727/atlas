@@ -15,6 +15,13 @@ function item(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Crossref public research metadata search", () => {
+  it("preserves year/month/day precision and rejects rollover or coercible dates", async () => {
+    const parts = [[2026], [2026, 2], [2024, 2, 29], [2026, 4, 31], [2026, 13], [2026, 2, 29], [2026, null], ["2026"]];
+    const fetcher = vi.fn(async () => Response.json({ message: { items: parts.map((value, index) => item({ DOI: `10.1234/date.${index}`, published: { "date-parts": [value] } })) } }));
+    const records = await searchCrossrefWorks("semiconductor", fetcher, NOW);
+    expect(records.map((record) => record.publicationDate)).toEqual(["2026", "2026-02", "2024-02-29"]);
+    expect(records[0].publishedAt).toBe("2026-01-01T00:00:00.000Z");
+  });
   it("uses journal/title economic context but excludes physical and unresolved inflation", async () => {
     const fetcher = vi.fn(async () => Response.json({ message: { items: [
       item({ title: ["Inflation"], "container-title": ["Journal of Monetary Economics"] }),

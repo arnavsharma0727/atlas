@@ -12,6 +12,15 @@ function entry({ id = "2604.01234", title = "Semiconductor investment and chip s
 }
 
 describe("public arXiv metadata search", () => {
+  it("rejects impossible submission dates and normalized 24-hour rollover", async () => {
+    const fetcher = vi.fn(async () => new Response(feed([
+      entry({ published: "2026-02-29T00:00:00Z" }),
+      entry({ published: "2026-04-31T00:00:00Z" }),
+      entry({ published: "2026-04-30T24:00:00Z" }),
+      entry({ published: "2024-02-29T00:00:00Z" }),
+    ])));
+    expect((await searchArxiv("semiconductor", fetcher, NOW)).map((record) => record.publishedAt)).toEqual(["2024-02-29T00:00:00.000Z"]);
+  });
   it("screens inflation using retained metadata, not discarded abstracts", async () => {
     const fetcher = vi.fn(async () => new Response(feed([
       entry({ title: "Inflation expectations", category: "econ.GN" }),

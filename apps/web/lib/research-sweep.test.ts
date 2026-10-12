@@ -317,7 +317,7 @@ describe("runResearchSweep", () => {
       return new Response(JSON.stringify({ works: [{
         doi: "10.1234/example.1", title: "Semiconductor investment and supply chains",
         url: "https://doi.org/10.1234/example.1", publisher: "Example Publisher",
-        containerTitle: "Journal of Markets", publishedAt: new Date(NOW - 60_000).toISOString(), language: "en",
+        containerTitle: "Journal of Markets", publishedAt: "2026-01-01T00:00:00.000Z", publicationDate: "2026", language: "en",
       }] }));
     });
     const results = await runResearchSweep("semiconductor", { crossref: true, lemmy: false }, fetcher, NOW);
@@ -326,6 +326,8 @@ describe("runResearchSweep", () => {
       evidence: [{ evidenceClass: "research literature", sourceOperatorKey: "crossref" }],
     }]);
     expect(results[0].evidence[0].context).toContain("Not public discussion");
+    expect(results[0].evidence[0].timeValue).toBe("2026");
+    expect(results[0].evidence[0].context).toContain("missing month/day are not known");
   });
 
   it("adds OpenAlex title-only metadata as global context, never discussion evidence", async () => {

@@ -1,4 +1,5 @@
 import { matchesScholarlyContext } from "./scholarly-context-relevance";
+import { publicationDateFromISO } from "./publication-date";
 
 export type OpenAlexWork = {
   id: string;
@@ -76,18 +77,17 @@ export async function searchOpenAlexWorks(
   return (payload.results as ApiWork[]).flatMap((work) => {
     const title = typeof work.title === "string" ? work.title.replace(/\s+/g, " ").trim().slice(0, 300) : "";
     const titleNormalized = title.normalize("NFKC").toLocaleLowerCase();
-    const publishedAt = typeof work.publication_date === "string" ? work.publication_date : "";
-    const timestamp = Date.parse(`${publishedAt}T00:00:00Z`);
+    const published = publicationDateFromISO(work.publication_date);
     const rawId = typeof work.id === "string" ? work.id : "";
     const doi = typeof work.doi === "string" ? work.doi : "";
     const url = safeWorkUrl(doi, rawId);
-    if (!title || !url || !Number.isFinite(timestamp) || timestamp < oldestTime || timestamp > now || !matchesScholarlyContext(query, title) ||
+    if (!title || !url || !published || published.timestamp < oldestTime || published.timestamp > now || !matchesScholarlyContext(query, title) ||
       (meaningful.length ? !meaningful.every((term) => titleNormalized.includes(term)) : !titleNormalized.includes(query.normalize("NFKC").toLocaleLowerCase()))) return [];
     return [{
       id: url,
       title,
       url,
-      publishedAt: new Date(timestamp).toISOString(),
+      publishedAt: new Date(published.timestamp).toISOString(),
       workType: typeof work.type === "string" ? work.type.slice(0, 60) : "",
       openAccess: typeof work.open_access?.is_oa === "boolean" ? work.open_access.is_oa : null,
     }];

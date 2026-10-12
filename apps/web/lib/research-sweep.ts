@@ -551,7 +551,7 @@ export async function runResearchSweep(
       "Crossref · recent global research literature",
       query,
       asOf,
-      "Title-matched DOI metadata · publication date within 5 years · up to 12 records" + scholarlyContextNote(query),
+      "Title-matched DOI metadata · earliest possible publication date within 5 years · year/month precision may overlap the present · up to 12 records" + scholarlyContextNote(query),
       async () => {
         const response = await boundedFetch("/api/research/crossref", {
           method: "POST",
@@ -570,9 +570,9 @@ export async function runResearchSweep(
           source: work.containerTitle ? `Crossref · ${work.containerTitle}` : "Crossref · research literature",
           evidenceClass: "research literature" as const,
           language: work.language,
-          timeLabel: "Published · date precision varies",
-          timeValue: work.publishedAt,
-          context: `Bibliographic metadata deposited with Crossref${work.publisher ? ` by ${work.publisher}` : ""}. The publication date may specify only a year or month. Not public discussion, not a country sample, and not an assessment of study quality.`,
+          timeLabel: "Published · provider date precision",
+          timeValue: work.publicationDate ?? work.publishedAt,
+          context: `Bibliographic metadata deposited with Crossref${work.publisher ? ` by ${work.publisher}` : ""}. The publication date may specify only a year or month; missing month/day are not known. The earliest possible date is used for the five-year screen, so boundary-year records can be omitted and current partial dates can extend into the future. Not public discussion, not a country sample, and not an assessment of study quality.`,
           attribution: "Crossref metadata",
           attributionUrl: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/",
           sourceOperatorKey: "crossref",

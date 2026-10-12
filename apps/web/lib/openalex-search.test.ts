@@ -14,6 +14,11 @@ const work = (title: string, offsetDays = 1) => ({
 });
 
 describe("searchOpenAlexWorks", () => {
+  it("rejects dates JavaScript would silently roll into another month", async () => {
+    const dates = ["2026-02-29", "2026-04-31", "2026-13-01", "2026-00-01", "2026-01-00", "2026-1-01", "2024-02-29"];
+    const fetcher = vi.fn(async () => Response.json({ results: dates.map((publication_date) => ({ ...work("Bitcoin market"), publication_date })) }));
+    expect((await searchOpenAlexWorks("bitcoin market", fetcher, NOW)).map((record) => record.publishedAt)).toEqual(["2024-02-29T00:00:00.000Z"]);
+  });
   it("requires economic title context for ambiguous inflation without using hidden fields", async () => {
     const fetcher = vi.fn(async () => Response.json({ results: [
       work("Inflation and monetary policy"),
