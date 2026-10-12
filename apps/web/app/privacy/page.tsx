@@ -76,6 +76,14 @@ export default function Privacy() {
               confidential, or sensitive information as a search query.
             </p>
             <p>
+              Searches explicitly about inflation/CPI, GDP growth, or
+              unemployment may also send the topic and selected country code
+              to the public World Bank API for a small set of annual World
+              Development Indicators. Those official statistics are displayed
+              separately from community evidence and are never sent to Groq.
+              The World Bank may process the request under its own policies.
+            </p>
+            <p>
               Atlas also has server-side operational data services for
               scheduled collection and source monitoring. These are separate
               from the on-demand search page. Historical records may remain in

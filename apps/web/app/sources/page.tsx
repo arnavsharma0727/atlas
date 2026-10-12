@@ -310,6 +310,22 @@ export default async function Sources() {
         "Not implemented. Requires a Google API key; the default free quota is limited, API data must be refreshed or deleted within 30 days, and derived analytics require approved use-case terms. Selected video comments are not a representative investor-forum sample.",
     },
     {
+      name: "World Bank · annual macroeconomic context",
+      key: "world-bank-macro",
+      enabled: true,
+      onDemand: true,
+      detail:
+        "Free keyless World Development Indicators API. Queried only when the search explicitly names inflation/CPI, GDP growth, or unemployment (including a small reviewed set of localized terms); general metadata search was screened out as noisy. One exact indicator is requested for the United States, selected country, and World Bank world aggregate, with at most the latest three available annual observations per geography. Atlas displays each observation year, value, unit, direct series link, and CC BY 4.0 attribution. Annual releases can lag and years may differ across geographies; this is macroeconomic context, not current discussion, a real-time price, or a national opinion sample. It is never sent to Groq or included in either discussion overview. The WDI dataset is CC BY 4.0; other World Bank datasets may have different terms.",
+      referenceUrl: "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392",
+      referenceLabel: "World Bank Indicators API and no-key access",
+      secondaryReferenceUrl: "https://datacatalog.worldbank.org/public-licenses",
+      secondaryReferenceLabel: "World Bank dataset licenses",
+      additionalReferences: [
+        { url: "https://datacatalog.worldbank.org/search/dataset/0037712/world-development-indicators", label: "World Development Indicators dataset and license" },
+        { url: "https://datahelpdesk.worldbank.org/knowledgebase/articles/898599-indicator-api-queries", label: "Official indicator query guide" },
+      ],
+    },
+    {
       name: "SEC EDGAR",
       key: "sec-edgar",
       enabled: Boolean(process.env.SEC_USER_AGENT),

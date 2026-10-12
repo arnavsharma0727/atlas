@@ -13,6 +13,7 @@ import type { ArxivRecord } from "./arxiv-search";
 import { searchManifoldForecasts } from "./manifold-search";
 import type { OpenAlexWork } from "./openalex-search";
 import type { SecFilingSearch } from "./sec-edgar-research-search";
+import { searchWorldBankMacro, worldBankIndicatorForQuery } from "./world-bank-macro";
 
 export type ResearchSweepSelection = {
   /** Kept for backwards-compatible callers; GDELT is retired from live search. */
@@ -30,6 +31,8 @@ export type ResearchSweepSelection = {
   manifoldForecasts?: boolean;
   /** Visitor-triggered exact issuer lookup; official filings are source context, never conversation evidence. */
   secEdgar?: boolean;
+  /** Narrow keyless macro context; never treated as public conversation or summarized by AI. */
+  worldBankCountryCode?: string;
   /** Explicit user-supplied alternatives are searched separately, never silently expanded. */
   additionalQueries?: readonly string[];
   stackExchangeSite?: string;
@@ -165,6 +168,27 @@ export async function runResearchSweep(
   }
   const tasks: Promise<ResearchSweepSourceResult>[] = [];
   const conversationTasks: Promise<ResearchSweepSourceResult[]>[] = [];
+  if (selection.worldBankCountryCode) {
+    const indicator = worldBankIndicatorForQuery(query);
+    if (indicator) {
+      tasks.push((async () => {
+        const result = await capture(
+          "world-bank-macro",
+          "World Bank · official annual macro context",
+          query,
+          asOf,
+          `${indicator.label} · latest three available annual observations for U.S., selected country, and world aggregate · no general keyword matching`,
+          () => searchWorldBankMacro(query, selection.worldBankCountryCode!, boundedFetch),
+        );
+        return result.evidence.length ? result : {
+          ...result,
+          coverageNote: result.status === "complete"
+            ? "No observation was returned for the requested geographies. This does not mean the indicator or topic is absent; World Bank series can be incomplete or delayed."
+            : undefined,
+        };
+      })());
+    }
+  }
   if (selection.manifoldForecasts) {
     tasks.push(capture(
       "manifold-forecasts",

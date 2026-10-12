@@ -85,6 +85,7 @@ export default function ResearchSweep({
         arxiv: true,
         manifoldForecasts: true,
         secEdgar: true,
+        worldBankCountryCode: activeCountryCode,
         bluesky: true,
         blueskyQueries: [topic.length <= 92 ? `${topic} lang:en` : topic],
         // Keep these specialist Q&A communities as an explicitly separate evidence class.
@@ -130,7 +131,7 @@ export default function ResearchSweep({
       const markedResults = flagRepeatedEvidenceViews(filterResultsToTopic(merged, topic, localQuery, activeCountry.language));
       setResults(markedResults);
       const citations = buildCitationIds(markedResults);
-      const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && !key.startsWith("the-conversation:"));
+      const baselineResults = markedResults.filter(({ key }) => !key.startsWith("local:") && key !== "global-voices" && key !== "world-bank-macro" && !key.startsWith("the-conversation:"));
       const localEvidenceResults = markedResults.filter(({ key }) => key.startsWith("local:") && key !== "local:global-voices" && !key.startsWith("local:the-conversation:"));
       const includedEvidenceKeys = new Set<string>();
       let baselineScreenedOut = 0;
@@ -373,7 +374,7 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
       </header>
       <p className="source-window">{result.window}</p>
       <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
-      <p className="source-overview-count">{summaryCandidateCount} unique excerpt{summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.</p>
+      <p className="source-overview-count">{result.key === "world-bank-macro" ? "Official statistical context · excluded from community overviews" : `${summaryCandidateCount} unique excerpt${summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.`}</p>
       {result.coverageNote && <p className="source-coverage-warning" role="status">{result.coverageNote}</p>}
       {result.sourceNote && <p className="source-coverage-warning" role="status">{result.sourceNote}</p>}
       {result.error ? (
@@ -384,7 +385,7 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
             <li key={item.id} id={`citation-${citationIds.get(citationKey(result.key, item.id))}`}>
               <span className="source-citation-ref">{citationIds.get(citationKey(result.key, item.id))}</span>
               <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
-              {(item.evidenceClass === "crowd forecast" || hasMaterialEvidenceContext(item.context)) && <p className={item.evidenceClass === "crowd forecast" ? "source-context-note source-context-note--forecast" : "source-context-note"}>{item.context}</p>}
+              {(item.evidenceClass === "crowd forecast" || item.evidenceClass === "official statistical data" || hasMaterialEvidenceContext(item.context)) && <p className={item.evidenceClass === "crowd forecast" ? "source-context-note source-context-note--forecast" : "source-context-note"}>{item.context}</p>}
               {item.transientPreview && item.transientPreview !== item.title && <p className="source-preview" lang={languageTag(item.language)}>{compactPreview(item.transientPreview)}</p>}
               <p className="source-meta">{item.evidenceClass} · {item.source} · {item.language} · {item.timeLabel.toLowerCase()} <time dateTime={item.timeValue}>{new Date(item.timeValue).toISOString().replace("T", " ").replace(".000Z", " UTC")}</time></p>
               {item.attribution && <p className="source-meta">Attribution: {item.attributionUrl

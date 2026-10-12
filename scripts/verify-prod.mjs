@@ -80,6 +80,25 @@ try {
 }
 
 try {
+  const [sourcesResponse, privacyResponse] = await Promise.all([
+    fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
+    fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),
+  ]);
+  const [sourcesPage, privacyPage] = await Promise.all([sourcesResponse.text(), privacyResponse.text()]);
+  if (sourcesResponse.ok && privacyResponse.ok &&
+    sourcesPage.includes("World Bank · annual macroeconomic context") &&
+    sourcesPage.includes("never sent to Groq") &&
+    sourcesPage.includes("World Bank metadata keyword search was screened out") &&
+    privacyPage.includes("World Development Indicators")) {
+    pass("World Bank macro-source boundaries", "narrow annual indicators, CC BY attribution, and exclusion from AI summaries are disclosed");
+  } else {
+    fail("World Bank macro-source boundaries", "source scope, attribution, or privacy disclosure is missing");
+  }
+} catch (error) {
+  fail("World Bank macro-source boundaries", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const [sourcesResponse, privacyResponse, methodologyResponse] = await Promise.all([
     fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) }),
     fetch(`${base}/privacy`, { signal: AbortSignal.timeout(15000) }),
