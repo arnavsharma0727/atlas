@@ -4,6 +4,8 @@ Atlas discovers current public conversation around a researcher-entered market i
 
 A provider language label or writing system describes the text, not the author's nationality, residence, or a source's geography. A Korean-language post is not proof that its author is in South Korea. Country selection is a query lens only; returned records are not a national sample.
 
+AI claim text is expected to be concise and paraphrased; the exact supporting excerpt is displayed separately in a collapsed disclosure. Atlas rejects claim text that repeats a long supporting quote and retries once. If it still fails validation, the AI overview is withheld. A matching quote does not prove that the paraphrase is logically supported or true.
+
 ## Retrieval and comparison
 
 For an exact issuer name or ticker query, the baseline also checks the SEC issuer index and fetches up to ten linked 10-K, 10-Q, 8-K, 20-F, 40-F, or 6-K filing metadata records from the past three years. Atlas requires the operator's contact-email User-Agent, sends the request server-side because SEC data APIs do not support browser CORS, and observes bounded per-instance request caching/limits; these are best-effort in serverless hosting, not a global quota guarantee. The filing documents themselves are not fetched or summarized. SEC EDGAR covers U.S. reporting companies and certain foreign issuers, not the global company universe. An exact-name/ticker miss is not a topic-wide or global absence claim, and filings are primary-source context rather than independent conversation evidence.

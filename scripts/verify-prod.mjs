@@ -142,6 +142,7 @@ try {
       page.includes("each comparison claim must cite both sides") &&
       page.includes("Script detection identifies writing system, not nationality, residence, or community membership") &&
       page.includes("A Korean-language post is not proof that its author is in South Korea") &&
+      page.includes("AI claim text is expected to be concise and paraphrased") &&
       page.includes("Every generated citation must include a verbatim substring") &&
       page.includes("a matching quote does not prove it logically supports the claim") &&
       page.includes("Inspect the original record and its provenance")

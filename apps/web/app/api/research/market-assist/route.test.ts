@@ -188,6 +188,8 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("Never describe a company as U.S., Korean, or belonging to any country unless the submitted excerpt itself explicitly states that fact");
       expect(messages[0].content).toContain("do not label it U.S.");
       expect(messages[0].content).toContain("one exact, verbatim supporting quote from each cited excerpt");
+      expect(messages[0].content).toContain("Keep each claim text a short paraphrase of the market-relevant meaning");
+      expect(messages[0].content).toContain("never paste a long supporting excerpt verbatim into claim text");
       expect(messages[0].content).toContain("a poster's assertion alone only establishes what that poster said");
       expect(messages[0].content).toContain("Prefer qualitative wording; any number in the summary must exactly appear in its cited excerpt");
       expect(messages[0].content).toContain("linkSharing:true");
@@ -286,18 +288,20 @@ describe("free-tier market assist", () => {
         baselineClaims: [{ text: "Semiconductor demand is rising.", citations: ["C99"] }], localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        baselineClaims: [{ text: "One retrieved post says semiconductor demand remains uncertain.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand remains uncertain." }] }], localClaims: [], comparisonClaims: [],
+        baselineClaims: [{ text: "One retrieved post describes an uncertain semiconductor-demand outlook.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand remains uncertain" }] }], localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const response = await POST(makeRequest({
       action: "summarize", topic: "semiconductors", country: "US", aiEnabled: true,
-      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand remains uncertain.", language: "en" }], local: [] },
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand remains uncertain this year.", language: "en" }], local: [] },
     }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { citations: ["C1"], text: "One retrieved post says semiconductor demand remains uncertain." } } });
+    expect(await response.json()).toMatchObject({ mode: "ai", summary: { usSummary: { citations: ["C1"], text: "One retrieved post describes an uncertain semiconductor-demand outlook." } } });
     expect(fetch).toHaveBeenCalledTimes(2);
     const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
+    const retrySystemPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "system").content;
     expect(retryPrompt).toContain("corrected, compact JSON summary");
+    expect(retrySystemPrompt).toContain("Keep each claim text a short paraphrase");
     expect(retryPrompt).not.toContain("C99");
   });
 

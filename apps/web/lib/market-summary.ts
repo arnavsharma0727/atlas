@@ -538,7 +538,12 @@ export function normalizeMarketSummary(
           if (supportingQuotes.some((item) => item.citationId === citationId)) return null;
           supportingQuotes.push({ citationId, quote });
         }
-        if (citations.some((id) => !supportingQuotes!.some((quote) => quote.citationId === id))) return null;
+          if (citations.some((id) => !supportingQuotes!.some((quote) => quote.citationId === id))) return null;
+        // Supporting excerpts are shown in a separate audit disclosure; the
+        // overview must synthesize rather than simply paste a long excerpt.
+        const normalizedText = (value: string) => value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/gu, " ").trim();
+        const normalizedClaim = normalizedText(text);
+        if (supportingQuotes.some(({ quote }) => normalizedText(quote).length >= 32 && normalizedClaim.includes(normalizedText(quote)))) return null;
       }
       // Models can ignore attribution instructions and restate a forum user's
       // precise statistic like an established market fact. Keep a deterministic

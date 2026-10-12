@@ -15,6 +15,10 @@ const sections = [
     body: "A provider language label or writing system describes the text, not the author's nationality, residence, or a source's geography. A Korean-language post is not proof that its author is in South Korea. The selected country is a search lens only; Atlas never treats the returned set as a national sample.",
   },
   {
+    title: "Summaries paraphrase; evidence stays inspectable",
+    body: "AI claim text is expected to be concise and paraphrased. Each cited excerpt is separately shown in a collapsed disclosure so a researcher can inspect the exact submitted words. Atlas rejects a claim that simply repeats a long supporting quote and retries once; if validation still fails, the AI overview is withheld. A matched quote still does not prove the paraphrase is logically supported or true.",
+  },
+  {
     title: "Use SEC filings as primary-source context",
     body: "When the operator configures SEC_USER_AGENT with a descriptive name and contact email, Atlas checks exact issuer names or tickers against the public SEC issuer index and returns up to ten recent 10-K, 10-Q, 8-K, 20-F, 40-F, or 6-K filing links from the past three years. Atlas retrieves filing-index metadata, not the document body; filing links remain separate from discussion summaries and are never sent to the AI summarizer. EDGAR covers SEC registrants, including some foreign issuers, not the global company universe. A no-match means only that this exact phrase did not match the issuer index; it does not mean the company, topic, or filings are absent elsewhere. If the contact User-Agent is not configured, Atlas marks this source not searched.",
   },
