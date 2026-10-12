@@ -224,6 +224,9 @@ function parseEvidence(value: unknown, baselineTopic: string, localTopic: string
   // Browser filtering improves UX; this prevents a direct request from
   // bypassing that screen and spending the model call on incidental mentions.
   if (!us || !local || (!us.length && !local.length)) return null;
+  const baselineCitationIds = new Set(us.map(({ citationId }) => citationId));
+  if (baselineCitationIds.size !== us.length || new Set(local.map(({ citationId }) => citationId)).size !== local.length ||
+    local.some(({ citationId }) => baselineCitationIds.has(citationId))) return null;
   if (us.some((item) => !isIndependentDiscussionEvidence(item) || !hasMarketSignalTerms(item) || !hasTopicSignalTerms(item.excerpt, baselineTopic))) return null;
   const matchingLocalLanguage = expectedLocalLanguage
     ? local.filter((item) => matchesLanguageLens(item.language, expectedLocalLanguage, item.excerpt))

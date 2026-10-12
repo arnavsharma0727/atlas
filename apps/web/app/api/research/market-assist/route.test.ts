@@ -45,6 +45,28 @@ describe("free-tier market assist", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("rejects duplicate citation IDs within or across evidence groups before calling Groq", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const baseline = { citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand is slowing this quarter.", language: "en" };
+    const local = { citationId: "C1", source: "Mastodon", title: "Post", excerpt: "반도체 수요는 이번 분기 둔화되고 있다.", language: "ko" };
+
+    const withinGroup = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", country: "US", aiEnabled: true,
+      evidence: { us: [baseline, { ...baseline, source: "Lemmy" }], local: [] },
+    }));
+    expect(withinGroup.status).toBe(400);
+
+    const acrossGroups = await POST(makeRequest({
+      action: "summarize", topic: "semiconductors", localTopic: "반도체 수요", country: "KR", aiEnabled: true,
+      evidence: { us: [baseline], local: [local] },
+    }));
+    expect(acrossGroups.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects generic market-language excerpts that do not mention the searched topic", async () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
