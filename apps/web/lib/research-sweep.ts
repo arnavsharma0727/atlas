@@ -2,7 +2,7 @@ import { searchBlueskyPosts } from "./bluesky-public";
 import { withFetchTimeout } from "./fetch-with-timeout";
 import type { GlobalVoicesEditionResult } from "./global-voices-search";
 import { DISCUSSION_COMMUNITIES, getStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-topic-search";
-import { getLemmyLanguageCatalog, LEMMY_INSTANCES, LemmyInstance, LemmyListingType, searchLemmyPosts } from "./lemmy-public";
+import { getLemmyLanguageCatalog, LEMMY_INSTANCES, LemmyInstance, LemmyListingType, searchLemmyPostPage } from "./lemmy-public";
 import { MASTODON_INSTANCES, mastodonHtmlToTransientText, searchPublicHashtag } from "./mastodon-public";
 import type { MastodonInstance } from "./mastodon-public";
 import { WIKIMEDIA_TALK_WIKIS, searchWikimediaTalk } from "./wikimedia-talk";
@@ -74,6 +74,8 @@ export type ResearchSweepSourceResult = {
   evidence: ResearchEvidence[];
   /** Raw provider return total retained when a visitor-facing topic screen is applied. */
   providerReturnedCount?: number;
+  /** Provider records removed by freshness/moderation/record-safety checks, before the topic screen. */
+  adapterExcludedCount?: number;
   /** Number of raw records excluded by the transparent visitor-facing topic screen. */
   topicExcludedCount?: number;
   error: string | null;
@@ -760,11 +762,16 @@ export async function runResearchSweep(
       const viewLabel = listingType === "local" ? "locally hosted communities" : "federated search";
       let languageCatalogAvailable = false;
       let unmappedLanguageCount = 0;
+      let rawCount: number | undefined;
+      let adapterExcludedCount = 0;
       tasks.push(capture(`lemmy:${host}`, `Lemmy · ${host} · ${viewLabel}`, term, asOf, "Recent posts within 7 days; up to 20 per server view", async () => {
-      const [posts, languageCatalog] = await Promise.all([
-        searchLemmyPosts(term, host, boundedFetch, now, listingType),
+      const [page, languageCatalog] = await Promise.all([
+        searchLemmyPostPage(term, host, boundedFetch, now, listingType),
         getLemmyLanguageCatalog(host, boundedFetch),
       ]);
+      const posts = page.posts;
+      rawCount = page.returnedCount;
+      adapterExcludedCount = page.excludedCount;
       languageCatalogAvailable = languageCatalog !== null;
       unmappedLanguageCount = posts.filter((post) => post.languageId !== null && !languageCatalog?.has(post.languageId)).length;
       return posts.map((post) => ({
@@ -776,14 +783,14 @@ export async function runResearchSweep(
         context: [
           `Lemmy ${listingType === "local" ? "locally hosted community" : "federated search"}; instance hosting does not establish poster nationality or residence`,
           !post.transientPreview ? "No post body was returned; the post title is the only transient discussion excerpt available." : undefined,
-          includesExternalLink(post.transientPreview ?? post.title) ? LINKED_POST_CAVEAT : undefined,
+          post.linkedContent || includesExternalLink(post.transientPreview ?? post.title) ? LINKED_POST_CAVEAT : undefined,
         ].filter(Boolean).join(" "),
         language: post.languageId === null
           ? "not provided"
           : languageCatalog?.get(post.languageId)?.code ?? `Lemmy language metadata ID ${post.languageId} (unmapped by ${host})`,
         timeLabel: "Published",
         timeValue: post.publishedAt,
-        linkSharing: includesExternalLink(post.transientPreview ?? post.title),
+        linkSharing: post.linkedContent || includesExternalLink(post.transientPreview ?? post.title),
         attribution: `Lemmy author: ${post.author}`,
         attributionUrl: post.authorUrl ?? post.url,
         // Treat federated instance searches as one Lemmy source class; multiple instances can overlap.
@@ -792,11 +799,11 @@ export async function runResearchSweep(
         // A link post may have no body; its own title is still transient primary evidence.
         transientPreview: post.transientPreview ?? post.title,
       }));
-      }, () => languageCatalogAvailable
+      }, () => [`${rawCount ?? 0} API records returned; ${adapterExcludedCount} excluded by freshness, moderation, bot, or record-safety checks before topic filtering. Outgoing API attachments count as link-sharing even when no URL appears in the excerpt.`, languageCatalogAvailable
         ? unmappedLanguageCount
           ? `${unmappedLanguageCount} post language ID${unmappedLanguageCount === 1 ? " was" : "s were"} not found in ${host}'s live /api/v3/site catalog; those labels remain unresolved. Provider language metadata does not establish author nationality or residence.`
           : `Post language IDs resolved against ${host}'s live /api/v3/site language catalog; provider labels do not establish author nationality or residence.`
-        : `The ${host} language catalog was unavailable or incomplete; unresolved IDs remain visible and cannot match a provider language label. Korean, Japanese, or Hindi script-only fallback may still qualify; other unknown languages are excluded.`));
+        : `The ${host} language catalog was unavailable or incomplete; unresolved IDs remain visible and cannot match a provider language label. Korean, Japanese, or Hindi script-only fallback may still qualify; other unknown languages are excluded.`].join(" ")).then((result) => ({ ...result, ...(rawCount !== undefined ? { providerReturnedCount: rawCount, adapterExcludedCount } : {}) })));
     }
   }
   for (const { hashtag, instance } of mastodonQueries) {

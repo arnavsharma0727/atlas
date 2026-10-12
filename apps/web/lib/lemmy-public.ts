@@ -24,6 +24,8 @@ export type LemmyPost = {
   authorUrl: string | null;
   community: string;
   languageId: number | null;
+  /** The API's outgoing attachment field, independent of URLs appearing in the body. */
+  linkedContent: boolean;
   /** Short, visitor-only excerpt; omitted when a citation is selected. */
   transientPreview?: string;
 };
@@ -45,6 +47,7 @@ type SearchResult = {
       ap_id?: string;
       name?: string;
       body?: string;
+      url?: string;
       published?: string;
       deleted?: boolean;
       removed?: boolean;
@@ -107,6 +110,17 @@ export async function searchLemmyPosts(
   now = Date.now(),
   listingType: LemmyListingType = "all",
 ): Promise<LemmyPost[]> {
+  return (await searchLemmyPostPage(query, host, fetcher, now, listingType)).posts;
+}
+
+/** Keep raw response and safety-filter counts distinct; a malformed API response is not zero results. */
+export async function searchLemmyPostPage(
+  query: string,
+  host: LemmyInstance,
+  fetcher: typeof fetch = fetch,
+  now = Date.now(),
+  listingType: LemmyListingType = "all",
+): Promise<{ posts: LemmyPost[]; returnedCount: number; excludedCount: number }> {
   const term = query.trim();
   if (term.length < 2 || term.length > 100) {
     throw new Error("Enter a search phrase with 2–100 characters.");
@@ -133,19 +147,23 @@ export async function searchLemmyPosts(
   if (!response.ok) throw new Error("Public forum search is temporarily unavailable on this instance.");
 
   const body = (await response.json()) as SearchResult;
-  if (!Array.isArray(body.posts)) return [];
+  if (!body || !Array.isArray(body.posts)) throw new Error("This instance returned an unrecognized post-search response; no empty-search inference is made.");
+  if (body.posts.length > MAX_RESULTS) throw new Error("This instance exceeded the bounded post-search limit; no oversized response is displayed.");
   const minTime = now - MAX_AGE_MS;
-  return body.posts.flatMap(({ post, creator, community }) => {
+  const posts: LemmyPost[] = body.posts.flatMap((view) => {
+    if (!view || typeof view !== "object") return [];
+    const { post, creator, community } = view;
     const id = post?.id;
-    const title = post?.name?.trim();
+    const title = typeof post?.name === "string" ? post.name.trim() : "";
     const url = safeHttpsUrl(post?.ap_id);
-    const publishedAt = post?.published ? new Date(post.published) : null;
-    const author = creator?.name?.trim();
+    const publishedAt = typeof post?.published === "string" ? new Date(post.published) : null;
+    const author = typeof creator?.name === "string" ? creator.name.trim() : "";
     if (
-      !id || !title || !url || !publishedAt || !Number.isFinite(publishedAt.getTime()) ||
+      !post || !Number.isSafeInteger(id) || id! <= 0 || !title || !url || !publishedAt || !Number.isFinite(publishedAt.getTime()) ||
       publishedAt.getTime() < minTime || publishedAt.getTime() > now ||
       post?.deleted || post?.removed || post?.nsfw || creator?.deleted || creator?.banned || creator?.bot_account ||
-      community?.deleted || community?.removed || !author || !community?.name
+      community?.deleted || community?.removed || !author || typeof community?.name !== "string" || !community.name.trim() ||
+      (post.url != null && typeof post.url !== "string")
     ) return [];
     return [{
       id: String(id),
@@ -156,11 +174,15 @@ export async function searchLemmyPosts(
       authorUrl: safeHttpsUrl(creator?.actor_id),
       community: community.name,
       languageId: Number.isInteger(post.language_id) ? post.language_id! : null,
+      // Retain only the flag, not the attachment URL. It may point to reporting,
+      // an image, or another outside resource even when the text contains no link.
+      linkedContent: typeof post.url === "string" && post.url.trim().length > 0,
       ...(typeof post.body === "string" && post.body.trim()
         ? { transientPreview: post.body.trim().slice(0, 1200) }
         : {}),
     }];
   });
+  return { posts, returnedCount: body.posts.length, excludedCount: body.posts.length - posts.length };
 }
 
 /** Keep each instance's incomplete federated index visible as its own view. */

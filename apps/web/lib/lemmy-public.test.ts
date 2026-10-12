@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { compareLemmyInstances, getLemmyLanguageCatalog, LemmyInstance, searchLemmyPosts } from "./lemmy-public";
+import { compareLemmyInstances, getLemmyLanguageCatalog, LemmyInstance, searchLemmyPosts, searchLemmyPostPage } from "./lemmy-public";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -57,6 +57,7 @@ describe("Lemmy public discussion search", () => {
       authorUrl: "https://lemmy.world/u/reader",
       community: "economy",
       languageId: 37,
+      linkedContent: false,
       transientPreview: "Private-to-the-app body that should not be retained",
     }]);
     expect(posts[0].transientPreview).toContain("Private-to-the-app body");
@@ -72,6 +73,44 @@ describe("Lemmy public discussion search", () => {
     const posts = await searchLemmyPosts("central bank", "lemmy.world", fetchMock, now, "local");
     expect(posts).toHaveLength(1);
     expect(new URL(fetchMock.mock.calls[0][0] as URL).searchParams.get("listing_type")).toBe("Local");
+  });
+
+  it("detects an API attachment independently of the post text without retaining its URL", async () => {
+    const post = item();
+    const fetcher = vi.fn(async () => Response.json({ posts: [{ ...post, post: { ...post.post, url: "https://publisher.example/report" } }] }));
+    const page = await searchLemmyPostPage("central bank", "lemmy.world", fetcher, now);
+    expect(page.posts[0].linkedContent).toBe(true);
+    expect(JSON.stringify(page)).not.toContain("publisher.example");
+  });
+
+  it("preserves raw counts separately from stale and removed items", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [item(), item({ id: 43, removed: true }), item({ id: 44, published: "2026-09-20T00:00:00Z" })] }));
+    const page = await searchLemmyPostPage("central bank", "lemmy.world", fetcher, now);
+    expect(page).toMatchObject({ returnedCount: 3, excludedCount: 2 });
+    expect(page.posts).toHaveLength(1);
+  });
+
+  it("excludes malformed records without silently treating malformed attachments as original text", async () => {
+    const normal = item();
+    const fetcher = vi.fn(async () => Response.json({ posts: [
+      normal, null,
+      { ...normal, post: { ...normal.post, url: { unsafe: "unknown attachment" } } },
+      { ...normal, post: { ...normal.post, id: -1 } },
+      { ...normal, post: { ...normal.post, published: now } },
+    ] }));
+    const page = await searchLemmyPostPage("central bank", "lemmy.world", fetcher, now);
+    expect(page).toMatchObject({ returnedCount: 5, excludedCount: 4 });
+    expect(page.posts).toHaveLength(1);
+  });
+
+  it.each([{}, null, { posts: null }, { posts: {} }])("does not interpret a malformed API response as no discussion: %j", async (body) => {
+    const fetcher = vi.fn(async () => Response.json(body));
+    await expect(searchLemmyPosts("central bank", "lemmy.world", fetcher, now)).rejects.toThrow("unrecognized post-search");
+  });
+
+  it("refuses responses larger than the requested bound", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: Array.from({ length: 21 }, (_, index) => item({ id: index + 1 })) }));
+    await expect(searchLemmyPosts("central bank", "lemmy.world", fetcher, now)).rejects.toThrow("exceeded the bounded");
   });
 
   it("filters removed, deleted, future, stale, and non-HTTPS records", async () => {

@@ -22,6 +22,23 @@ describe("summary evidence links", () => {
 
     expect(html).toContain("0 topic matches · 9 returned");
     expect(html).toContain("2 unique excerpts pass overview filters before platform/account balancing and the eight-item cap.");
+    expect(html).not.toContain("record also appeared");
+    expect(html).toContain("none are displayable in this view");
+  });
+
+  it("distinguishes source-safety exclusions from duplicates and genuine empty searches", () => {
+    const html = renderToStaticMarkup(createElement(SourceResults, {
+      result: {
+        key: "lemmy:lemmy.world", label: "Lemmy", query: "solar", asOf: "2026-10-10T00:00:00.000Z",
+        window: "Seven days", evidence: [], error: null, status: "complete", providerReturnedCount: 3, adapterExcludedCount: 3,
+      },
+      evidence: [], returnedCount: 3, duplicateCount: 0, summaryCandidateCount: 0,
+      citationIds: new Map(), summaryCitationIds: new Set<string>(),
+    }));
+    expect(html).toContain("3 source-safety exclusions");
+    expect(html).toContain("failed freshness, moderation, bot, or record-safety checks");
+    expect(html).not.toContain("also appeared");
+    expect(html).not.toContain("no matching records returned");
   });
 
   it("labels official market statistics as context excluded from community overviews", () => {
@@ -67,6 +84,7 @@ describe("summary evidence links", () => {
 
     expect(html).toContain("<time dateTime=\"2026-08\">2026-08</time>");
     expect(html).not.toContain("2026-08-01T00:00:00.000Z");
+    expect(html).toContain("Official statistical context · excluded from community overviews");
   });
 
   it("recognizes bare external domains in social text as link-sharing provenance", () => {

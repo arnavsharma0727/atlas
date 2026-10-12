@@ -368,7 +368,7 @@ export function SummaryPassageText({ passage }: { passage: MarketSummary["usSumm
 export function SourceResults({ result, evidence, returnedCount, duplicateCount, summaryCandidateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; summaryCandidateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
   const [showAll, setShowAll] = useState(false);
   const items = visibleSummaryEvidence(evidence, showAll, result.key, citationIds, summaryCitationIds);
-  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
+  const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.adapterExcludedCount ? ` · ${result.adapterExcludedCount} source-safety exclusions` : ""}${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""}${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
   const statusLabel = result.status === "unavailable" ? "Unavailable" : result.status === "not-searched" ? "Not searched" : result.status === "partial" ? `Partial coverage · ${countsLabel}` : countsLabel;
   return (
     <section className="source-results" aria-label={result.label}>
@@ -378,7 +378,7 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
       </header>
       <p className="source-window">{result.window}</p>
       <p className="source-query-meta">Query: <q>{result.query}</q> · Started {new Date(result.asOf).toLocaleString()} local time · Retrieved {new Date(result.retrievedAt ?? result.asOf).toLocaleString()} local time</p>
-      <p className="source-overview-count">{result.key === "world-bank-macro" || result.key === "eia-energy-prices" ? "Official statistical context · excluded from community overviews" : `${summaryCandidateCount} unique excerpt${summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.`}</p>
+      <p className="source-overview-count">{["world-bank-macro", "eia-energy-prices", "bis-effective-exchange"].includes(result.key) ? "Official statistical context · excluded from community overviews" : `${summaryCandidateCount} unique excerpt${summaryCandidateCount === 1 ? "" : "s"} pass overview filters before platform/account balancing and the eight-item cap.`}</p>
       {result.coverageNote && <p className="source-coverage-warning" role="status">{result.coverageNote}</p>}
       {result.sourceNote && <p className="source-coverage-warning" role="status">{result.sourceNote}</p>}
       {result.error ? (
@@ -403,8 +403,12 @@ export function SourceResults({ result, evidence, returnedCount, duplicateCount,
         </>
       ) : result.topicExcludedCount ? (
         <p className="source-empty">No displayed records matched the searched topic terms. {result.topicExcludedCount} were screened from this register; related items using different wording may have been missed.</p>
+      ) : result.adapterExcludedCount && result.adapterExcludedCount === returnedCount ? (
+        <p className="source-empty">All {returnedCount} API records failed freshness, moderation, bot, or record-safety checks before topic filtering. This is a filtered response, not evidence that discussion is absent.</p>
+      ) : returnedCount > 0 && duplicateCount > 0 ? (
+        <p className="source-empty">{duplicateCount} {duplicateCount === 1 ? "record also appeared" : "records also appeared"} in another selected view. Repeated appearances are one original record, not independent corroboration.</p>
       ) : returnedCount > 0 ? (
-        <p className="source-empty">All {returnedCount} returned {returnedCount === 1 ? "record also appeared" : "records also appeared"} in another selected view. Repeated appearances are one original record, not independent corroboration.</p>
+        <p className="source-empty">The source returned records, but none are displayable in this view. Review the source status and exclusion notes; this does not establish absence of discussion.</p>
       ) : (
         <div className="source-empty"><span className="source-empty-mark" aria-hidden="true">↗</span><div><strong>Search completed · no matching records returned</strong><p>Try another phrase or query lens. An empty result does not mean the topic is absent from this source.</p></div></div>
       )}

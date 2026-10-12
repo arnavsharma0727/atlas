@@ -35,6 +35,11 @@ try {
   } else {
     fail("Mastodon automated-account boundary", "the source register does not disclose bot-text handling");
   }
+  if (response.ok && page.includes("Outgoing attachments in the API") && page.includes("freshness/moderation/bot/safety exclusions") && page.includes("Malformed or oversized API responses are marked unavailable")) {
+    pass("Lemmy attachment and exclusion provenance", "the source register distinguishes outgoing attachments, safety exclusions, topic exclusions, duplicates, and malformed responses");
+  } else {
+    fail("Lemmy attachment and exclusion provenance", "the source register is missing attachment or filtered-response boundaries");
+  }
 } catch (error) {
   fail("Mastodon automated-account boundary", error instanceof Error ? error.message : "request failed");
 }

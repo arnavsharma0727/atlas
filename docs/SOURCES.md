@@ -38,6 +38,14 @@ No separate public machine-translation endpoint is used. Groq can prepare a loca
 
 ## Operational ingestion is separate
 
+### Lemmy post provenance and count scope
+
+Lemmy's `post.url` is an outgoing attachment, whereas `post.ap_id` identifies the original forum record. Atlas preserves the original-record citation and retains only a boolean attachment flag, not the attachment destination. An attachment-bearing post is excluded from the AI discussion sample even if its title/body contains no visible URL. This conservative rule may omit legitimate original commentary accompanied by a link; it prevents a linked headline from masquerading as an independent opinion. It does not prove that attachment-free text is original or independently authored.
+
+For Lemmy, counts now distinguish the actual bounded API response, accepted recent/safe records, source-safety exclusions, later topic exclusions, and collapsed duplicate views. A malformed payload or response exceeding the requested 20-record limit is unavailable, never a successful empty search. Other adapters' returned counts may be after their own safety/freshness filters; do not treat these heterogeneous counts as comparable platform attention.
+
+The post search does not retrieve comment threads. The official [API documentation](https://join-lemmy.org/docs/contributors/04-api.html) establishes technical client access, not a blanket content-reuse license. [Lemmy.World's terms](https://legal.lemmy.world/tos/) permit good-faith use of provided interfaces and prohibit disruption; they do not supply an explicit general license to republish or commercially reuse authors' comments. Broader comment reuse requires a compatible permission basis and privacy review before integration. No comment scraping or access-control workaround is added.
+
 Scheduled or optional ingestion may include Stack Exchange, Global Voices, The Conversation, European Commission Presscorner, Typst Forum, Fedora Discussion, Wikimedia talk-page metadata, or explicitly configured RSS/MOIS feeds. These operational records are not automatically part of the public search response or the country comparison. Ingested metadata has separate retention and rights controls.
 
 ## Not active in visitor search

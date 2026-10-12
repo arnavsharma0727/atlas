@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { runResearchSweep } from "./research-sweep";
-import { hasMarketSignalTerms, selectBalancedEvidence } from "./market-summary";
+import { filterResultsToTopic, hasMarketSignalTerms, isIndependentDiscussionEvidence, selectBalancedEvidence } from "./market-summary";
 import { citationKey } from "./perspective-snapshot";
 
 const NOW = Date.parse("2026-09-30T12:00:00Z");
@@ -118,6 +118,47 @@ describe("runResearchSweep", () => {
     const [result] = await runResearchSweep("market supply", { lemmy: true, lemmyInstances: ["jlai.lu"] }, fetcher, NOW);
     expect(result.evidence[0].language).toContain("unmapped by jlai.lu");
     expect(result.sourceNote).toContain("1 post language ID was not found");
+  });
+
+  it("keeps Lemmy attachment headlines citable but excludes them from independent discussion summaries", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => new URL(String(input)).pathname.endsWith("/site")
+      ? Response.json({ all_languages: [{ id: 37, code: "en", name: "English" }] })
+      : Response.json({ posts: [{
+        post: { id: 33, ap_id: "https://lemmy.world/post/33", name: "Chip demand rises as inventory tightens", url: "https://publisher.example/chip-demand", published: new Date(NOW - 60_000).toISOString(), language_id: 37 },
+        creator: { name: "member", actor_id: "https://lemmy.world/u/member" }, community: { name: "economy" },
+      }] }));
+    const [result] = await runResearchSweep("chip demand", { lemmy: true }, fetcher, NOW);
+    const item = result.evidence[0];
+    expect(item.linkSharing).toBe(true);
+    expect(item.context).toContain("includes an external link");
+    expect(result.sourceNote).toContain("Outgoing API attachments count as link-sharing");
+    expect(selectBalancedEvidence([result], new Map([[citationKey(result.key, item.id), "C1"]]), 8, new Set(), undefined, isIndependentDiscussionEvidence)).toEqual([]);
+    expect(item.url).toBe("https://lemmy.world/post/33");
+  });
+
+  it("retains Lemmy's raw provider count across moderation and subsequent topic filtering", async () => {
+    const make = (id: number, title: string, removed = false) => ({
+      post: { id, ap_id: `https://lemmy.world/post/${id}`, name: title, removed, published: new Date(NOW - 60_000).toISOString(), language_id: 37 },
+      creator: { name: "member" }, community: { name: "economy" },
+    });
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => new URL(String(input)).pathname.endsWith("/site")
+      ? Response.json({ all_languages: [{ id: 37, code: "en", name: "English" }] })
+      : Response.json({ posts: [make(1, "Chip demand increased"), make(2, "Unrelated gardening discussion"), make(3, "Chip demand increased", true)] }));
+    const results = await runResearchSweep("chip demand", { lemmy: true }, fetcher, NOW);
+    expect(results[0].providerReturnedCount).toBe(3);
+    expect(results[0].sourceNote).toContain("1 excluded by freshness, moderation");
+    const [screened] = filterResultsToTopic(results, "chip demand", "chip demand");
+    expect(screened.providerReturnedCount).toBe(3);
+    expect(screened.topicExcludedCount).toBe(1);
+    expect(screened.evidence).toHaveLength(1);
+  });
+
+  it("marks a malformed Lemmy payload unavailable instead of claiming an empty successful search", async () => {
+    const fetcher = vi.fn(async () => Response.json({ error: "schema changed" }));
+    const [result] = await runResearchSweep("chip demand", { lemmy: true }, fetcher, NOW);
+    expect(result.status).toBe("unavailable");
+    expect(result.error).toContain("unrecognized post-search response");
+    expect(result.providerReturnedCount).toBeUndefined();
   });
 
   it("keeps MANA crowd forecasts separate from discussion summaries", async () => {
