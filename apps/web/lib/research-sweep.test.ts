@@ -495,6 +495,20 @@ describe("runResearchSweep", () => {
     expect(result.sourceNote).toContain("one displayed handle appears in 3 of 3");
   });
 
+  it("excludes Bluesky external cards from independent overviews even when their visible text has no URL", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      uri: "at://did:plc:abc/app.bsky.feed.post/card", author: { handle: "reader.example" },
+      record: { text: "Semiconductor demand is rising.", createdAt: new Date(NOW - 1000).toISOString(), langs: ["en"] },
+      embed: { $type: "app.bsky.embed.external#view", external: { uri: "https://publisher.example/report" } },
+    }] }));
+    const [result] = await runResearchSweep("semiconductor", { bluesky: true, lemmy: false }, fetcher, NOW);
+    const item = result.evidence[0];
+    expect(item.linkSharing).toBe(true);
+    expect(item.context).toContain("includes an external link");
+    expect(JSON.stringify(item)).not.toContain("publisher.example");
+    expect(selectBalancedEvidence([result], new Map([[citationKey(result.key, item.id), "C1"]]), 8, new Set(), undefined, isIndependentDiscussionEvidence)).toEqual([]);
+  });
+
   it("rejects duplicate and excessive alternate phrases before any provider call", async () => {
     const fetcher = vi.fn();
     await expect(runResearchSweep("topic", {

@@ -40,6 +40,11 @@ try {
   } else {
     fail("Lemmy attachment and exclusion provenance", "the source register is missing attachment or filtered-response boundaries");
   }
+  if (response.ok && page.includes("rich-text link facets count as link-sharing") && page.includes("Exact-text duplicates inherit a linked copy")) {
+    pass("Bluesky embedded-link provenance", "external cards, rich-text facets, and linked-copy deduplication boundaries are disclosed");
+  } else {
+    fail("Bluesky embedded-link provenance", "the source register is missing hidden-link or linked-copy boundaries");
+  }
 } catch (error) {
   fail("Mastodon automated-account boundary", error instanceof Error ? error.message : "request failed");
 }

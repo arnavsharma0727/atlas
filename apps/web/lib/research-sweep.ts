@@ -861,13 +861,13 @@ export async function runResearchSweep(
         sourceOperatorKey: "bluesky",
         sourceOperatorLabel: "Bluesky",
         transientPreview: post.transientPreview,
-        linkSharing: includesExternalLink(post.transientPreview),
+        linkSharing: post.linkedContent || includesExternalLink(post.transientPreview),
         context: [
           post.duplicateCount > 1
             ? `Identical normalized text appeared in ${post.duplicateCount} indexed posts and is shown once. Repeated copies are not independent corroboration; author independence is unverified.`
             : null,
           post.contentWarning,
-          includesExternalLink(post.transientPreview) ? LINKED_POST_CAVEAT : undefined,
+          post.linkedContent || includesExternalLink(post.transientPreview) ? LINKED_POST_CAVEAT : undefined,
         ].filter(Boolean).join(" ") || "Visitor-entered language variants are kept as separate searches and are not translated or pooled; indexed subset, not a complete or representative feed",
         attribution: `Author: @${post.authorHandle}`,
       }));

@@ -183,9 +183,11 @@ export async function searchPublicHashtag(
   if (!response.ok) throw new Error("The public timeline is temporarily unavailable.");
 
   const posts = (await response.json()) as ApiPost[];
-  if (!Array.isArray(posts)) return [];
+  if (!Array.isArray(posts)) throw new Error("This instance returned an unrecognized timeline response; no empty-search inference is made.");
+  if (posts.length > 20) throw new Error("This instance exceeded the bounded timeline limit; no oversized response is displayed.");
 
   return posts.flatMap((post) => {
+    if (!post || typeof post !== "object") return [];
     const postUrl = safeHttpsUrl(post.url);
     const authorUrl = safeHttpsUrl(post.account?.url);
     const createdAt = post.created_at ? new Date(post.created_at) : null;

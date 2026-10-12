@@ -23,6 +23,7 @@ describe("searchBlueskyPosts", () => {
       language: "en",
       transientPreview: "private transient body",
       duplicateCount: 1,
+      linkedContent: false,
     }]);
     expect(JSON.stringify(results)).toContain("private transient body");
   });
@@ -59,5 +60,45 @@ describe("searchBlueskyPosts", () => {
     const results = await searchBlueskyPosts("markets", fetcher, NOW);
     expect(results).toHaveLength(2);
     expect(results[0]).toMatchObject({ authorHandle: "one.example", duplicateCount: 2 });
+  });
+
+  it.each([
+    { embed: { $type: "app.bsky.embed.external#view", external: { uri: "https://publisher.example/report" } } },
+    { recordEmbed: { $type: "app.bsky.embed.external", external: { uri: "https://publisher.example/report" } } },
+    { embed: { $type: "app.bsky.embed.recordWithMedia#view", media: { $type: "app.bsky.embed.external#view", external: { uri: "https://publisher.example/report" } } } },
+    { facets: [{ features: [{ $type: "app.bsky.richtext.facet#link", uri: "https://publisher.example/report" }] }] },
+  ])("detects external cards and rich-text link facets without retaining their destinations: %j", async (metadata) => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      uri: "at://did:plc:abc/app.bsky.feed.post/card",
+      author: { handle: "reader.example" }, embed: metadata.embed,
+      record: { text: "Semiconductor demand is rising. Read more.", createdAt: new Date(NOW - 1000).toISOString(), embed: metadata.recordEmbed, facets: metadata.facets },
+    }] }));
+    const [post] = await searchBlueskyPosts("semiconductor", fetcher, NOW);
+    expect(post.linkedContent).toBe(true);
+    expect(JSON.stringify(post)).not.toContain("publisher.example");
+  });
+
+  it("does not mistake native images or mention/tag facets for external links", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      uri: "at://did:plc:abc/app.bsky.feed.post/image", author: { handle: "reader.example" },
+      embed: { $type: "app.bsky.embed.images#view", images: [] },
+      record: { text: "Semiconductor demand is rising.", createdAt: new Date(NOW - 1000).toISOString(), facets: [{ features: [{ $type: "app.bsky.richtext.facet#tag", tag: "semiconductor" }] }] },
+    }] }));
+    expect((await searchBlueskyPosts("semiconductor", fetcher, NOW))[0].linkedContent).toBe(false);
+  });
+
+  it("propagates link provenance across exact-text duplicates", async () => {
+    const make = (id: string, embed?: object) => ({ uri: `at://did:plc:abc/app.bsky.feed.post/${id}`, author: { handle: "reader.example" }, embed, record: { text: "Semiconductor demand is rising.", createdAt: new Date(NOW - 1000).toISOString() } });
+    const fetcher = vi.fn(async () => Response.json({ posts: [make("plain"), make("linked", { $type: "app.bsky.embed.external#view" })] }));
+    const [post] = await searchBlueskyPosts("semiconductor", fetcher, NOW);
+    expect(post).toMatchObject({ duplicateCount: 2, linkedContent: true });
+  });
+
+  it.each([null, {}, { posts: null }, { posts: {} }])("does not count a malformed response as an empty successful search: %j", async (body) => {
+    await expect(searchBlueskyPosts("semiconductor", vi.fn(async () => Response.json(body)), NOW)).rejects.toThrow("unrecognized search response");
+  });
+
+  it("refuses responses larger than the requested limit", async () => {
+    await expect(searchBlueskyPosts("semiconductor", vi.fn(async () => Response.json({ posts: Array(26).fill({}) })), NOW)).rejects.toThrow("exceeded the bounded search");
   });
 });

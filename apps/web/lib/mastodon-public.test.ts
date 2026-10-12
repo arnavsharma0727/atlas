@@ -24,6 +24,19 @@ const post = {
 };
 
 describe("searchPublicHashtag", () => {
+  it.each([null, {}, { error: "schema changed" }])("does not treat malformed timeline payloads as a successful empty search: %j", async (body) => {
+    await expect(searchPublicHashtag("semiconductor", vi.fn(async () => Response.json(body)))).rejects.toThrow("unrecognized timeline response");
+  });
+
+  it("refuses an oversized timeline even if the provider ignores the requested limit", async () => {
+    await expect(searchPublicHashtag("semiconductor", vi.fn(async () => Response.json(Array(21).fill(post))))).rejects.toThrow("exceeded the bounded timeline");
+  });
+
+  it("skips null records without losing valid timeline records", async () => {
+    const rows = await searchPublicHashtag("semiconductor", vi.fn(async () => Response.json([null, post])), Date.parse("2026-10-01T00:00:00Z"));
+    expect(rows).toHaveLength(1);
+  });
+
   it("queries one encoded hashtag and keeps only public, non-boost posts with provenance", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([
       post,
