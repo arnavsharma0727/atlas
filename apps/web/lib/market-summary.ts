@@ -286,6 +286,13 @@ export function redactSummaryExcerpt(value: string): string {
     .trim(), 300);
 }
 
+/** Dataset pages contain multiple observations; a shared URL is not a shared row. */
+function sourceRecordIdentity(item: ResearchSweepSourceResult["evidence"][number]): string {
+  return item.evidenceClass === "official statistical data" && item.id.trim()
+    ? `observation\u0000${item.sourceOperatorKey ?? item.source}\u0000${item.id}`
+    : `url\u0000${normalizeSourceUrl(item.url)}`;
+}
+
 /** Preserve provider return counts while flagging records repeated across query/server views. */
 export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]): ResearchSweepSourceResult[] {
   const recordViews = new Map<string, Set<string>>();
@@ -298,7 +305,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
   for (const result of results) {
     for (const item of result.evidence) {
       const operator = item.sourceOperatorKey ?? item.source;
-      const recordKey = `url\u0000${normalizeSourceUrl(item.url)}`;
+      const recordKey = sourceRecordIdentity(item);
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textKey = text ? `${operator}\u0000text\u0000${text}` : "";
       if (text) {
@@ -339,7 +346,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
     let repeated = 0;
     const evidence = result.evidence.map((item) => {
       const operator = item.sourceOperatorKey ?? item.source;
-      const recordViewsForItem = recordViews.get(`url\u0000${normalizeSourceUrl(item.url)}`);
+      const recordViewsForItem = recordViews.get(sourceRecordIdentity(item));
       const text = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
       const textViewsForItem = textViews.get(`${operator}\u0000text\u0000${text}`);
       const crossOperatorViews = text.length >= 80 ? crossOperatorTextViews.get(text) : undefined;
@@ -350,7 +357,7 @@ export function flagRepeatedEvidenceViews(results: ResearchSweepSourceResult[]):
       if (otherViews < 1 && !nearDuplicate && !crossOperatorDuplicate && !crossOperatorNearDuplicate) return item;
       repeated += 1;
       const reason = recordViewsForItem && recordViewsForItem.size > 1
-        ? `Same source URL appears in ${recordViewsForItem.size} query/server views; repeated appearances are not independent evidence.`
+        ? `Same source ${item.evidenceClass === "official statistical data" ? "observation" : "URL"} appears in ${recordViewsForItem.size} query/server views; repeated appearances are not independent evidence.`
         : crossOperatorDuplicate
           ? "Exact long-form text appears across multiple source operators; it may be cross-posted and is not independent corroboration."
           : crossOperatorNearDuplicate
@@ -387,10 +394,9 @@ export function collapseRepeatedEvidenceViews(results: ResearchSweepSourceResult
   results.forEach((result, resultIndex) => {
     result.evidence.forEach((item, itemIndex) => {
       const operator = item.sourceOperatorKey ?? item.source;
-      const url = normalizeSourceUrl(item.url);
       const normalizedText = (item.transientPreview ?? "").normalize("NFKC").replace(/\s+/gu, " ").trim().toLocaleLowerCase();
-      const keys = item.url.trim() ? [`${operator}\u0000url\u0000${url}`] : [];
-      if (normalizedText.length >= 80) keys.push(`${operator}\u0000text\u0000${normalizedText}`);
+      const keys = item.url.trim() ? [`${operator}\u0000${sourceRecordIdentity(item)}`] : [];
+      if (item.evidenceClass !== "official statistical data" && normalizedText.length >= 80) keys.push(`${operator}\u0000text\u0000${normalizedText}`);
       const prior = keys.map((key) => canonical.get(key)).find(Boolean);
       if (!prior) {
         const entry = { resultIndex, itemIndex };

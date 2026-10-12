@@ -106,6 +106,23 @@ describe("market summary evidence contracts", () => {
     expect(views[1].result.evidence).toHaveLength(1);
   });
 
+  it("keeps distinct statistical observations sharing a dataset page, but collapses the same row across views", () => {
+    const point = (currency: string) => ({
+      id: `ecb-reference:${currency}:2026-10-12`, title: `ECB ${currency} reference rate`,
+      url: "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html",
+      source: "ECB", evidenceClass: "official statistical data" as const, language: "Not applicable",
+      timeLabel: "Reference observation date", timeValue: "2026-10-12",
+      sourceOperatorKey: "ecb-statistics", summaryEligible: false,
+    });
+    const raw = [result("ecb", "ECB", [point("USD"), point("KRW")]), result("ecb:alternate", "ECB alternate", [point("USD")])];
+    const flagged = flagRepeatedEvidenceViews(raw);
+    expect(flagged[0].evidence[1].context).toBeUndefined();
+    const views = collapseRepeatedEvidenceViews(flagged);
+    expect(views.map((view) => [view.evidence.length, view.duplicateCount])).toEqual([[2, 0], [0, 1]]);
+    expect(views[0].evidence.map((item) => item.id)).toEqual(["ecb-reference:USD:2026-10-12", "ecb-reference:KRW:2026-10-12"]);
+    expect(selectBalancedEvidence(flagged, new Map())).toEqual([]);
+  });
+
   it("collapses a six-server Lemmy federation copy to one displayed source record", () => {
     const url = "https://lemmy.world/post/semiconductor-1";
     const hosts = ["lemmy.world", "discuss.tchncs.de", "feddit.org", "jlai.lu", "sopuli.xyz", "sh.itjust.works"];
