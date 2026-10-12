@@ -153,11 +153,14 @@ export default async function Sources() {
       enabled: false,
       onDemand: false,
       detail:
-        "Retired from live Atlas search because public API access alone did not resolve the content-display and reuse review. It is not queried, included in summaries, or a claim of current coverage. Historical operational data is separate and not surfaced in visitor search.",
+        "Retired from live Atlas search. The keyless Algolia-powered search endpoint is technically accessible, but public API access alone does not grant Atlas rights to reproduce or distribute comment text. Y Combinator's current terms restrict copying, distribution, and automated data extraction from its site absent express authorization. Atlas therefore does not query Hacker News, show its comments, include it in summaries, or claim current coverage. Reconsider only after the operator obtains clear compatible authorization or a content license.",
       referenceUrl: "https://hn.algolia.com/api",
       referenceLabel: "Hacker News Search API documentation",
       secondaryReferenceUrl: "https://github.com/HackerNews/API",
       secondaryReferenceLabel: "Official Hacker News API documentation",
+      additionalReferences: [
+        { url: "https://www.ycombinator.com/legal", label: "Y Combinator terms of use" },
+      ],
     },
     {
       name: "Stack Exchange · international Q&A",
