@@ -390,6 +390,7 @@ describe("free-tier market assist", () => {
       expect(prompt).toContain("give those positions separate claims with their own source IDs and exact quotes");
       expect(prompt).toContain("never pad the overview");
       expect(prompt).toContain("one exact verbatim supporting quote for every cited ID");
+      expect(prompt).toContain("Copy 12–120 consecutive characters exactly from the corresponding excerpt");
       expect(prompt).toContain("Include a number only when the exact figure appears in the cited excerpt");
       expect(prompt).toContain("semiconductors");
       expect(prompt).toContain('"reportedPostedAt":"2026-10-10T00:00:00.000Z"');
