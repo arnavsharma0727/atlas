@@ -66,6 +66,22 @@ const UNICODE_MARKET_SIGNAL_TERMS: Record<string, RegExp> = Object.fromEntries(
   ]),
 );
 
+function macroWords(terms: string): RegExp {
+  return new RegExp(`(?<![\\p{L}\\p{M}\\p{N}_])(?:${terms})(?![\\p{L}\\p{M}\\p{N}_])`, "iu");
+}
+
+/** Core macro concepts can carry market meaning without saying price or stock. */
+const MACRO_SIGNAL_TERMS: Record<string, RegExp> = {
+  en: macroWords("inflation|deflation|unemployment|recession|gdp|gross domestic product|monetary policy|central bank|mortgage rates?|borrowing costs?"),
+  fr: macroWords("inflation|déflation|chômage|récession|pib|produit intérieur brut|politique monétaire|banque centrale"),
+  de: macroWords("inflation|inflationsrate|deflation|arbeitslosigkeit|arbeitslosenquote|rezession|bip|bruttoinlandsprodukt|geldpolitik|zentralbank"),
+  es: macroWords("inflación|deflación|desempleo|recesión|pib|producto interior bruto|producto interno bruto|política monetaria|banco central"),
+  pt: macroWords("inflação|deflação|desemprego|recessão|pib|produto interno bruto|política monetária|banco central"),
+  ko: /(?:인플레이션|디플레이션|물가|실업|경기침체|경기 침체|국내총생산|통화정책|통화 정책|중앙은행)/u,
+  ja: /(?:インフレ|デフレ|失業|景気後退|国内総生産|金融政策|中央銀行)/u,
+  hi: /(?:मुद्रास्फीति|महंगाई|बेरोजगारी|मंदी|सकल घरेलू उत्पाद|मौद्रिक नीति|केंद्रीय बैंक)/u,
+};
+
 const QUERY_INTENT_TERMS = new Set([
   "a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with",
   "market", "markets", "marketplace", "price", "prices", "pricing", "demand", "supply",
@@ -228,7 +244,9 @@ export function hasMarketSignalTerms(item: Pick<ModelEvidence, "excerpt" | "lang
   const language = LANGUAGE_NAMES[normalizedLanguage] ?? normalizedLanguage;
   const matcher = UNICODE_MARKET_SIGNAL_TERMS[language];
   const excerpt = item.excerpt.normalize("NFKC");
-  return matcher ? matcher.test(excerpt) : Object.values(UNICODE_MARKET_SIGNAL_TERMS).some((candidate) => candidate.test(excerpt));
+  return matcher
+    ? matcher.test(excerpt) || MACRO_SIGNAL_TERMS[language].test(excerpt)
+    : [...Object.values(UNICODE_MARKET_SIGNAL_TERMS), ...Object.values(MACRO_SIGNAL_TERMS)].some((candidate) => candidate.test(excerpt));
 }
 
 /** Remove direct links, emails, and @handles before a short discussion excerpt is sent to the model. */

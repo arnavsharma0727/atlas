@@ -213,6 +213,29 @@ describe("market summary evidence contracts", () => {
   });
 
   it.each([
+    ["en", "Inflation is slowing.", "Unemployment remains elevated."],
+    ["fr", "Le chômage augmente.", "La récession persiste."],
+    ["de", "Die Rezession hält an.", "Die Arbeitslosenquote steigt."],
+    ["es", "La inflación está bajando.", "El desempleo sigue elevado."],
+    ["pt", "A inflação está caindo.", "O desemprego continua alto."],
+    ["ko", "인플레이션이 둔화되고 있다.", "실업이 늘고 있다."],
+    ["ja", "インフレが鈍化している。", "失業が増えている。"],
+    ["hi", "महंगाई कम हो रही है।", "बेरोजगारी बढ़ रही है।"],
+  ])("recognizes core macroeconomic concepts in %s without requiring stock vocabulary", (language, first, second) => {
+    expect(hasMarketSignalTerms({ excerpt: first, language })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: second, language })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: first.normalize("NFD"), language })).toBe(true);
+  });
+
+  it("does not turn the macro vocabulary addition into a stem or general lifestyle matcher", () => {
+    for (const excerpt of ["I am inflating birthday balloons.", "A recessional song played.", "éinflationé", "_gdp_", "Coffee before work."]) {
+      expect(hasMarketSignalTerms({ excerpt, language: "en" }), excerpt).toBe(false);
+    }
+    expect(hasMarketSignalTerms({ excerpt: "Inflation is slowing.", language: "not provided" })).toBe(true);
+    expect(hasMarketSignalTerms({ excerpt: "Inflation is slowing.", language: "ja" })).toBe(false);
+  });
+
+  it.each([
     ["en", "price"], ["fr", "marché"], ["de", "preis"], ["es", "inversión"], ["pt", "preço"],
   ])("uses Unicode token boundaries without expanding the %s vocabulary", (language, term) => {
     expect(hasMarketSignalTerms({ excerpt: `(${term})`, language })).toBe(true);

@@ -26,6 +26,19 @@ function row(key: string, language: string, text: string): ResearchSweepSourceRe
 }
 
 describe("overview selection uses the current search invocation", () => {
+  it.each([
+    ["en", "inflation", "Inflation is slowing."],
+    ["fr", "chômage", "Le chômage augmente."],
+    ["de", "Rezession", "Die Rezession hält an."],
+  ])("retains macroeconomic commentary for the %s overview with its exact topic", (language, localTopic, excerpt) => {
+    const rows = [row(`local:mastodon:${language}`, language, excerpt)];
+    const selected = selectOverviewEvidence(rows, buildCitationIds(rows), {
+      topic: "macroeconomy", localTopic, selectedLanguage: language,
+    });
+    expect(selected.evidence.local.map((item) => item.excerpt)).toEqual([excerpt]);
+    expect(selected.excludedCounts.selected).toBe(0);
+  });
+
   it("does not drop a French market excerpt merely because marché ends in an accented letter", () => {
     const rows = [row("local:mastodon:fr", "fr", "Le marché du cuivre ralentit.")];
     const selected = selectOverviewEvidence(rows, buildCitationIds(rows), {
