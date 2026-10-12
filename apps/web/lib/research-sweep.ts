@@ -3,7 +3,7 @@ import { withFetchTimeout } from "./fetch-with-timeout";
 import type { GlobalVoicesEditionResult } from "./global-voices-search";
 import { DISCUSSION_COMMUNITIES, getStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-topic-search";
 import { getLemmyLanguageCatalog, LEMMY_INSTANCES, LemmyInstance, LemmyListingType, searchLemmyPostPage } from "./lemmy-public";
-import { MASTODON_INSTANCES, mastodonHtmlToTransientText, searchPublicHashtag } from "./mastodon-public";
+import { MASTODON_INSTANCES, mastodonHtmlToTransientText, searchPublicHashtagPage } from "./mastodon-public";
 import type { MastodonInstance } from "./mastodon-public";
 import { WIKIMEDIA_TALK_WIKIS, searchWikimediaTalk } from "./wikimedia-talk";
 import type { TheConversationSearchEdition } from "./the-conversation-search";
@@ -841,8 +841,13 @@ export async function runResearchSweep(
     const resultKey = sameServerQueryCount === 1 ? `mastodon:${instance}` : `mastodon:${instance}:${hashtag.toLocaleLowerCase()}`;
     const localCommunity = mastodonLocalInstances.has(instance);
     const communityLabel = localCommunity ? " · local posts only" : "";
-    tasks.push(capture(resultKey, `Mastodon · ${server.label}${communityLabel} · #${hashtag}`, `#${hashtag}`, asOf, `${localCommunity ? "Locally hosted public hashtag posts only" : "Public hashtag posts"} · last 30 days · up to 20 API items per tag`, async () =>
-      (await searchPublicHashtag(hashtag, boundedFetch, now, server.host, localCommunity)).map((post) => ({
+    let rawCount: number | undefined;
+    let adapterExcludedCount = 0;
+    tasks.push(capture(resultKey, `Mastodon · ${server.label}${communityLabel} · #${hashtag}`, `#${hashtag}`, asOf, `${localCommunity ? "Locally hosted public hashtag posts only" : "Public hashtag posts"} · last 30 days · up to 20 API items per tag`, async () => {
+      const page = await searchPublicHashtagPage(hashtag, boundedFetch, now, server.host, localCommunity);
+      rawCount = page.returnedCount;
+      adapterExcludedCount = page.excludedCount;
+      return page.posts.map((post) => ({
         id: `mastodon:${post.url}`,
         title: `Public post by @${post.authorHandle}`,
         url: post.url,
@@ -869,8 +874,9 @@ export async function runResearchSweep(
         transientPreview: post.contentWarning || post.accountMarkedAutomated
           ? undefined
           : mastodonHtmlToTransientText(post.contentHtml),
-      })),
-      ));
+      }));
+      }, () => `${rawCount ?? 0} API records returned; ${adapterExcludedCount} excluded by freshness, visibility, boost, or record-safety checks before topic filtering. Content-warning and automated-account records can remain citable while their previews are withheld; they are not counted as removed records. Counts describe this bounded response, not the complete timeline.`)
+      .then((result) => ({ ...result, ...(rawCount !== undefined ? { providerReturnedCount: rawCount, adapterExcludedCount } : {}) })));
   }
   for (const [index, termInput] of blueskyQueries.entries()) {
     const term = termInput.trim();

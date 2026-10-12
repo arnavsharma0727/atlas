@@ -7,6 +7,29 @@ import { resetStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-t
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("preserves Mastodon raw returns and safety exclusions before the separate topic screen", async () => {
+    const base = { visibility: "public", created_at: new Date(NOW - 1000).toISOString(), language: "en",
+      account: { acct: "fixture", url: "https://mastodon.social/@fixture" } };
+    const fetcher = vi.fn(async () => Response.json([
+      { ...base, id: "1", url: "https://mastodon.social/@fixture/1", content: "<p>Solar demand is slowing.</p>" },
+      { ...base, id: "2", url: "https://mastodon.social/@fixture/2", content: "<p>Unrelated breakfast.</p>" },
+      { ...base, id: "3", url: "https://mastodon.social/@fixture/3", content: "<p>Solar prices</p>", visibility: "private" },
+      null,
+    ]));
+    const results = await runResearchSweep("solar", { lemmy: false, mastodon: { hashtag: "solar", instance: "mastodon.social" } }, fetcher, NOW);
+    expect(results[0]).toMatchObject({ status: "complete", providerReturnedCount: 4, adapterExcludedCount: 2 });
+    const [filtered] = filterResultsToTopic(results, "solar");
+    expect(filtered).toMatchObject({ providerReturnedCount: 4, adapterExcludedCount: 2, topicExcludedCount: 1 });
+    expect(filtered.evidence).toHaveLength(1);
+    expect(filtered.sourceNote).toContain("2 excluded by freshness");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Mastodon safety-only empty samples distinguishable from an empty timeline", async () => {
+    const [result] = await runResearchSweep("solar", { lemmy: false, mastodon: { hashtag: "solar", instance: "mastodon.social" } }, async () => Response.json([null]), NOW);
+    expect(result).toMatchObject({ status: "complete", evidence: [], providerReturnedCount: 1, adapterExcludedCount: 1 });
+    expect(result.sourceNote).toContain("1 API records returned");
+  });
   it("keeps original and price-context searches auditable with an explicit provider language filter", async () => {
     const fetcher = vi.fn(async (_input: RequestInfo | URL) => Response.json({ posts: [] }));
     const results = await runResearchSweep("GPU", { lemmy: false, bluesky: true, blueskyQueries: ["GPU", "GPU prices"], blueskyLanguage: "en" }, fetcher, NOW);

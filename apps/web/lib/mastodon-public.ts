@@ -45,7 +45,8 @@ function decodeCodePoint(value: number): string {
 export type MastodonServerView = {
   host: MastodonInstance;
   tag: string;
-  returnedCount: number;
+  returnedCount: number | null;
+  excludedCount: number | null;
   error: string | null;
 };
 
@@ -161,6 +162,17 @@ export async function searchPublicHashtag(
   instance: MastodonInstance = "mastodon.social",
   localOnly = false,
 ): Promise<MastodonPublicPost[]> {
+  return (await searchPublicHashtagPage(input, fetcher, now, instance, localOnly)).posts;
+}
+
+/** Preserve raw API returns separately from freshness, visibility and record-safety exclusions. */
+export async function searchPublicHashtagPage(
+  input: string,
+  fetcher: typeof fetch = fetch,
+  now = Date.now(),
+  instance: MastodonInstance = "mastodon.social",
+  localOnly = false,
+): Promise<{ posts: MastodonPublicPost[]; returnedCount: number; excludedCount: number }> {
   const hashtag = input.trim().replace(/^#+/, "");
   if (!isValidTopicHashtag(hashtag)) {
     throw new Error("Enter a hashtag with 1–50 letters, numbers, underscores, or hyphens.");
@@ -191,7 +203,7 @@ export async function searchPublicHashtag(
   if (!Array.isArray(posts)) throw new Error("This instance returned an unrecognized timeline response; no empty-search inference is made.");
   if (posts.length > 20) throw new Error("This instance exceeded the bounded timeline limit; no oversized response is displayed.");
 
-  return posts.flatMap((post) => {
+  const retained = posts.flatMap((post) => {
     if (!post || typeof post !== "object") return [];
     const postUrl = safeHttpsUrl(post.url);
     const authorUrl = safeHttpsUrl(post.account?.url);
@@ -226,6 +238,7 @@ export async function searchPublicHashtag(
       linkedContent: mastodonHasContentLink(post.content, post.tags, new URL(postUrl).hostname, instance),
     }];
   });
+  return { posts: retained, returnedCount: posts.length, excludedCount: posts.length - retained.length };
 }
 
 /** Compare one bounded sample per selected instance; results are never persisted. */
@@ -259,12 +272,14 @@ export async function comparePublicHashtag(
   const results = await Promise.all(uniqueInstances.map(async (host) => {
     const tag = tagByHost.get(host)!;
     try {
-      return { host, tag, posts: await searchPublicHashtag(tag, fetcher, now, host), error: null };
+      return { host, tag, ...await searchPublicHashtagPage(tag, fetcher, now, host), error: null };
     } catch (cause) {
       return {
         host,
         tag,
         posts: [],
+        returnedCount: null,
+        excludedCount: null,
         error: cause instanceof Error ? cause.message : "This server view is temporarily unavailable.",
       };
     }
@@ -285,10 +300,11 @@ export async function comparePublicHashtag(
   }
 
   return {
-    views: results.map(({ host, tag, posts, error }) => ({
+    views: results.map(({ host, tag, returnedCount, excludedCount, error }) => ({
       host,
       tag,
-      returnedCount: posts.length,
+      returnedCount,
+      excludedCount,
       error,
     })) satisfies MastodonServerView[],
     samples: [...samples.values()],

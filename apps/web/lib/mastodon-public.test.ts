@@ -5,6 +5,7 @@ import {
   fetchTrendingHashtags,
   mastodonHtmlToTransientText,
   searchPublicHashtag,
+  searchPublicHashtagPage,
 } from "./mastodon-public";
 
 const post = {
@@ -70,6 +71,26 @@ describe("searchPublicHashtag", () => {
       contentHtml: post.content,
       accountMarkedAutomated: false,
     });
+  });
+
+  it("counts safety exclusions separately, including stale, boost, private and malformed records", async () => {
+    const items = [post, { ...post, id: "bot", account: { ...post.account, bot: true } },
+      { ...post, id: "warning", spoiler_text: "Content warning" },
+      { ...post, visibility: "unlisted" }, { ...post, reblog: post },
+      { ...post, created_at: "2026-08-30T00:00:00Z" }, null,
+      { ...post, url: "javascript:alert(1)" }];
+    const fetcher = vi.fn(async () => Response.json(items));
+    const page = await searchPublicHashtagPage("markets", fetcher, Date.parse("2026-10-01T00:00:00Z"));
+    expect(page.returnedCount).toBe(8);
+    expect(page.excludedCount).toBe(5);
+    expect(page.posts).toHaveLength(3);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("distinguishes successful zero returns from all records failing safety checks", async () => {
+    const now = Date.parse("2026-10-01T00:00:00Z");
+    expect(await searchPublicHashtagPage("markets", async () => Response.json([]), now)).toEqual({ posts: [], returnedCount: 0, excludedCount: 0 });
+    expect(await searchPublicHashtagPage("markets", async () => Response.json([{ ...post, visibility: "private" }]), now)).toEqual({ posts: [], returnedCount: 1, excludedCount: 1 });
   });
 
   it("drops Mastodon items older than the 30-day freshness window", async () => {
@@ -145,8 +166,8 @@ describe("comparePublicHashtag", () => {
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.views).toEqual([
-      { host: "mastodon.social", tag: "markets", returnedCount: 1, error: null },
-      { host: "mstdn.jp", tag: "markets", returnedCount: 1, error: null },
+      { host: "mastodon.social", tag: "markets", returnedCount: 1, excludedCount: 0, error: null },
+      { host: "mstdn.jp", tag: "markets", returnedCount: 1, excludedCount: 0, error: null },
     ]);
     expect(result.samples).toHaveLength(1);
     expect(result.samples[0].seenVia).toEqual(["mastodon.social", "mstdn.jp"]);
@@ -167,6 +188,8 @@ describe("comparePublicHashtag", () => {
     ]);
     expect(result.views[0].error).toBeNull();
     expect(result.views[1].error).toContain("rate-limiting");
+    expect(result.views[1].returnedCount).toBeNull();
+    expect(result.views[1].excludedCount).toBeNull();
     expect(result.samples).toHaveLength(1);
   });
 

@@ -1,5 +1,11 @@
 # Source handling
 
+## Mastodon retrieval accounting (2026-10-12)
+
+The public hashtag adapter preserves raw API-return count separately from records removed by freshness, non-public visibility, boosts, invalid dates/links or other record-safety checks. Later topic filtering and display deduplication remain separate counts. A successful empty API response differs from a nonempty response whose records all fail safety checks; a failed comparison request has unknown (null), not zero, counts. Content-warning and automated-account records can remain citable with previews withheld, so they are not incorrectly counted as removed records. Their overview exclusion is distinct from adapter exclusion. Each source note states this bounded accounting. This change adds no request, endpoint, copied-text allowance or source operator.
+
+The [official hashtag-timeline API](https://docs.joinmastodon.org/methods/timelines/#tag) is a tagged public-status sample, not keyword search or a representative population. One bounded live `#GPU` request to mastodon.social returned 20 records, zero adapter exclusions, one automated-account record and 20 detectable link-sharing records. These counts explain why that sample cannot establish broader original-discussion summary coverage; they are not a relevance or representativeness benchmark. Lemmy comment-thread expansion remains pending a compatible reuse/privacy basis; its publicly reachable API and [operator terms](https://legal.lemmy.world/tos/) alone do not establish a blanket contributor-content license for broader AI reuse.
+
 ## Excerpt boundaries and missing context
 
 Discussion previews and model excerpts now clip at whole word segments rather than arbitrary string positions. Numeric-bearing whitespace tokens receive an additional whole-token guard because segmenters may separate scientific notation, date punctuation or signed values. This prevents a boundary cut from exposing only the leading digits of a different figure. Short original text is unchanged; long single words that cannot fit are withheld. Bluesky/model excerpts remain capped at 300 UTF-16 units, and Mastodon/Lemmy discussion previews at 1,200. Title clipping in the Lemmy adapter uses the same boundary protection. No copied-text budget or upstream request count was increased.
