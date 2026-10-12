@@ -70,11 +70,15 @@ export default function Methodology() {
         </div>
 
         <p className="mt-5 max-w-4xl text-sm leading-6 text-muted">
-          Numbers in generated claims must appear in the cited excerpt. When a
+          Numbers and dates in generated claims must appear in the displayed
+          supporting quotes, not merely elsewhere in a cited excerpt. Common
+          English currency, scale and percentage-unit qualifiers must match
+          literally; Atlas does not convert units. Other languages, localized
+          number formats and unrecognized units are not fully checked. When a
           social-post number is present but the model does not clearly attribute
           it, Atlas labels it as an unverified claim from the cited post. This
-          checks textual consistency only; it does not verify the number, its
-          units, definition, provenance, or truth.
+          checks textual consistency only; it does not establish which metric a
+          number describes, its direction, definition, provenance, or truth.
         </p>
 
         <section className="mt-6 border-y border-line py-5">

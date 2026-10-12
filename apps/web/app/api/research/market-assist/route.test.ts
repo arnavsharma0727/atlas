@@ -445,7 +445,7 @@ describe("free-tier market assist", () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.stubEnv("GROQ_API_KEY", "test-key");
     const fetch = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        baselineClaims: [{ text: "Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "silicon wafer demand score 65.6." }] }],
+        baselineClaims: [{ text: "Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor materials trade update (2026-08): silicon wafer demand score 65.6." }] }],
         localClaims: [], comparisonClaims: [],
       }) } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
@@ -458,6 +458,23 @@ describe("free-tier market assist", () => {
       text: "One cited social post makes this unverified claim: Trade data show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"],
     } } });
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed after one correction when an exact quote changes million into billion", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const content = { baselineClaims: [{ text: "One post claims semiconductor revenue is $5 billion.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor revenue is $5 million" }] }], localClaims: [], comparisonClaims: [] };
+    const fetcher = vi.fn(async (_input: unknown, _init?: RequestInit) => Response.json({ choices: [{ message: { content: JSON.stringify(content) } }] }));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await POST(makeRequest({ action: "summarize", topic: "semiconductor revenue", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor revenue is $5 million according to this post.", language: "en" }], local: [] },
+    }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "citation-validation", validation: { code: "quantity-unit-mismatch", group: "baselineClaims" } });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const retry = JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body));
+    expect(retry.messages[0].content).toContain("quantity-unit-mismatch check");
+    expect(retry.messages[0].content).toContain("not merely elsewhere in a cited excerpt");
   });
 
   it("rejects model passages with citations that were not included in the request", async () => {

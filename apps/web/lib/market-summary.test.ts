@@ -768,7 +768,7 @@ describe("market summary evidence contracts", () => {
     expect(valid?.usSummary.text).toContain("One unverified retrieved post claims a silicon wafer demand score of 65.6; AI chip demand remains strong.");
 
     const unattributedNumber = normalizeMarketSummary({
-      baselineClaims: [{ text: "Trade statistics show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "silicon wafer demand score 65.6." }] }],
+      baselineClaims: [{ text: "Trade statistics show silicon wafer demand score 65.6 in 2026-08.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Materials update (2026-08): silicon wafer demand score 65.6." }] }],
       localClaims: [], comparisonClaims: [],
     }, {
       us: new Set(["C1"]), local: new Set(),
@@ -784,6 +784,25 @@ describe("market summary evidence contracts", () => {
       evidenceText: { us: new Map([["C1", "Materials update (2026-08): silicon wafer demand score 65.6."]]), local: new Map() },
     });
     expect(unsupportedNumber).toBeNull();
+  });
+
+  it("requires figures to occur in the displayed exact support quote, not just the hidden excerpt remainder", () => {
+    const invalid = vi.fn();
+    const summary = normalizeMarketSummary({
+      baselineClaims: [{ text: "One post claims demand rose 5 percent.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Demand is improving" }] }],
+      localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set(), evidenceText: { us: new Map([["C1", "Demand is improving; a later sentence claims sales rose 5 percent."]]), local: new Map() } }, invalid);
+    expect(summary).toBeNull();
+    expect(invalid).toHaveBeenCalledWith({ code: "number-not-quoted", group: "baselineClaims" });
+  });
+
+  it("rejects currency/scale substitution even when the numeric token itself matches", () => {
+    const invalid = vi.fn();
+    const summary = normalizeMarketSummary({
+      baselineClaims: [{ text: "One post claims debt is $5 billion.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Debt is $5 million" }] }], localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1"]), local: new Set(), evidenceText: { us: new Map([["C1", "Debt is $5 million according to this source."]]), local: new Map() } }, invalid);
+    expect(summary).toBeNull();
+    expect(invalid).toHaveBeenCalledWith({ code: "quantity-unit-mismatch", group: "baselineClaims" });
   });
 
   it("uses deterministic non-claiming text for a side with no submitted evidence", () => {

@@ -1,6 +1,7 @@
 import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 import { publicationTimestampUTC } from "./publication-date";
+import { extractSummaryNumericTokens, summaryNumericSupportFailure } from "./summary-numeric-support";
 
 export type SummarySupportQuote = { citationId: string; quote: string };
 export type SummaryClaim = { text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] };
@@ -601,7 +602,8 @@ export type SummaryValidationFailure = {
   group: "response" | "baselineClaims" | "localClaims" | "comparisonClaims";
   code: "response-shape" | "claim-count" | "claim-shape" | "claim-length" | "claim-text" |
     "citation-list" | "citation-unknown" | "comparison-sides" | "quote-count" | "quote-shape" |
-    "quote-reference" | "quote-not-exact" | "quote-duplicate" | "verbatim-copy" | "unsupported-number";
+    "quote-reference" | "quote-not-exact" | "quote-duplicate" | "verbatim-copy" | "unsupported-number" |
+    "number-not-quoted" | "quantity-unit-mismatch";
 };
 
 /** Validate the complete model output; invalid references must never be silently removed. */
@@ -680,9 +682,13 @@ export function normalizeMarketSummary(
         const inLocal = available.local.has(id) ? available.evidenceText?.local.get(id) : undefined;
         return [inBaseline, inLocal].filter((excerpt): excerpt is string => typeof excerpt === "string");
       });
-      const numericTokens = extractNumericTokens(text);
+      const numericTokens = extractSummaryNumericTokens(text);
       if (numericTokens.length && (!citedEvidence.length || numericTokens.some((token) =>
-        !citedEvidence.some((excerpt) => extractNumericTokens(excerpt).includes(token))))) return reject("unsupported-number");
+        !citedEvidence.some((excerpt) => extractSummaryNumericTokens(excerpt).includes(token))))) return reject("unsupported-number");
+      if (supportingQuotes) {
+        const failure = summaryNumericSupportFailure(text, supportingQuotes.map(({ quote }) => quote));
+        if (failure) return reject(failure);
+      }
       // A matching number proves only that the submitted post contained it,
       // not that the number is accurate. If the model fails to attribute it,
       // wrap it deterministically as an unverified social-post claim.
@@ -721,11 +727,6 @@ export function normalizeMarketSummary(
   // Model-generated limitations were uncited free text. The interface already
   // renders deterministic, code-owned coverage caveats, so ignore this field.
   return { usSummary, localSummary, comparison, limitations: [] };
-}
-
-function extractNumericTokens(value: string): string[] {
-  return (value.normalize("NFKC").match(/(?<![\p{L}])[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?%?(?![\p{L}])/gu) ?? [])
-    .map((token) => token.replaceAll(",", ""));
 }
 
 function isExplicitlyAttributedNumericClaim(value: string): boolean {

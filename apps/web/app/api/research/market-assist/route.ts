@@ -126,7 +126,7 @@ async function groq<T>(
 ): Promise<GroqResult<T>> {
   const jsonMode = options.jsonMode !== false;
   const effectiveSystemPrompt = systemPrompt && options.summaryStyle
-    ? `${systemPrompt} Keep each claim text a short paraphrase of the market-relevant meaning; never paste a long supporting excerpt verbatim into claim text because its exact quote is displayed separately for audit. Describe text using language labels only, never infer source geography from language or instance domain.${EVENT_TIME_INSTRUCTIONS}`
+    ? `${systemPrompt} Keep each claim text a short paraphrase of the market-relevant meaning; never paste a long supporting excerpt verbatim into claim text because its exact quote is displayed separately for audit. Every number, date and identifier digit sequence in a claim must also occur in its displayed supporting quotes, not merely elsewhere in a cited excerpt. Preserve literal currency, scale and unit qualifiers: do not substitute million/billion, percent/percentage points/basis points, or currencies, and do not omit an explicit qualifier from a quoted figure. Prefer qualitative wording if the figure and its units cannot fit in an exact support quote; do not perform conversions. Describe text using language labels only, never infer source geography from language or instance domain.${EVENT_TIME_INSTRUCTIONS}`
     : systemPrompt;
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
