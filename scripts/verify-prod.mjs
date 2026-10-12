@@ -324,6 +324,32 @@ try {
   fail("server-side market evidence gate", error instanceof Error ? error.message : "request failed");
 }
 
+// These synthetic rejection probes never request a usable summary or invent live evidence.
+for (const [topic, excerpt] of [
+  ["Nvidia semiconductor demand", "GPU demand is accelerating."],
+  ["Shell natural gas demand", "LNG demand rose in Asia."],
+]) {
+  const name = `server-side multi-concept gate: ${topic}`;
+  try {
+    const response = await fetch(`${base}/api/research/market-assist`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "summarize", topic, country: "US", aiEnabled: true,
+        evidence: {
+          us: [{ citationId: "C1", source: "Synthetic rejection probe", title: "Synthetic missing issuer", excerpt, language: "en" }],
+          local: [],
+        },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (response.status === 400) pass(name, "missing issuer concept rejected before AI-provider request");
+    else fail(name, `expected HTTP 400, got HTTP ${response.status}`);
+  } catch (error) {
+    fail(name, error instanceof Error ? error.message : "request failed");
+  }
+}
+
 try {
   const response = await fetch(`${base}/api/research/market-assist`, {
     method: "POST",
