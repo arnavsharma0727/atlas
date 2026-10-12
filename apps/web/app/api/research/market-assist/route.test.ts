@@ -23,6 +23,7 @@ describe("free-tier market assist", () => {
     vi.stubEnv("GROQ_API_KEY", "");
     vi.stubEnv("GROQ_MODEL", "openai/gpt-oss-20b");
     vi.unstubAllGlobals();
+    vi.mocked(allowPublicMarketAssistRequest).mockReset();
     vi.mocked(allowPublicMarketAssistRequest).mockResolvedValue("allowed");
   });
 
@@ -49,6 +50,7 @@ describe("free-tier market assist", () => {
     }));
     expect(response.status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
+    expect(allowPublicMarketAssistRequest).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate citation IDs within or across evidence groups before calling Groq", async () => {
@@ -188,6 +190,14 @@ describe("free-tier market assist", () => {
     const response = await POST(makeRequest({ action: "prepare", topic: "semiconductors", country: "KR", aiEnabled: false }));
     expect(response.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not consume shared quota for an unsupported action", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    const response = await POST(makeRequest({ action: "unsupported", topic: "semiconductors", country: "US", aiEnabled: true }));
+    expect(response.status).toBe(400);
+    expect(allowPublicMarketAssistRequest).not.toHaveBeenCalled();
   });
 
   it("returns bounded per-word Mastodon tags for an English topic without calling Groq", async () => {
