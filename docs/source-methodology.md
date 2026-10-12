@@ -1,5 +1,11 @@
 # Source handling
 
+## Excerpt boundaries and missing context
+
+Discussion previews and model excerpts now clip at whole word segments rather than arbitrary string positions. Numeric-bearing whitespace tokens receive an additional whole-token guard because segmenters may separate scientific notation, date punctuation or signed values. This prevents a boundary cut from exposing only the leading digits of a different figure. Short original text is unchanged; long single words that cannot fit are withheld. Bluesky/model excerpts remain capped at 300 UTF-16 units, and Mastodon/Lemmy discussion previews at 1,200. Title clipping in the Lemmy adapter uses the same boundary protection. No copied-text budget or upstream request count was increased.
+
+The implementation uses the standard [ECMAScript word segmenter](https://tc39.es/ecma402/#segmenter-objects); language-specific segmentation can vary by runtime. Older runtimes without that facility withhold overlong text rather than fall back to unsafe partial-word cuts. CJK can be segmented without whitespace, but a long whitespace-free span containing digits may be conservatively omitted if it crosses the boundary. This is not sentence completeness or semantic context preservation: a scale/unit in a later word, negation in the omitted suffix, or a qualification in another post can still change interpretation. A surviving short figure is not automatically a complete financial quantity. Original links, excerpt-only warnings and independent human review remain necessary. Synthetic boundary tests are not fluent-language or factual-summary acceptance.
+
 ## Conservative copy detection
 
 Long-text near-copy detection requires at least 90% shared five-token shingles in **both** texts (four-character shingles for CJK), with at least eight shingles in the smaller text. Containment alone is insufficient: a post containing another paragraph can add substantial different experience. Literal numeric support is checked in both directions before treating texts as near copies, preserving changed figures, common currencies, scales and recognized percent/basis-point units. Small paraphrases may now remain separate rather than being prematurely suppressed. Exact URL/text collapse and per-author selection caps remain separate controls.

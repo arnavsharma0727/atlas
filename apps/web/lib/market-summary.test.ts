@@ -143,6 +143,13 @@ describe("market summary evidence contracts", () => {
     expect(redactSummaryExcerpt("Shared by (@market.reader), contact analyst@example.org or https://example.org/report.")).toBe("Shared by ([handle]), contact [email] or [link]");
   });
 
+  it("does not shorten a financial figure into a different number at the summary boundary", () => {
+    const prefix = "GPU prices ".repeat(27);
+    const clipped = redactSummaryExcerpt(`${prefix}12345678 dollars today`);
+    expect(clipped).toBe(prefix.trim());
+    expect(clipped).not.toMatch(/123/u);
+  });
+
   it("preserves link-sharing provenance while redacting the destination URL for AI", () => {
     const linked = { ...evidence("linked", "Bluesky", "Revenue rose, according to this article https://publisher.example/story", "bluesky"), linkSharing: true };
     const selected = selectBalancedEvidence([result("bluesky", "Bluesky", [linked])], new Map([

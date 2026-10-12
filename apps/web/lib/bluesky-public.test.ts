@@ -4,6 +4,17 @@ import { searchBlueskyPosts } from "./bluesky-public";
 const NOW = Date.parse("2026-10-02T12:00:00Z");
 
 describe("searchBlueskyPosts", () => {
+  it("does not expose a cut-off cost as a different financial figure", async () => {
+    const prefix = "GPU prices ".repeat(27);
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      uri: "at://did:plc:abc/app.bsky.feed.post/boundary",
+      record: { text: `${prefix}12345678 dollars today`, createdAt: new Date(NOW - 1000).toISOString(), langs: ["en"] },
+      author: { handle: "reader.example" },
+    }] }));
+    const results = await searchBlueskyPosts("GPU prices", fetcher, NOW);
+    expect(results[0].transientPreview).toBe(prefix.trim());
+    expect(results[0].url).toContain("/post/boundary");
+  });
   it("uses the official language parameter independently of a full-length phrase", async () => {
     const fetcher = vi.fn(async (_input: RequestInfo | URL) => Response.json({ posts: [] }));
     const query = "x".repeat(100);

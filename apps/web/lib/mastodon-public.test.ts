@@ -128,7 +128,10 @@ describe("mastodonHtmlToTransientText", () => {
       .toBe("Rates & markets\nSecond 💬 line");
     expect(mastodonHtmlToTransientText('<p>before</p><script>alert(1)</script><p>after</p>'))
       .toBe("before\nafter");
-    expect(mastodonHtmlToTransientText(`<p>${"x".repeat(1400)}</p>`)).toHaveLength(1200);
+    expect(mastodonHtmlToTransientText(`<p>${"x".repeat(1400)}</p>`)).toBe("");
+    const clipped = mastodonHtmlToTransientText(`<p>${"market ".repeat(200)}</p>`);
+    expect(clipped.length).toBeLessThanOrEqual(1200);
+    expect(clipped.endsWith("market")).toBe(true);
   });
 });
 

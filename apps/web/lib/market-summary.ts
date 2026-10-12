@@ -2,6 +2,7 @@ import { citationKey } from "./perspective-snapshot";
 import type { ResearchSweepSourceResult } from "./research-sweep";
 import { publicationTimestampUTC } from "./publication-date";
 import { extractSummaryNumericTokens, summaryNumericSupportFailure } from "./summary-numeric-support";
+import { clipPublicExcerpt } from "./clip-public-excerpt";
 
 export type SummarySupportQuote = { citationId: string; quote: string };
 export type SummaryClaim = { text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] };
@@ -276,13 +277,12 @@ export function hasMarketSignalTerms(item: Pick<ModelEvidence, "excerpt" | "lang
 
 /** Remove direct links, emails, and @handles before a short discussion excerpt is sent to the model. */
 export function redactSummaryExcerpt(value: string): string {
-  return value.normalize("NFKC")
+  return clipPublicExcerpt(value.normalize("NFKC")
     .replace(/(?:https?:\/\/|www\.)[^\s<>"']+/giu, "[link]")
     .replace(/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/gu, "[email]")
     .replace(/(^|[^\p{L}\p{N}_])@[\p{L}\p{N}][\p{L}\p{N}_.-]{0,63}/gu, "$1[handle]")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 300);
+    .trim(), 300);
 }
 
 /** Preserve provider return counts while flagging records repeated across query/server views. */
@@ -452,7 +452,7 @@ export function selectBalancedEvidence(
       if (expectedLanguage && !matchesLanguageLens(item.language, expectedLanguage, item.transientPreview ?? item.title)) continue;
       const redactedExcerpt = item.transientPreview ? redactSummaryExcerpt(item.transientPreview) : "";
       const excerpt = item.linkSharing && redactedExcerpt && !redactedExcerpt.includes("[link]")
-        ? `${redactedExcerpt.slice(0, 290).trimEnd()} [link]`
+        ? `${clipPublicExcerpt(redactedExcerpt, 290).trimEnd()} [link]`
         : redactedExcerpt;
       const citationId = citationIds.get(citationKey(result.key, item.id));
       if (!excerpt || !citationId || !/^C\d{1,4}$/.test(citationId)) continue;

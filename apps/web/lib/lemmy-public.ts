@@ -1,3 +1,5 @@
+import { clipPublicExcerpt } from "./clip-public-excerpt";
+
 export type LemmyInstance = "lemmy.world" | "discuss.tchncs.de" | "feddit.org" | "jlai.lu" | "sopuli.xyz" | "sh.itjust.works";
 
 export const LEMMY_INSTANCES: readonly {
@@ -168,7 +170,7 @@ export async function searchLemmyPostPage(
     return [{
       id: String(id),
       url,
-      title: title.slice(0, 300),
+      title: clipPublicExcerpt(title, 300),
       publishedAt: publishedAt.toISOString(),
       author,
       authorUrl: safeHttpsUrl(creator?.actor_id),
@@ -178,7 +180,7 @@ export async function searchLemmyPostPage(
       // an image, or another outside resource even when the text contains no link.
       linkedContent: typeof post.url === "string" && post.url.trim().length > 0,
       ...(typeof post.body === "string" && post.body.trim()
-        ? { transientPreview: post.body.trim().slice(0, 1200) }
+        ? { transientPreview: clipPublicExcerpt(post.body.trim(), 1200) }
         : {}),
     }];
   });

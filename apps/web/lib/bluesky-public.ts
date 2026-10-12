@@ -1,3 +1,5 @@
+import { clipPublicExcerpt } from "./clip-public-excerpt";
+
 /** Transient search against Bluesky's public AppView; snippets are for browser-only review, never citations. */
 export type BlueskyPostCitation = {
   uri: string;
@@ -90,7 +92,7 @@ export async function searchBlueskyPosts(
       duplicateCount: 1,
       linkedContent,
       // Displayed only in live browser results; callers strip this before selecting a citation.
-      ...(!contentWarning ? { transientPreview: Array.from(text).slice(0, 300).join("") } : {}),
+      ...(!contentWarning ? { transientPreview: clipPublicExcerpt(text, 300) } : {}),
       ...(contentWarning ? { contentWarning } : {}),
     });
   }

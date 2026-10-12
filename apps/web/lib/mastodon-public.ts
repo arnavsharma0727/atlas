@@ -1,5 +1,6 @@
 import { isValidTopicHashtag } from "./topic-hashtags";
 import { mastodonHasContentLink } from "./mastodon-content-links";
+import { clipPublicExcerpt } from "./clip-public-excerpt";
 
 export type MastodonPublicPost = {
   id: string;
@@ -18,7 +19,7 @@ export type MastodonPublicPost = {
 
 /** Convert provider HTML to safe plain text for transient React rendering. */
 export function mastodonHtmlToTransientText(html: string): string {
-  return html
+  return clipPublicExcerpt(html
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
     .replace(/<\/(?:p|div|li|blockquote|h[1-6])\s*>/gi, "\n")
     .replace(/<br\s*\/?>/gi, "\n")
@@ -32,8 +33,7 @@ export function mastodonHtmlToTransientText(html: string): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
-    .trim()
-    .slice(0, 1200);
+    .trim(), 1200);
 }
 
 function decodeCodePoint(value: number): string {

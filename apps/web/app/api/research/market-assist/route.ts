@@ -6,6 +6,7 @@ import type { SummaryValidationFailure } from "../../../../lib/market-summary";
 import { hasMarketSignalTerms, hasTopicSignalTerms, isIndependentDiscussionEvidence, isNearDuplicateExcerpt, matchesLanguageLens, normalizeMarketSummary, redactSummaryExcerpt, type ModelEvidence } from "../../../../lib/market-summary";
 import { isValidTopicHashtag, topicHashtags } from "../../../../lib/topic-hashtags";
 import { publicationTimestampUTC } from "../../../../lib/publication-date";
+import { clipPublicExcerpt } from "../../../../lib/clip-public-excerpt";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -227,7 +228,7 @@ function parseEvidence(value: unknown, baselineTopic: string, localTopic: string
         citationId: (row.citationId as string).slice(0, 8),
         source: (row.source as string).slice(0, 80),
         title: (row.title as string).slice(0, 240),
-        excerpt: redactSummaryExcerpt((row.excerpt as string).slice(0, 600)),
+        excerpt: redactSummaryExcerpt(clipPublicExcerpt(row.excerpt as string, 600)),
         language: (row.language as string).slice(0, 24),
         ...(publicationTimestampUTC(row.reportedPostedAt) !== null
           ? { reportedPostedAt: row.reportedPostedAt as string } : {}),
