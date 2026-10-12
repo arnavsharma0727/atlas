@@ -71,7 +71,7 @@ try {
     sourcesPage.includes("MANA is platform play money") &&
     sourcesPage.includes("never sent to the AI summarizer") &&
     privacyPage.includes("Manifold search terms are also sent directly") &&
-    privacyPage.includes("not sent to Groq")
+    privacyPage.includes("not sent to AI providers")
   ) {
     pass("Manifold source and privacy boundaries", "play-money-only source policy and direct-query disclosure are present; forecast data stays outside Groq summaries");
   } else {
@@ -113,7 +113,8 @@ try {
     sourcesPage.includes("excluded from AI summaries") &&
     sourcesPage.includes("If answer lookup fails") &&
     privacyPage.includes("Stack Exchange question/answer") &&
-    privacyPage.includes("Stack Exchange excerpts are not sent to Groq") &&
+    privacyPage.includes("Stack Exchange excerpts are") &&
+    privacyPage.includes("not sent to AI providers") &&
     methodologyPage.includes("at most one individually licensed answer per question")) {
     pass("Stack Exchange licensed-answer boundaries", "individual CC BY-SA answers have author/source attribution, transient display, partial-failure disclosure, and exclusion from AI summaries");
   } else {
@@ -182,7 +183,7 @@ try {
   const [sourcesPage, privacyPage] = await Promise.all([sourcesResponse.text(), privacyResponse.text()]);
   if (sourcesResponse.ok && privacyResponse.ok &&
     sourcesPage.includes("World Bank · annual macroeconomic context") &&
-    sourcesPage.includes("never sent to Groq") &&
+    sourcesPage.includes("never sent to AI providers") &&
     sourcesPage.includes("World Bank metadata keyword search was screened out") &&
     privacyPage.includes("World Development Indicators")) {
     pass("World Bank macro-source boundaries", "narrow annual indicators, CC BY attribution, and exclusion from AI summaries are disclosed");
@@ -214,7 +215,7 @@ try {
   if (sourcesResponse.ok && privacyResponse.ok &&
     sourcesPage.includes("EIA · U.S. energy benchmark prices") &&
     sourcesPage.includes("personally accept EIA") &&
-    sourcesPage.includes("never sent to Groq") &&
+    sourcesPage.includes("never sent to AI providers") &&
     privacyPage.includes("registered key") && safeResult) {
     pass("EIA free-source and key boundary", eiaResponse.status === 503 ? "registered free key is not configured; missing-key state is explicit and fails closed" : "configured server-side EIA route returned bounded, attributed benchmark evidence");
   } else {
@@ -314,7 +315,7 @@ try {
       return asset.ok ? asset.text() : "";
     } catch { return ""; }
   }));
-  if (response.ok && (page.includes("Check verbatim source excerpts") || bundles.some((bundle) => bundle.includes("Check verbatim source excerpts")))) {
+  if (response.ok && (page.includes("Sources for this point") || bundles.some((bundle) => bundle.includes("Sources for this point")))) {
     pass("auditable summary excerpts in production UI", "the deployed Explore page includes the checked-excerpt disclosure");
   } else {
     fail("auditable summary excerpts in production UI", `HTTP ${response.status}; checked source excerpt disclosure was not found in the page or its scripts`);
