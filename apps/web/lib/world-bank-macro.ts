@@ -39,10 +39,11 @@ export async function searchWorldBankMacro(
   const indicator = worldBankIndicatorForQuery(query);
   if (!indicator) return [];
   const countryList = worldBankCountryCodes(selectedCountry);
+  const currentYear = new Date().getUTCFullYear();
   const endpoint = new URL(`https://api.worldbank.org/v2/country/${countryList.join(";")}/indicator/${indicator.code}`);
   endpoint.searchParams.set("format", "json");
   endpoint.searchParams.set("mrnev", "3");
-  endpoint.searchParams.set("date", `${new Date().getUTCFullYear() - 6}:${new Date().getUTCFullYear()}`);
+  endpoint.searchParams.set("date", `${currentYear - 6}:${currentYear}`);
   endpoint.searchParams.set("per_page", "100");
   const response = await fetcher(endpoint, { headers: { accept: "application/json" } });
   if (!response.ok) throw new Error(`World Bank API returned HTTP ${response.status}.`);
@@ -59,9 +60,10 @@ export async function searchWorldBankMacro(
     const iso3 = row.countryiso3code;
     const name = countryRow?.value;
     const year = row.date;
-    const number = typeof row.value === "number" ? row.value : typeof row.value === "string" ? Number(row.value) : NaN;
+    const numericText = typeof row.value === "string" ? row.value.trim() : "";
+    const number = typeof row.value === "number" ? row.value : /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?$/u.test(numericText) ? Number(numericText) : NaN;
     if (typeof iso3 !== "string" || !requested.has(iso3) || typeof name !== "string" ||
-      typeof year !== "string" || !/^\d{4}$/.test(year) || Number(year) > new Date().getUTCFullYear() ||
+      typeof year !== "string" || !/^\d{4}$/.test(year) || Number(year) > currentYear || Number(year) < currentYear - 6 ||
       row.obs_status === "F" || !Number.isFinite(number) ||
       indicatorRow?.id !== indicator.code) return [];
 
@@ -74,7 +76,7 @@ export async function searchWorldBankMacro(
       evidenceClass: "official statistical data" as const,
       language: "Not applicable · statistical series",
       timeLabel: "Observation year",
-      timeValue: new Date(Date.UTC(Number(year), 11, 31)).toISOString(),
+      timeValue: year,
       context: `${number.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${indicator.unit}. Annual national/aggregate indicator; latest available year may differ by geography and may lag current conditions. This is official statistical context, not a measure of online discussion, investor opinion, or a real-time market price.`,
       attribution: "World Bank, World Development Indicators · CC BY 4.0",
       attributionUrl: "https://datacatalog.worldbank.org/search/dataset/0037712/world-development-indicators",

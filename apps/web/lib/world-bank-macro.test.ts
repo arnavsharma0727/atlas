@@ -44,12 +44,30 @@ describe("World Bank macro context", () => {
       "Korea, Rep. · Inflation, consumer prices (annual %) · 2024",
     ]);
     expect(evidence[0]).toMatchObject({
+      timeValue: "2025",
       evidenceClass: "official statistical data",
       attribution: "World Bank, World Development Indicators · CC BY 4.0",
       licenseName: "Creative Commons Attribution 4.0 International",
     });
     expect(evidence[0].context).toContain("not a measure of online discussion");
     expect(evidence[0].url).toContain("/country/USA/indicator/FP.CPI.TOTL.ZG");
+  });
+
+  it("does not convert blank or non-decimal values to zero or retain out-of-window years", async () => {
+    const currentYear = new Date().getUTCFullYear();
+    const row = { country: { value: "United States" }, countryiso3code: "USA", indicator: { id: "FP.CPI.TOTL.ZG" }, date: String(currentYear - 1) };
+    const fetcher = vi.fn(async () => Response.json([{}, [
+      ...["", " ", "0x10", null, false, "NaN", "Infinity"].map((value) => ({ ...row, value })),
+      { ...row, value: 1, date: String(currentYear - 7) },
+      { ...row, value: 1, date: String(currentYear + 1) },
+      { ...row, value: "0" },
+      { ...row, value: " -2.5 " },
+    ]]));
+    const records = await searchWorldBankMacro("inflation", "US", fetcher);
+    expect(records).toHaveLength(2);
+    expect(records[0].context).toMatch(/^0 % annual change/);
+    expect(records[1].context).toMatch(/^-2.5 % annual change/);
+    expect(records.every((record) => record.timeValue === String(currentYear - 1))).toBe(true);
   });
 
   it("rejects invalid country lenses and provider failures", async () => {
