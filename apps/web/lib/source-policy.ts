@@ -22,7 +22,7 @@ export function isPublicEvidenceEligible(sourceType: string | null | undefined, 
 export function matchesStackExchangeTitleQuery(title: string | null | undefined, query: unknown): boolean {
   if (!title || typeof query !== "string") return false;
   const tokens = (value: string) =>
-    value.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+    value.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}]*/gu) ?? [];
   const expected = tokens(query);
   if (!expected.length) return false;
   const titleTokens = new Set(tokens(title));

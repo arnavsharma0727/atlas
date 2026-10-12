@@ -29,6 +29,17 @@ describe('source rights gate', () => {
     expect(matchesStackExchangeTitleQuery('Question title', undefined)).toBe(false);
   });
 
+  it('preserves combining marks rather than equating distinct Devanagari words', () => {
+    expect(matchesStackExchangeTitleQuery('तांबा बाजार', 'तांबा')).toBe(true);
+    expect(matchesStackExchangeTitleQuery('ताबा बाजार', 'तांबा')).toBe(false);
+    expect(matchesStackExchangeTitleQuery('तांबा बाजार', 'ताबा')).toBe(false);
+  });
+
+  it('matches canonical-equivalent accents without accepting a different word', () => {
+    expect(matchesStackExchangeTitleQuery('Le marche\u0301 du cuivre', 'marché')).toBe(true);
+    expect(matchesStackExchangeTitleQuery('Le marche du cuivre', 'marché')).toBe(false);
+  });
+
   it('allows broad Stack Exchange feed items only when CC BY-SA title-only metadata is explicit', () => {
     const metadata = {
       collectionMethod: 'recent-licensed-question-feed',
