@@ -7,6 +7,18 @@ import { resetStackExchangeThrottleStatus, searchLiveDiscussion } from "./live-t
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("labels Bluesky creation time as client-declared and unverified, not indexing or event time", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      uri: "at://did:plc:abc/app.bsky.feed.post/1", author: { handle: "reader.example" },
+      record: { text: "Solar demand is slowing.", createdAt: new Date(NOW - 1000).toISOString() },
+      indexedAt: new Date(NOW).toISOString(),
+    }] }));
+    const [result] = await runResearchSweep("solar", { lemmy: false, bluesky: true }, fetcher, NOW);
+    expect(result.evidence[0].timeLabel).toBe("Client-declared created time · unverified");
+    expect(result.evidence[0].timeValue).toBe(new Date(NOW - 1000).toISOString());
+    expect(result.sourceNote).toContain("never indexedAt");
+    expect(result.sourceNote).toContain("not an independently established publication or event date");
+  });
   it("preserves Mastodon raw returns and safety exclusions before the separate topic screen", async () => {
     const base = { visibility: "public", created_at: new Date(NOW - 1000).toISOString(), language: "en",
       account: { acct: "fixture", url: "https://mastodon.social/@fixture" } };

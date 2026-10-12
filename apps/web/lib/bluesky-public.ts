@@ -1,4 +1,5 @@
 import { clipPublicExcerpt } from "./clip-public-excerpt";
+import { atprotoPostTime } from "./atproto-post-time";
 
 /** Transient search against Bluesky's public AppView; snippets are for browser-only review, never citations. */
 export type BlueskyPostCitation = {
@@ -22,7 +23,6 @@ type SearchResponse = {
     record?: { text?: string; createdAt?: string; langs?: string[]; facets?: unknown; embed?: unknown };
     embed?: unknown;
     author?: { handle?: string };
-    indexedAt?: string;
     labels?: Array<{ val?: string }>;
   }>;
 };
@@ -56,10 +56,9 @@ export async function searchBlueskyPosts(
     if (!post || typeof post !== "object") continue;
     const uri = post.uri;
     const handle = post.author?.handle?.trim();
-    const publishedAt = post.record?.createdAt ?? post.indexedAt;
-    const time = publishedAt ? Date.parse(publishedAt) : NaN;
+    const time = atprotoPostTime(post.record?.createdAt);
     const text = post.record?.text?.replace(/\s+/g, " ").trim();
-    if (!uri || !handle || !text || !Number.isFinite(time) || time < minTime || time > now) continue;
+    if (!uri || !handle || !text || time === null || time < minTime || time > now) continue;
     const match = uri.match(/^at:\/\/([^/]+)\/app\.bsky\.feed\.post\/([^/]+)$/);
     if (!match) continue;
     const url = `https://bsky.app/profile/${encodeURIComponent(handle)}/post/${encodeURIComponent(match[2])}`;

@@ -4,6 +4,26 @@ import { searchBlueskyPosts } from "./bluesky-public";
 const NOW = Date.parse("2026-10-02T12:00:00Z");
 
 describe("searchBlueskyPosts", () => {
+  it("never substitutes recent index time for missing, invalid, old or future declared creation time", async () => {
+    const dates = [undefined, null, "2026-10-02", "2026-09-31T12:00:00Z",
+      new Date(NOW - 8 * 86400000).toISOString(), new Date(NOW + 1000).toISOString()];
+    const fetcher = vi.fn(async () => Response.json({ posts: dates.map((createdAt, index) => ({
+      uri: `at://did:plc:abc/app.bsky.feed.post/invalid${index}`, author: { handle: "reader.example" },
+      record: { text: `GPU demand test ${index}`, createdAt }, indexedAt: new Date(NOW - 1000).toISOString(),
+    })) }));
+    expect(await searchBlueskyPosts("GPU", fetcher, NOW)).toEqual([]);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("uses declared creation time even when indexing time is missing or contradictory", async () => {
+    const fetcher = vi.fn(async () => Response.json({ posts: [{
+      uri: "at://did:plc:abc/app.bsky.feed.post/offset", author: { handle: "reader.example" },
+      record: { text: "GPU demand is slowing.", createdAt: "2026-10-02T04:59:59.123456-07:00" },
+      indexedAt: "2026-09-01T00:00:00Z",
+    }] }));
+    const [post] = await searchBlueskyPosts("GPU", fetcher, NOW);
+    expect(post.publishedAt).toBe("2026-10-02T11:59:59.123Z");
+  });
   it("does not expose a cut-off cost as a different financial figure", async () => {
     const prefix = "GPU prices ".repeat(27);
     const fetcher = vi.fn(async () => Response.json({ posts: [{
