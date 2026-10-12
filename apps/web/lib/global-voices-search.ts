@@ -8,6 +8,8 @@ export const GLOBAL_VOICES_SEARCH_EDITIONS = [
   { language: "it", label: "Italian", host: "it.globalvoices.org" },
   { language: "nl", label: "Dutch", host: "nl.globalvoices.org" },
   { language: "yo", label: "Yoruba", host: "yo.globalvoices.org" },
+  { language: "ja", label: "Japanese", host: "jp.globalvoices.org" },
+  { language: "bn", label: "Bengali", host: "bn.globalvoices.org" },
   { language: "uk", label: "Ukrainian", host: "uk.globalvoices.org" },
   { language: "el", label: "Greek", host: "el.globalvoices.org" },
   { language: "ca", label: "Catalan", host: "ca.globalvoices.org" },

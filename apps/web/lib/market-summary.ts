@@ -101,18 +101,41 @@ export function hasTopicSignalTerms(excerpt: string, topic: string): boolean {
   const normalizedExcerpt = excerpt.normalize("NFKC").toLocaleLowerCase();
   const normalizedTopic = topic.normalize("NFKC").toLocaleLowerCase();
   const isNaturalGasQuery = NATURAL_GAS_QUERY_PATTERNS.some((pattern) => pattern.test(normalizedTopic));
-  if (isNaturalGasQuery) return NATURAL_GAS_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalizedExcerpt));
-  const topicTerms = (normalizedTopic.match(/[\p{L}\p{N}]+/gu) ?? [])
+  if (isNaturalGasQuery && !NATURAL_GAS_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalizedExcerpt))) return false;
+  // Resolve the gas concept without discarding other subjects in the query.
+  // Include combining marks so Hindi words remain intact rather than fragments.
+  const remainingTopic = isNaturalGasQuery
+    ? NATURAL_GAS_QUERY_PATTERNS.reduce((value, pattern) => value.replace(pattern, " "), normalizedTopic)
+    : normalizedTopic;
+  const topicTerms = (remainingTopic.match(/[\p{L}\p{M}\p{N}]+/gu) ?? [])
     .filter((term) => !QUERY_INTENT_TERMS.has(term));
   const matches = (term: string) => {
     if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(term)) return normalizedExcerpt.includes(term);
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    return new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`, "iu").test(normalizedExcerpt);
+    return new RegExp(`(?:^|[^\\p{L}\\p{M}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{M}\\p{N}])`, "iu").test(normalizedExcerpt);
   };
-  for (const aliasGroup of MARKET_TOPIC_ALIASES) {
-    if (topicTerms.some((term) => aliasGroup.includes(term)) && aliasGroup.some(matches)) return true;
+  if (!topicTerms.length) return isNaturalGasQuery;
+
+  // A reviewed alias group is one concept: "semiconductor" may be written
+  // as "GPU", but a separate query concept (e.g. a company name) must also
+  // be present. Requiring every independent concept avoids admitting a post
+  // merely because it contains a generic word from a multi-part query.
+  const requiredAliasGroups = new Set<number>();
+  const aliasConceptTerms = new Set<string>();
+  for (const [index, group] of MARKET_TOPIC_ALIASES.entries()) {
+    for (const alias of group) {
+      const aliasTerms = alias.match(/[\p{L}\p{M}\p{N}]+/gu) ?? [];
+      const isQueryAlias = aliasTerms.length === 1
+        ? topicTerms.includes(aliasTerms[0])
+        : aliasTerms.every((term) => topicTerms.includes(term)) && normalizedTopic.includes(alias);
+      if (!isQueryAlias) continue;
+      requiredAliasGroups.add(index);
+      aliasTerms.forEach((term) => aliasConceptTerms.add(term));
+    }
   }
-  return topicTerms.length > 0 && topicTerms.some(matches);
+  const requiredTerms = topicTerms.filter((term) => !aliasConceptTerms.has(term));
+  const aliasesMatch = [...requiredAliasGroups].every((index) => MARKET_TOPIC_ALIASES[index].some(matches));
+  return aliasesMatch && requiredTerms.every(matches);
 }
 
 /** High-confidence stock-pitch patterns are visible source material, not independent community views. */

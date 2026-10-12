@@ -1,0 +1,1 @@
+run_id,run_date_utc,deployed_commit,topic_group,topic_label,baseline_query,selected_lens,local_query,provider_key,source_operator_key,is_community_discussion,provider_status,ui_status_accurate,raw_returned_count,accepted_count,excluded_count

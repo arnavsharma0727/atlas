@@ -17,7 +17,11 @@ describe("searchGlobalVoices", () => {
     });
     const editions = await searchGlobalVoices("inflation", fetcher, NOW);
     expect(fetcher).toHaveBeenCalledTimes(GLOBAL_VOICES_SEARCH_EDITIONS.length);
-    expect(editions).toHaveLength(12);
+    expect(editions).toHaveLength(14);
+    expect(editions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ language: "ja", edition: "Japanese", error: null }),
+      expect.objectContaining({ language: "bn", edition: "Bengali", error: null }),
+    ]));
     expect(editions[1]).toMatchObject({
       language: "es",
       edition: "Spanish",

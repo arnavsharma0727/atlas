@@ -213,12 +213,32 @@ describe("market summary evidence contracts", () => {
     expect(hasTopicSignalTerms("Supply is tightening.", "demand and supply")).toBe(false);
   });
 
+  it("requires every independent subject in a multi-part topic while allowing reviewed aliases", () => {
+    expect(hasTopicSignalTerms("GPU demand is accelerating.", "Nvidia semiconductor demand")).toBe(false);
+    expect(hasTopicSignalTerms("Nvidia demand is accelerating.", "Nvidia semiconductor demand")).toBe(false);
+    expect(hasTopicSignalTerms("Nvidia GPU demand is accelerating.", "Nvidia semiconductor demand")).toBe(true);
+    expect(hasTopicSignalTerms("Nvidia semiconductor demand is accelerating.", "Nvidia semiconductor demand")).toBe(true);
+    expect(hasTopicSignalTerms("EV demand is accelerating.", "electric vehicle demand")).toBe(true);
+    expect(hasTopicSignalTerms("EV sales are accelerating.", "Tesla electric vehicle sales")).toBe(false);
+    expect(hasTopicSignalTerms("Tesla EV sales are accelerating.", "Tesla electric vehicle sales")).toBe(true);
+  });
+
   it("does not confuse natural-gas searches with generic gas or gasoline chatter", () => {
     expect(hasTopicSignalTerms("Gas prices rose after a refinery outage.", "natural gas prices")).toBe(false);
     expect(hasTopicSignalTerms("Gasoline prices rose as refinery inventories fell.", "natural gas prices")).toBe(false);
     expect(hasTopicSignalTerms("Natural gas demand rose as storage levels fell.", "natural gas prices")).toBe(true);
     expect(hasTopicSignalTerms("LNG demand rose as Asian spot prices climbed.", "natural gas prices")).toBe(true);
     expect(hasTopicSignalTerms("Henry Hub prices fell after storage data.", "natural gas prices")).toBe(true);
+  });
+
+  it("keeps company constraints when resolving natural-gas aliases", () => {
+    expect(hasTopicSignalTerms("LNG demand rose in Asia.", "Shell natural gas demand")).toBe(false);
+    expect(hasTopicSignalTerms("Shell gasoline sales rose.", "Shell natural gas demand")).toBe(false);
+    expect(hasTopicSignalTerms("Shell LNG sales rose.", "Shell natural gas demand")).toBe(true);
+    expect(hasTopicSignalTerms("Shell LNG sales rose.", "Shell प्राकृतिक गैस मांग")).toBe(true);
+    expect(hasTopicSignalTerms("प्राकृतिक गैस की मांग बढ़ी।", "Shell प्राकृतिक गैस मांग")).toBe(false);
+    expect(hasTopicSignalTerms("टाटा की बिक्री बढ़ी।", "टाटा मांग")).toBe(true);
+    expect(hasTopicSignalTerms("टाटामोटर्स की बिक्री बढ़ी।", "टाटा मांग")).toBe(false);
   });
 
   it.each([
