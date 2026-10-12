@@ -520,6 +520,15 @@ describe("market summary evidence contracts", () => {
       evidenceText: { us: new Map([["C1", excerpt]]), local: new Map() },
     });
     expect(summary).toBeNull();
+
+    const shortQuoteLongCopy = normalizeMarketSummary({
+      baselineClaims: [{ text: excerpt, citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand" }] }],
+      localClaims: [], comparisonClaims: [],
+    }, {
+      us: new Set(["C1"]), local: new Set(),
+      evidenceText: { us: new Map([["C1", excerpt]]), local: new Map() },
+    });
+    expect(shortQuoteLongCopy).toBeNull();
   });
 
   it("attributes model prose as unverified and rejects numeric details absent from cited text", () => {
