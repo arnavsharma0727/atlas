@@ -436,8 +436,10 @@ describe("market summary evidence contracts", () => {
 
   it("flags and excludes only long, near-identical copies from model evidence while keeping both citations visible", () => {
     const firstText = "Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. This remains uncertain.";
-    const secondText = firstText.replace("This remains uncertain.", "The outlook remains uncertain.");
+    const secondText = firstText.replace("This remains uncertain.", "This remains uncertain today.");
     expect(isNearDuplicateExcerpt(firstText, secondText)).toBe(true);
+    // The stricter symmetric threshold retains a slightly larger paraphrase.
+    expect(isNearDuplicateExcerpt(firstText, firstText.replace("This remains uncertain.", "The outlook remains uncertain."))).toBe(false);
     expect(isNearDuplicateExcerpt("short post", "short post with a few words added")).toBe(false);
     expect(isNearDuplicateExcerpt(firstText, "Investors discussed a different commodity market after supply disruptions affected shipping costs. Traders disagreed about potential demand, inventories, company guidance, and future pricing trends across regions.")).toBe(false);
     const japaneseText = "半導体市場では投資家が需要の見通しと在庫水準を慎重に見極めています。輸出規制や顧客の支出が今後の出荷に影響する可能性があり、複数の企業は次の四半期まで大きな判断を保留しています。".repeat(2);
@@ -457,9 +459,31 @@ describe("market summary evidence contracts", () => {
     expect(selectBalancedEvidence(results, citations, 8)).toHaveLength(1);
   });
 
+  it("does not collapse materially changed figures or units in otherwise copied text", () => {
+    const context = " Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. Analysts also discussed supplier commitments, production schedules, regional distribution, financing conditions, competitive product launches, manufacturing capacity, and customer budgets. These observations remain provisional and require independent verification before drawing conclusions.";
+    const original = `The reported cost is $5 million.${context}`;
+    expect(isNearDuplicateExcerpt(original, original.replace("$5", "$6"))).toBe(false);
+    expect(isNearDuplicateExcerpt(original, original.replace("million", "billion"))).toBe(false);
+    expect(isNearDuplicateExcerpt(original, original.replace("$5", "€5"))).toBe(false);
+    expect(isNearDuplicateExcerpt(original, `${original} Updated estimate: $7 million.`)).toBe(false);
+    const rows = [original, original.replace("$5", "$6"), original.replace("million", "billion")]
+      .map((text, index) => evidence(`quantity-${index}`, "Bluesky", text, "bluesky"));
+    const flagged = flagRepeatedEvidenceViews([result("quantities", "Bluesky", rows)]);
+    expect(flagged[0].sourceNote).toBeUndefined();
+    const citations = new Map(rows.map((row, index) => [citationKey("quantities", row.id), `C${index + 1}`]));
+    expect(selectBalancedEvidence(flagged, citations)).toHaveLength(3);
+  });
+
+  it("does not collapse a substantially expanded discussion merely because it contains another post", () => {
+    const original = "Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. This remains uncertain.";
+    const expanded = `${original} My experience differs: our factory has cancelled its expansion because customers are moving away from our legacy products. Financing is harder to obtain, and our supplier is asking for deposits before accepting orders. This is not evidence of healthy demand in our segment.`;
+    expect(isNearDuplicateExcerpt(original, expanded)).toBe(false);
+    expect(isNearDuplicateExcerpt(expanded, original)).toBe(false);
+  });
+
   it("flags and excludes conservative near-copies syndicated across different operators", () => {
     const firstText = "Investors described demand for advanced chips as strong while warning that export restrictions could constrain shipments across major markets this quarter. Companies are watching order trends, inventory levels, and customer spending before changing their outlook. This remains uncertain.";
-    const secondText = firstText.replace("This remains uncertain.", "The outlook remains uncertain.");
+    const secondText = firstText.replace("This remains uncertain.", "This remains uncertain today.");
     const input = [
       result("blue:one", "Bluesky", [evidence("a", "Bluesky", firstText, "bluesky")]),
       result("mastodon:one", "Mastodon", [evidence("b", "Mastodon", secondText, "mastodon-network")]),

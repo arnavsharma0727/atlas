@@ -572,9 +572,14 @@ export function normalizeSourceUrl(value: string) {
   }
 }
 
-/** Conservative copy detection: long excerpts need >=90% shingle overlap (5-token or 4-character CJK). */
+/** Conservative copy detection: >=90% overlap of both texts, with literal quantity consistency. */
 export function isNearDuplicateExcerpt(left: string, right: string): boolean {
   if (left.length < 120 || right.length < 120) return false;
+  // A copied paragraph with a changed estimate is potentially counter-evidence,
+  // not corroboration. Compare in both directions to retain added quantities,
+  // changed currencies/scales/units, and dropped numeric qualifiers. This is
+  // literal protection, not semantic equivalence or multilingual unit parsing.
+  if (summaryNumericSupportFailure(left, [right]) || summaryNumericSupportFailure(right, [left])) return false;
   const shingles = (value: string) => {
     const normalized = value.normalize("NFKC").toLocaleLowerCase();
     if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(normalized)) {
@@ -595,7 +600,9 @@ export function isNearDuplicateExcerpt(left: string, right: string): boolean {
   if (smaller.size < 8) return false;
   let shared = 0;
   for (const shingle of smaller) if (larger.has(shingle)) shared++;
-  return shared / smaller.size >= 0.9;
+  // Containment alone is not a copy: a longer reply may quote a paragraph and
+  // then add a different experience. Require overlap of the larger text too.
+  return shared / larger.size >= 0.9;
 }
 
 export type SummaryValidationFailure = {

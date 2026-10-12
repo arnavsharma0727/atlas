@@ -1,5 +1,11 @@
 # Source handling
 
+## Conservative copy detection
+
+Long-text near-copy detection requires at least 90% shared five-token shingles in **both** texts (four-character shingles for CJK), with at least eight shingles in the smaller text. Containment alone is insufficient: a post containing another paragraph can add substantial different experience. Literal numeric support is checked in both directions before treating texts as near copies, preserving changed figures, common currencies, scales and recognized percent/basis-point units. Small paraphrases may now remain separate rather than being prematurely suppressed. Exact URL/text collapse and per-author selection caps remain separate controls.
+
+These are conservative lexical heuristics, not semantic independence validation. They do not establish that matching quantities refer to the same metric, protect every multilingual unit, or detect a short negation that reverses an otherwise matching passage. Summary selection compares redacted excerpts capped at 300 characters; differences beyond that window cannot inform this heuristic. Displayed source links remain available for original-context inspection. Empirical duplicate precision/recall and counter-evidence retention still require independently labeled examples; synthetic tests do not establish those acceptance rates.
+
 ## Additional discussion-source review (2026-10-12)
 
 No connector was added from this review. [OpenEnergyMonitor's terms page](https://community.openenergymonitor.org/tos) identifies the CC BY-SA 3.0 license as applying to its code-of-conduct document, not clearly to user posts. [Hugging Face forum terms](https://discuss.huggingface.co/tos) provide a content license to the company; that is not an explicit reuse license to Atlas. Forum-prose reuse remains unresolved for these candidates, not prohibited as a categorical legal finding. No account or binding agreement was accepted.
