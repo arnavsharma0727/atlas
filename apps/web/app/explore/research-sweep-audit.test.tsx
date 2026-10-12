@@ -27,6 +27,14 @@ function nodes(tree: unknown): Array<{ type: unknown; props: Record<string, any>
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); state.cursor = 0; state.completed = false; });
 
 describe("search audit UI", () => {
+  it("keeps the evidence register collapsed until the reader opens it", () => {
+    state.completed = true;
+    const html = renderToStaticMarkup(ResearchSweep({ initialTopic: "", onSearchTopic: vi.fn() }));
+    expect(html).toContain('<details class="source-register" id="source-register">');
+    expect(html).toContain("View sources and citations");
+    expect(html).not.toContain('<details class="source-register" id="source-register" open=""');
+  });
+
   it("keeps the audit absent from the search-first landing", () => {
     const tree = ResearchSweep({ initialTopic: "", onSearchTopic: vi.fn() });
     expect(renderToStaticMarkup(tree)).not.toContain("Download audit JSON");

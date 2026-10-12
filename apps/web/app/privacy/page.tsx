@@ -42,14 +42,14 @@ export default function Privacy() {
               Exchange searches are sent from your browser to their public
               APIs. Manifold search terms are also sent directly from your
               browser to its public, read-only API; returned forecast metadata
-              is held transiently in the page and is not sent to Groq. Public
+              is held transiently in the page and is not sent to AI providers. Public
               BIS currency-index requests go through an Atlas server endpoint;
               the topic is used only to decide whether that source applies
               and is not sent to BIS. Returned indices are held transiently
-              and are not sent to Groq. Public
+              and are not sent to AI providers. Public
               discussion excerpts and Stack Exchange question/answer excerpts
               are held transiently in the page; Stack Exchange excerpts are
-              not sent to Groq.
+              not sent to AI providers.
               Content-warning Mastodon posts are shown without a text preview.
               Those providers
               and Atlas&apos;s hosting infrastructure may process technical
@@ -69,28 +69,33 @@ export default function Privacy() {
               Currency searches can fetch the fixed public ECB daily XML
               dataset through Atlas. No topic text is sent to ECB. The
               fifteen-minute server-memory cache retains the original fetch
-              time, and these official rates are never sent to Groq.
+              time, and these official rates are never sent to AI providers.
             </p>
             <p>
               When a visitor submits a search, Atlas automatically attempts
               AI translation and a summary by sending the topic and up to 16
               short public-source excerpts (with links, emails, and @handles
               removed), their source/language labels and available public
-              posting timestamps to Groq. Posting timestamps are unverified
+              posting timestamps to Groq or, if its free-tier fallback is enabled,
+              Google Gemini. Posting timestamps are unverified
               metadata and do not establish when the underlying event happened.
               The same redacted excerpts and draft claims are sent to the same
-              provider/model for an additional grounding check. Summary generation,
+              chosen provider/model for an additional grounding check. Summary generation,
               format retries, correction, and this check share a maximum of three
               provider calls and a 23-second action budget. Unchecked or rejected
               drafts are withheld. Model agreement is not independent verification.
-              This feature requires a server-side Groq API
-              key and a server configuration explicitly marked free-tier; Atlas does not
-              upgrade an account or add billing details. The free-tier status
-              must be confirmed by the project operator in Groq settings.
+              This feature requires at least one private server-side API key
+              with an explicitly enabled free-tier flag. Groq is tried first;
+              if configured and Groq fails, Gemini is tried within the same
+              call and rate-limit budget. Atlas does not upgrade an account or
+              add billing details. The operator must confirm free-tier status
+              and no linked paid billing before enabling either provider.
               Shared production quota units are capped at 6 per client per minute and 60 per day, with global caps of 10 per minute and 400 per day. Each action reserves its first unit; every additional provider call, including format retries, corrections and grounding review, needs another unit. English-only preparation can consume a unit without contacting AI. These are conservative call limits, not a promised number of completed searches. Provider token limits and other usage of the same organization can exhaust availability sooner; Atlas does not infer a reset time from its boolean quota check. The limiter stores keyed hashes and counters rather than raw IP addresses; old entries are pruned after two days when later requests run, so entries may remain longer during inactivity. Atlas hosting providers may separately process or log network addresses.
               Groq says prompts are not retained by default for inference, but
               reliability and abuse monitoring may retain prompts for up to
               30 days; usage metadata is collected. See its <a className="underline text-ink" href="https://console.groq.com/docs/your-data" target="_blank" rel="noreferrer">data handling documentation</a>.
+              Google states that Free Tier Gemini inputs and outputs may be used
+              to improve its products; see its <a className="underline text-ink" href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noreferrer">pricing and data-use table</a>.
               If AI is off or unavailable, Atlas labels a local evidence
               overview or AI-unavailable fallback. Queries also go to the public
               sources listed on the Sources page. Avoid entering personal,
@@ -111,7 +116,7 @@ export default function Privacy() {
               unemployment may also send the topic and selected country code
               to the public World Bank API for a small set of annual World
               Development Indicators. Those official statistics are displayed
-              separately from community evidence and are never sent to Groq.
+              separately from community evidence and are never sent to AI providers.
               The World Bank may process the request under its own policies.
             </p>
             <p>
@@ -119,7 +124,7 @@ export default function Privacy() {
               about crude oil benchmarks or natural gas send that topic to
               Atlas&apos;s server, which queries the EIA API using the
               operator&apos;s registered key. The key is not sent to the
-              browser or Groq. EIA registration and its API terms are required;
+              browser or AI providers. EIA registration and its API terms are required;
               energy data is shown separately and never included in the AI
               overview. Without the key, the source is marked not searched.
             </p>

@@ -29,6 +29,8 @@ describe("free-tier market assist", () => {
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "false");
     vi.stubEnv("GROQ_API_KEY", "");
     vi.stubEnv("GROQ_MODEL", "openai/gpt-oss-20b");
+    vi.stubEnv("GEMINI_FREE_TIER_ENABLED", "false");
+    vi.stubEnv("GEMINI_API_KEY", "");
     vi.unstubAllGlobals();
     vi.mocked(allowPublicMarketAssistRequest).mockReset();
     vi.mocked(allowPublicMarketAssistRequest).mockResolvedValue("allowed");
@@ -52,6 +54,67 @@ describe("free-tier market assist", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "disabled" });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("uses only an explicitly enabled Gemini free-tier key for translation", async () => {
+    vi.stubEnv("GEMINI_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GEMINI_API_KEY", "test-gemini-key");
+    const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      expect(String(_url)).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+      expect((init?.headers as Record<string, string>).authorization).toBe("Bearer test-gemini-key");
+      const body = JSON.parse(String(init?.body));
+      expect(body.model).toBe("gemini-2.5-flash-lite");
+      expect(body.tools).toBeUndefined();
+      return groqResponse({ query: "환율", hashtags: ["환율"] });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({ action: "prepare", topic: "currency exchange rate", country: "KR", aiEnabled: true }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ mode: "localized", query: "환율" });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to Gemini after Groq throttling and reviews the summary on the chosen provider", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-groq-key");
+    vi.stubEnv("GEMINI_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GEMINI_API_KEY", "test-gemini-key");
+    const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("api.groq.com")) return new Response(JSON.stringify({ error: { code: "rate_limit_exceeded" } }), { status: 429 });
+      const body = JSON.parse(String(init?.body));
+      if (body.messages[0].content.startsWith("You are a skeptical excerpt-grounding reviewer")) return groundingResponse(["baseline:1"]);
+      return groqResponse({
+        baselineClaims: [{ text: "One post says semiconductor demand is increasing.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand is increasing." }] }],
+        localClaims: [], comparisonClaims: [],
+      });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({ action: "summarize", topic: "semiconductor", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand is increasing.", language: "en" }], local: [] } }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).mode).toBe("ai");
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch.mock.calls.filter(([url]) => String(url).includes("generativelanguage.googleapis.com"))).toHaveLength(2);
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(3);
+  });
+
+  it("uses Gemini for a failed Groq draft and never publishes it without review", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-groq-key");
+    vi.stubEnv("GEMINI_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GEMINI_API_KEY", "test-gemini-key");
+    const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("api.groq.com")) return groqResponse({ baselineClaims: [], localClaims: [], comparisonClaims: [] });
+      const body = JSON.parse(String(init?.body));
+      if (body.messages[0].content.startsWith("You are a skeptical excerpt-grounding reviewer")) return groundingResponse(["baseline:1"]);
+      return groqResponse({ baselineClaims: [{ text: "One post says semiconductor demand is increasing.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Semiconductor demand is increasing." }] }], localClaims: [], comparisonClaims: [] });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const response = await POST(makeRequest({ action: "summarize", topic: "semiconductor", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "Semiconductor demand is increasing.", language: "en" }], local: [] } }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ mode: "ai", provider: "gemini", model: "gemini-2.5-flash-lite" });
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 
   it("enforces the market-language screen at the server boundary", async () => {

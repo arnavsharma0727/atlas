@@ -14,9 +14,9 @@ describe("summary evidence links", () => {
       ] }, citedBreadth: { excerptCount: 2, platformLabels: ["Bluesky", "Lemmy"] },
     }));
     expect(html).not.toContain("Combined text must not replace");
-    expect(html).toContain('One post reports rising demand.<span class="summary-citations"');
-    expect(html).toContain('Another post reports falling demand.<span class="summary-citations"');
-    expect(html.match(/Check verbatim source excerpts/g)).toHaveLength(2);
+    expect(html).toContain('One post reports rising demand.</p><details class="summary-citation-disclosure"');
+    expect(html).toContain('Another post reports falling demand.</p><details class="summary-citation-disclosure"');
+    expect(html.match(/Sources for this point/g)).toHaveLength(2);
     expect(html.match(/Cited basis:/g)).toHaveLength(1);
     expect(html.match(/Event timing is unverified:/g)).toHaveLength(1);
     expect(html).toContain('href="#citation-C1"');
@@ -158,7 +158,7 @@ describe("summary evidence links", () => {
       passage: { text: "The retrieved posts discuss supply conditions.", citations: ["C1", "C4"] },
     }));
 
-    expect(html).toContain("Evidence:");
+    expect(html).toContain("Sources for this point · 2");
     expect(html).toContain('href="#citation-C1"');
     expect(html).toContain('href="#citation-C4"');
   });
@@ -172,7 +172,8 @@ describe("summary evidence links", () => {
       },
     }));
 
-    expect(html).toContain("Check verbatim source excerpts");
+    expect(html).toContain("Sources for this point · 1");
+    expect(html).toContain('<ul class="summary-quote-list">');
     expect(html).toContain('href="#citation-C1"');
     expect(html).toContain("Demand may remain uncertain this quarter.");
   });

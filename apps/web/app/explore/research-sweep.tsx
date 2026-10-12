@@ -13,6 +13,7 @@ import { buildSearchAudit, type AuditRunIdentity } from "../../lib/search-audit"
 import { inspectQueryClarity } from "../../lib/query-clarity";
 import { hasMaterialEvidenceContext } from "../../lib/evidence-context";
 import { marketDiscussionQueries, MARKET_QUERY_PLAN_NOTE } from "../../lib/market-query-plan";
+import { selectedCountryContext } from "../../lib/country-context";
 
 export default function ResearchSweep({
   initialTopic,
@@ -44,10 +45,13 @@ export default function ResearchSweep({
   const [auditPending, setAuditPending] = useState(false);
   const [auditError, setAuditError] = useState("");
   const [auditMessage, setAuditMessage] = useState("");
+  const [summaryProvider, setSummaryProvider] = useState<string | null>(null);
+  const revealCitation = () => { const register = document.getElementById("source-register"); if (register instanceof HTMLDetailsElement) register.open = true; };
   const citationIds = buildCitationIds(results);
   const displayResults = collapseRepeatedEvidenceViews(results);
   const searchedCountry = marketCountry(searchedCountryCode);
   const queryClarity = inspectQueryClarity(searchedQuery);
+  const countryFacts = selectedCountryContext(results, searchedCountryCode);
 
   useEffect(() => {
     if (initialTopic) setQuery(initialTopic);
@@ -68,6 +72,7 @@ export default function ResearchSweep({
     setSearchedQuery(topic);
     setSearchedCountryCode(activeCountryCode);
     setSummary(null);
+    setSummaryProvider(null);
     setSummaryBreadth(null);
     setScreenedOutCounts(null);
     setSummaryCandidateCounts({});
@@ -164,10 +169,11 @@ export default function ResearchSweep({
       setScreenedOutCounts(excludedCounts);
       const generated = (evidenceForAi.us.length > 0 || evidenceForAi.local.length > 0)
         ? await requestMarketAssist({ action: "summarize", topic, localTopic: localQuery, country: activeCountryCode, evidence: evidenceForAi, aiEnabled: true })
-        : { mode: "unavailable", query: "", hashtags: [], summary: null };
+        : { mode: "unavailable", query: "", hashtags: [], summary: null, reason: "no-evidence" };
       if (generated.mode === "ai" && generated.summary) {
         setSummary(activeCountryCode === "US" ? sameCountrySummary(generated.summary) : generated.summary);
         setSummaryMode("ai");
+        setSummaryProvider(generated.provider && generated.model ? `${generated.provider} · ${generated.model}` : null);
       } else {
         setSummary(buildEvidenceSummary(evidenceForAi.us, evidenceForAi.local, activeCountry.name, activeCountryCode === "US", generated.reason));
         setSummaryMode("unavailable");
@@ -250,14 +256,19 @@ export default function ResearchSweep({
       <p className="market-attribution">By: <a href="https://www.linkedin.com/in/arnavsharma0727/" target="_blank" rel="noreferrer">Arnav Sharma UVA30’</a></p>
 
       {searched && !loading && <>
-        {searchedCountryCode === "US"
-          ? <p className="country-lens-note">English-language baseline only. Sources do not verify contributor location, so this is not a U.S. sample or a national view.</p>
-          : <p className="country-lens-note">Selected lens: {searchedCountry.name} · {searchedCountry.languageName} language/community. Local query used: “{searchedLocalQuery}” ({localQueryMethod === "researcher" ? "entered by you" : localQueryMethod === "translated" ? "automatically translated; review it below" : localQueryMethod === "original" ? "original phrase; translation unavailable" : "same baseline phrase"}). This does not verify poster location or represent a national sample.</p>}
-        {searchedCountryCode !== "US" && <form className="local-query-refinement" onSubmit={(event) => { event.preventDefault(); void search(searchedQuery, localQueryOverride.trim(), searchedCountryCode); }}>
+        <div className="country-lens-note">
+          {searchedCountryCode === "US"
+            ? <>English-language baseline · location unverified</>
+            : <>{searchedCountry.name} · {searchedCountry.languageName} search · query “{searchedLocalQuery}”{localQueryMethod === "original" ? " · translation unavailable" : ""}</>}
+          <details><summary>About this lens</summary><p>{searchedCountryCode === "US"
+            ? "Sources do not verify contributor location, so this is not a U.S. sample or a national view."
+            : `The selected country is a ${searchedCountry.languageName} language/community search lens, not verified poster location or a representative national sample. The query was ${localQueryMethod === "researcher" ? "entered by you" : localQueryMethod === "translated" ? "automatically translated" : "the original phrase because translation was unavailable"}.`}</p></details>
+        </div>
+        {searchedCountryCode !== "US" && <details className="local-query-details"><summary>Refine the {searchedCountry.languageName} search phrase</summary><form className="local-query-refinement" onSubmit={(event) => { event.preventDefault(); void search(searchedQuery, localQueryOverride.trim(), searchedCountryCode); }}>
           <label htmlFor="local-query-override">Prefer a specific {searchedCountry.languageName} search phrase?</label>
           <div><input id="local-query-override" value={localQueryOverride} onChange={(event) => setLocalQueryOverride(event.target.value)} maxLength={100} placeholder={`Optional phrase in ${searchedCountry.languageName}`} /><button type="submit" disabled={loading || !localQueryOverride.trim()}>Search this phrase</button></div>
           <small>When provided, this phrase replaces automatic translation for text-query sources; Mastodon converts it to a hashtag. Clear it to return to automatic translation.</small>
-        </form>}
+        </form></details>}
       </>}
       {searched && loading && <div className="search-loading" role="status"><span className="search-spinner" aria-hidden="true" /> Searching live public sources{searchedCountryCode === "US" ? "" : ` and preparing the ${searchedCountry.name} language/community comparison`} for <strong>“{searchedQuery}”</strong>…</div>}
       {error && <p role="alert" className="search-error">{error}</p>}
@@ -265,12 +276,9 @@ export default function ResearchSweep({
         <div className="market-results">
           <div className="market-results-heading">
             <div>
-              <p className="eyebrow">Live conversation search</p>
-              <h2>{searchedCountryCode === "US"
-                ? `“${searchedQuery}” · English-language baseline search`
-                : `“${searchedQuery}” · baseline search vs ${searchedCountry.name} language/community lens`}</h2>
+              <h2>“{searchedQuery}”</h2>
             </div>
-            <p>Each source, query, time window, and availability status is listed below.</p>
+            <p>{searchedCountryCode === "US" ? "English-language baseline" : `${searchedCountry.name} language/community lens · English baseline`}</p>
           </div>
           {queryClarity.warning && <aside className="query-clarity-note" aria-live="polite">
             <p>{queryClarity.warning}</p>
@@ -284,29 +292,44 @@ export default function ResearchSweep({
           <section className="market-summary" aria-labelledby="market-summary-title">
             <header>
               <div>
-                <p className="eyebrow">{summaryMode === "ai" ? "AI-generated from public discussion excerpts" : summaryMode === "unavailable" ? "AI unavailable · evidence overview" : "Evidence overview · AI not used"}</p>
-                <h3 id="market-summary-title">Selected public conversation</h3>
+                <p className="eyebrow">{summaryMode === "ai" ? "AI overview" : "Evidence overview"}</p>
+                <h3 id="market-summary-title">What the sources say</h3>
               </div>
-                <span>{summaryMode === "ai" ? "AI summary" : summaryMode === "unavailable" ? "AI unavailable" : "Local overview"}</span>
+                <span>{summaryMode === "ai" ? "Checked against cited excerpts" : "AI unavailable"}</span>
             </header>
             <div className={`market-summary-columns${searchedCountryCode === "US" ? " market-summary-columns--single" : ""}`}>
+              {searchedCountryCode !== "US" && <article>
+                <h4>{searchedCountry.languageName} language/community search</h4>
+                <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
+                {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
+                <SummaryPassageText passage={summary.localSummary} onOpenCitation={revealCitation} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.localSummary.citations) : undefined} />
+              </article>}
               <article>
                 <h4>English-language baseline · provider language varies</h4>
                 <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.baseline)}</p>
                 {summaryBreadth && evidenceBreadthWarning(summaryBreadth.baseline) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.baseline)}</p>}
-                <SummaryPassageText passage={summary.usSummary} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.usSummary.citations) : undefined} />
+                <SummaryPassageText passage={summary.usSummary} onOpenCitation={revealCitation} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.usSummary.citations) : undefined} />
               </article>
-              {searchedCountryCode !== "US" && <article>
-                <h4>{searchedCountry.name} selection · {searchedCountry.languageName} search lens</h4>
-                <p className="summary-sample-meta">{formatEvidenceBreadth(summaryBreadth?.selected)}</p>
-                {summaryBreadth && evidenceBreadthWarning(summaryBreadth.selected) && <p className="summary-sample-caveat" role="status">{evidenceBreadthWarning(summaryBreadth.selected)}</p>}
-                <SummaryPassageText passage={summary.localSummary} citedBreadth={summaryMode === "ai" ? summarizeCitedEvidenceBreadth(results, citationIds, summary.localSummary.citations) : undefined} />
-              </article>}
             </div>
+            {countryFacts.length > 0 && <section className="country-context" aria-label={`Official data for ${searchedCountry.name}`}>
+              <h4>Official data · {searchedCountry.name}</h4>
+              <ul>{countryFacts.map(({ sourceKey, item, brief }) => {
+                const citationId = citationIds.get(citationKey(sourceKey, item.id));
+                return <li key={`${sourceKey}:${item.id}`}>
+                  <strong>{item.title}</strong>
+                  {brief && <span>{brief}</span>}
+                  <small>Observation {item.timeValue} · {item.source}</small>
+                  {citationId && <details><summary>Original source</summary><a href={`#citation-${citationId}`} onClick={revealCitation}>Open {citationId} in sources</a></details>}
+                </li>;
+              })}</ul>
+              <p>Publisher observations for this topic, with their own dates and units. They are not community opinions or evidence of current prices.</p>
+            </section>}
             {searchedCountryCode !== "US" ? <article className="market-summary-comparison">
               <h4>Comparison</h4>
-              <SummaryPassageText passage={summary.comparison} />
+              <SummaryPassageText passage={summary.comparison} onOpenCitation={revealCitation} />
             </article> : <p className="market-summary-caveat">Choose another language/community lens to compare against this baseline; Atlas cannot verify that baseline contributors are in the United States.</p>}
+            <details className="summary-method"><summary>How to read this overview</summary>
+            {summaryProvider && <p className="market-summary-caveat">Generated with {summaryProvider}; an additional check used the same provider and model.</p>}
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             {summaryMode === "ai" && <p className="market-summary-caveat">An additional AI pass checks the draft against the same excerpts for unsupported meaning and omitted contrary views. This is not independent verification: both passes use the same provider/model and can share mistakes. Inspect the supporting quotes and originals.</p>}
             <p className="market-summary-caveat">For social posts with attribution, no more than one excerpt per displayed account from each provider/network enters an overview. Account labels are used only to limit concentration; they are not sent to AI and do not verify a person's identity.</p>
@@ -316,8 +339,11 @@ export default function ResearchSweep({
             <p className="market-summary-caveat">The baseline is not a U.S. sample and may include mixed languages. Bluesky receives the official English-language filter for the baseline and selected-language filter for the local lens, independently of phrase length; provider labels can be wrong. Lemmy uses the phrase shown for each provider, and Mastodon searches the displayed hashtag. The selected lens is not verified poster nationality or a representative national sample. Counts are API returns, not attention, prevalence, or investor positioning.</p>
             <p className="market-summary-caveat">{MARKET_QUERY_PLAN_NOTE}</p>
             {!!summary.limitations.length && <ul className="market-summary-limitations">{summary.limitations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>}
+            </details>
           </section>
 
+          <details className="source-register" id="source-register">
+            <summary>View sources and citations <span>{displayResults.reduce((count, view) => count + view.evidence.length, 0)} linked records · source coverage</span></summary>
           <section className="source-citations" aria-labelledby="source-citations-title">
             <header>
               <div>
@@ -338,7 +364,8 @@ export default function ResearchSweep({
               {displayResults.map((view, index) => <SourceResults key={`${view.result.key}:${index}`} result={view.result} evidence={view.evidence} returnedCount={view.returnedCount} duplicateCount={view.duplicateCount} summaryCandidateCount={summaryCandidateCounts[view.result.key] ?? 0} citationIds={citationIds} summaryCitationIds={new Set([...summary.usSummary.citations, ...summary.localSummary.citations, ...summary.comparison.citations])} />)}
             </div>
           </section>
-          <p className="search-limits">Public API results are incomplete samples. They can omit content, overlap across federated servers, and reflect platform/language selection. An AI summary describes only the retrieved sample; inspect original sources before drawing conclusions. <a href="/sources">How sources work</a> · <a href="/privacy">Privacy</a>.</p>
+          </details>
+          <details className="search-limits"><summary>Coverage and privacy</summary><p>Public API results are incomplete samples. They can omit content, overlap across federated servers, and reflect platform/language selection. An AI summary describes only the retrieved sample; inspect original sources before drawing conclusions. <a href="/sources">How sources work</a> · <a href="/privacy">Privacy</a>.</p></details>
         </div>
       )}
     </section>
@@ -353,9 +380,9 @@ async function requestMarketAssist(input: { action: "prepare"; topic: string; co
       body: JSON.stringify(input),
       cache: "no-store",
     });
-    const body = await response.json() as { mode?: string; query?: string; hashtags?: string[]; summary?: MarketSummary; reason?: string };
+    const body = await response.json() as { mode?: string; query?: string; hashtags?: string[]; summary?: MarketSummary; reason?: string; provider?: string; model?: string };
     if (!response.ok) return { mode: "unavailable", query: body.query ?? "", hashtags: body.hashtags ?? [], summary: null, reason: body.reason ?? (response.status === 429 ? "request-limited" : "provider-error") };
-    return { mode: body.mode, query: body.query ?? "", hashtags: body.hashtags ?? [], summary: body.summary ?? null, ...(body.reason ? { reason: body.reason } : {}) };
+    return { mode: body.mode, query: body.query ?? "", hashtags: body.hashtags ?? [], summary: body.summary ?? null, provider: body.provider, model: body.model, ...(body.reason ? { reason: body.reason } : {}) };
   } catch {
     return { mode: "unavailable", query: input.action === "prepare" ? input.topic : "", hashtags: input.action === "prepare" ? topicHashtags(input.topic) : [], summary: null, reason: "network-error" };
   }
@@ -363,7 +390,11 @@ async function requestMarketAssist(input: { action: "prepare"; topic: string; co
 
 function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, local: ReturnType<typeof selectBalancedEvidence>, country: string, sameCountry: boolean, failureReason?: string): MarketSummary {
   const summarize = (items: ReturnType<typeof selectBalancedEvidence>, label: string) => items.length
-    ? { text: `This evidence overview does not infer a shared opinion; inspect the selected ${label} records below.`, citations: items.slice(0, 3).map(({ citationId }) => citationId) }
+    ? { text: `Selected excerpts from the ${label}:`, citations: items.slice(0, 2).map(({ citationId }) => citationId),
+      claims: items.slice(0, 2).map(({ citationId, source, excerpt }) => {
+        const quote = excerpt.trim().slice(0, 160);
+        return { text: `${source} excerpt: “${quote}${excerpt.trim().length > quote.length ? "…" : ""}”`, citations: [citationId], supportingQuotes: [{ citationId, quote }] };
+      }) }
     : { text: `No excerpts passed Atlas’s conservative market-language screen for this ${label} overview. Matching source records remain below; the screen can miss relevant discussion, and this is not evidence that discussion is absent.`, citations: [] };
   return {
     usSummary: summarize(us, "baseline search"),
@@ -379,6 +410,7 @@ function buildEvidenceSummary(us: ReturnType<typeof selectBalancedEvidence>, loc
 
 function aiFailureMessage(reason: string) {
   switch (reason) {
+    case "no-evidence": return "No text excerpts qualified for an AI overview in this search; the source register still shows the original results.";
     case "disabled": return "AI summaries are not enabled or configured by the operator; this local overview remains available.";
     case "rate-limited": return "The free AI provider reported a usage limit; this local overview is shown instead.";
     case "request-limited": return "Atlas's AI request limit was reached; this local overview is shown instead.";
@@ -400,30 +432,27 @@ function sameCountrySummary(summary: MarketSummary): MarketSummary {
   };
 }
 
-export function SummaryPassageText({ passage, citedBreadth }: { passage: MarketSummary["usSummary"]; citedBreadth?: EvidenceBreadth }) {
+export function SummaryPassageText({ passage, citedBreadth, onOpenCitation }: { passage: MarketSummary["usSummary"]; citedBreadth?: EvidenceBreadth; onOpenCitation?: () => void }) {
   // Keep the overview readable while letting a researcher jump directly to
   // each source record supporting this passage in the consolidated register.
   return <div className="summary-passage">
-    {passage.claims?.length ? <div className="space-y-4">{passage.claims.map((claim, index) => <SummaryPassageText key={index} passage={claim} />)}</div> : <p>{passage.text}{passage.citations.length > 0 && (
+    {passage.claims?.length ? <div className="space-y-4">{passage.claims.map((claim, index) => <SummaryPassageText key={index} passage={claim} onOpenCitation={onOpenCitation} />)}</div> : <p>{passage.text}</p>}
+    {!passage.claims?.length && passage.citations.length > 0 && <details className="summary-citation-disclosure">
+      <summary>Sources for this point · {passage.citations.length}</summary>
       <span className="summary-citations" aria-label="Evidence sources">
-        {" "}Evidence: {passage.citations.map((citationId, index) => (
-          <span key={citationId}>{index > 0 ? ", " : ""}<a href={`#citation-${citationId}`} aria-label={`Open source ${citationId}`}>{citationId}</a></span>
+        {passage.citations.map((citationId, index) => (
+          <span key={citationId}>{index > 0 ? ", " : ""}<a href={`#citation-${citationId}`} onClick={onOpenCitation} aria-label={`Open source ${citationId}`}>{citationId}</a></span>
         ))}
       </span>
-    )}</p>}
-    {citedBreadth && passage.citations.length > 0 && <>
+      {!!passage.supportingQuotes?.length && <ul className="summary-quote-list">{passage.supportingQuotes.map(({ citationId, quote }, index) => (
+        <li key={`${citationId}:${index}`}><a href={`#citation-${citationId}`} onClick={onOpenCitation}>{citationId}</a> “{quote}”</li>
+      ))}</ul>}
+    </details>}
+    {citedBreadth && passage.citations.length > 0 && <details className="summary-citation-disclosure"><summary>Evidence scope</summary>
       <p className="summary-sample-meta">Cited basis: {citedBreadth.excerptCount} unique {citedBreadth.excerptCount === 1 ? "record" : "records"} · {citedBreadth.platformLabels.length} {citedBreadth.platformLabels.length === 1 ? "platform" : "platforms"}{citedBreadth.platformLabels.length > 0 ? `: ${citedBreadth.platformLabels.join(", ")}` : ""}. Citation coverage does not establish agreement or independence.</p>
       <p className="summary-sample-caveat">Event timing is unverified: recent posts may describe different historical periods, forecasts, or current conditions.</p>
       {citedBreadth.platformLabels.length === 1 && <p className="summary-sample-caveat">This AI overview cites one platform only, even if other platforms appear in the selected inputs.</p>}
-    </>}
-    {!passage.claims?.length && !!passage.supportingQuotes?.length && (
-      <details className="summary-supporting-quotes">
-        <summary>Check verbatim source excerpts</summary>
-        <ul>{passage.supportingQuotes.map(({ citationId, quote }, index) => (
-          <li key={`${citationId}:${index}`}><a href={`#citation-${citationId}`}>{citationId}</a> “{quote}”</li>
-        ))}</ul>
-      </details>
-    )}
+    </details>}
   </div>;
 }
 
