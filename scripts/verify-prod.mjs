@@ -121,14 +121,14 @@ try {
   ]);
   const evidence = data && typeof data === "object" && Array.isArray(data.evidence) ? data.evidence : [];
   const validEvidence = evidence.length === 4 && evidence.every((item) =>
-    item && typeof item.id === "string" && /^bis-eer:(?:US|KR):[NR]:d{4}-d{2}$/.test(item.id) &&
+    item && typeof item.id === "string" && /^bis-eer:(?:US|KR):[NR]:[0-9]{4}-[0-9]{2}$/.test(item.id) &&
     item.evidenceClass === "official statistical data" && item.sourceOperatorKey === "bis-statistics" &&
     typeof item.context === "string" && item.context.includes("2020 = 100") &&
     typeof item.url === "string" && item.url.startsWith("https://data.bis.org/topics/EER/"));
   if (sourcesResponse.ok && privacyResponse.ok && methodologyResponse.ok && dataResponse.ok &&
     sourcesPage.includes("BIS · effective exchange-rate context") &&
-    sourcesPage.includes("not a bilateral spot exchange rate") &&
-    sourcesPage.includes("Terms of permitted statistical use") &&
+    sourcesPage.includes("not bilateral spot rates") &&
+    sourcesPage.includes("BIS terms of permitted statistical use") &&
     privacyPage.includes("topic is used only to decide whether that source applies") &&
     methodologyPage.includes("Country indices use their own 2020=100 bases") && validEvidence) {
     pass("BIS FX context and permission boundaries", "keyless U.S./selected-country indices are live, attributed, freshness-labeled, excluded from discussion summaries, and represented as non-comparable indices");
