@@ -46,6 +46,7 @@ export default function ResearchSweep({
   const [auditError, setAuditError] = useState("");
   const [auditMessage, setAuditMessage] = useState("");
   const [summaryProvider, setSummaryProvider] = useState<string | null>(null);
+  const [summaryFailure, setSummaryFailure] = useState<string | null>(null);
   const revealCitation = () => { const register = document.getElementById("source-register"); if (register instanceof HTMLDetailsElement) register.open = true; };
   const citationIds = buildCitationIds(results);
   const displayResults = collapseRepeatedEvidenceViews(results);
@@ -77,6 +78,7 @@ export default function ResearchSweep({
     setSearchedCountryCode(activeCountryCode);
     setSummary(null);
     setSummaryProvider(null);
+    setSummaryFailure(null);
     setSummaryBreadth(null);
     setScreenedOutCounts(null);
     setSummaryCandidateCounts({});
@@ -186,6 +188,7 @@ export default function ResearchSweep({
       } else {
         setSummary(buildEvidenceSummary(evidenceForAi.us, evidenceForAi.local, activeCountry.name, activeCountryCode === "US", generated.reason));
         setSummaryMode(generated.reason === "no-country-evidence" ? "evidence" : "unavailable");
+        setSummaryFailure(generated.reason ?? "provider-error");
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The search could not be completed.");
@@ -344,6 +347,7 @@ export default function ResearchSweep({
             </article> : searchedCountryCode === "US" ? <p className="market-summary-caveat">Choose another language/community lens to compare against this baseline; Atlas cannot verify that baseline contributors are in the United States.</p> : null}
             <details className="summary-method"><summary>{missingSelectedEvidence ? "Search limits" : "How to read this overview"}</summary>
             {summaryProvider && <p className="market-summary-caveat">Generated with {summaryProvider}; an additional check used the same provider and model.</p>}
+            {summaryMode === "unavailable" && summaryFailure && <p className="market-summary-caveat">AI overview unavailable: {aiFailureText(summaryFailure)} The text above is an evidence-only excerpt fallback, not an AI market assessment.</p>}
             <p className="market-summary-caveat">Summary scope: at most eight short public discussion excerpts per side. Title-only expert Q&amp;A, reporting, and publisher-analysis headlines listed below are not sent to the summarizer.</p>
             {summaryMode === "ai" && <p className="market-summary-caveat">An additional AI pass checks the draft against the same excerpts for unsupported meaning and omitted contrary views. This is not independent verification: both passes use the same provider/model and can share mistakes. Inspect the supporting quotes and originals.</p>}
             <p className="market-summary-caveat">For social posts with attribution, no more than one excerpt per displayed account from each provider/network enters an overview. Account labels are used only to limit concentration; they are not sent to AI and do not verify a person's identity.</p>
@@ -403,6 +407,19 @@ async function requestMarketAssist(input: { action: "prepare"; topic: string; co
     return { mode: body.mode, query: body.query ?? "", hashtags: body.hashtags ?? [], summary: body.summary ?? null, provider: body.provider, model: body.model, ...(body.reason ? { reason: body.reason } : {}) };
   } catch {
     return { mode: "unavailable", query: input.action === "prepare" ? input.topic : "", hashtags: input.action === "prepare" ? topicHashtags(input.topic) : [], summary: null, reason: "network-error" };
+  }
+}
+
+function aiFailureText(reason: string): string {
+  switch (reason) {
+    case "citation-validation": return "The draft did not pass exact citation and quote checks.";
+    case "grounding-validation": return "The draft did not pass the evidence-grounding check.";
+    case "grounding-unavailable": return "The evidence-grounding check could not complete.";
+    case "rate-limited":
+    case "request-limited": return "The free provider or Atlas search allowance was temporarily reached.";
+    case "timeout": return "The free provider did not finish within the search window.";
+    case "disabled": return "No free AI provider is enabled.";
+    default: return "The free provider did not return a validated summary.";
   }
 }
 
