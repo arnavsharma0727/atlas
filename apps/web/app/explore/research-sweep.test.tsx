@@ -1,11 +1,28 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { SummaryPassageText, visibleSummaryEvidence } from "./research-sweep";
+import { SourceResults, SummaryPassageText, visibleSummaryEvidence } from "./research-sweep";
 import { includesExternalLink } from "../../lib/research-sweep";
 import { citationKey } from "../../lib/perspective-snapshot";
 
 describe("summary evidence links", () => {
+  it("shows provider-return and overview-candidate counts separately", () => {
+    const html = renderToStaticMarkup(createElement(SourceResults, {
+      result: {
+        key: "bluesky:0", label: "Bluesky", query: "solar", asOf: "2026-10-10T00:00:00.000Z",
+        retrievedAt: "2026-10-10T00:00:01.000Z", window: "Last seven days", evidence: [], error: null, status: "complete",
+      },
+      evidence: [],
+      returnedCount: 9,
+      duplicateCount: 0,
+      summaryCandidateCount: 2,
+      citationIds: new Map(),
+      summaryCitationIds: new Set<string>(),
+    }));
+
+    expect(html).toContain("0 topic matches · 9 returned · 2 pass overview filters");
+  });
+
   it("recognizes bare external domains in social text as link-sharing provenance", () => {
     expect(includesExternalLink("Publisher source: news.ikbc.co.kr/article/story")).toBe(true);
     expect(includesExternalLink("More on the topic at BigEarthData.ai")).toBe(true);

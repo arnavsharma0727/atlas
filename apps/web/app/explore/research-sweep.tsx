@@ -350,7 +350,7 @@ export function SummaryPassageText({ passage }: { passage: MarketSummary["usSumm
   )}</>;
 }
 
-function SourceResults({ result, evidence, returnedCount, duplicateCount, summaryCandidateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; summaryCandidateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
+export function SourceResults({ result, evidence, returnedCount, duplicateCount, summaryCandidateCount, citationIds, summaryCitationIds }: { result: ResearchSweepSourceResult; evidence: ResearchSweepSourceResult["evidence"]; returnedCount: number; duplicateCount: number; summaryCandidateCount: number; citationIds: Map<string, string>; summaryCitationIds: Set<string> }) {
   const [showAll, setShowAll] = useState(false);
   const items = visibleSummaryEvidence(evidence, showAll, result.key, citationIds, summaryCitationIds);
   const countsLabel = `${evidence.length} topic matches · ${returnedCount} returned${result.topicExcludedCount ? ` · ${result.topicExcludedCount} screened out` : ""} · ${summaryCandidateCount} pass overview filters${duplicateCount ? ` · ${duplicateCount} duplicates` : ""}`;
