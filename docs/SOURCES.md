@@ -4,6 +4,8 @@ This describes the visitor-facing workflow in the current code. `/sources` is th
 
 ## Search providers
 
+Quota-accounting update (2026-10-12): the shared AI caps count conservative quota units, not completed searches. The action preflight reserves the first unit; every additional Groq HTTP request (JSON-format fallback, correction or grounding review) consumes another through the same shared database limiter. English-only preparation may consume a unit without a model request. The caps remain 6/minute and 60/day per client, 10/minute and 400/day globally; no counter reset, limit increase, billing change or quota bypass is introduced. Provider token limits, other organization usage and account-specific limits can exhaust availability sooner. Summary attempts share three provider calls/23 seconds; translation attempts share two calls/20 seconds. An unavailable additional quota check fails closed in production and an unchecked draft is withheld. Inspect the deployed privacy notice for the current accounting; older references to bridge requests are not a promise of search capacity.
+
 | Source | Product role | Scope and limitation |
 | --- | --- | --- |
 | Bluesky AppView | Public social discussion | Public search, last seven days, up to 25 indexed posts per phrase. English baseline adds `lang:en`; the selected lens uses its query phrase. Language is not author geolocation; excerpts are transient. |

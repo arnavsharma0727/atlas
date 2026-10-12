@@ -1,5 +1,7 @@
 # Atlas data sources
 
+Current AI quota accounting (2026-10-12): every additional provider HTTP request, including format retry, correction and grounding review, must obtain its own unit from the existing shared limiter. Each action reserves its first unit; an English-only prepare may spend it without calling AI. Existing client/global minute/day caps are unchanged and are not a promised number of completed searches. Provider token quotas and organization usage can exhaust availability earlier. Translation has a two-call/20-second budget; summary generation/correction/review shares three calls/23 seconds. Production does not send a retry or review when its shared quota check is denied or unavailable. No paid billing or counter-reset workaround is added.
+
 This document describes Atlas's current visitor-facing search, not complete platform coverage or a claim that public content is licensed for unrestricted reuse. The live [source register](https://signal-scout-xi-ruby.vercel.app/sources) reports operational status.
 
 Each overview reports the exact excerpt count and distinct platform labels that passed its filters. An empty or single-platform side is explicitly marked as insufficient to assess a cross-community view; multiple platform labels still do not establish independence, representativeness, or a like-for-like comparison.

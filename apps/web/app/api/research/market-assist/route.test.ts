@@ -516,7 +516,51 @@ describe("free-tier market assist", () => {
     const reviewRequest = JSON.parse(String(fetcher.mock.calls[1][1]?.body));
     expect(reviewRequest.messages[0].content).toContain("upgrade from versus upgrade to");
     expect(reviewRequest.messages[1].content).toContain("baseline:1");
-    expect(allowPublicMarketAssistRequest).toHaveBeenCalledOnce();
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["limited", "unavailable"] as const)("withholds the draft before review if its own shared quota check is %s", async (limit) => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValueOnce("allowed").mockResolvedValueOnce(limit);
+    const excerpt = "GPU demand is slowing.";
+    const draft = { baselineClaims: [{ text: "One retrieved post says GPU demand is slowing.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: excerpt }] }], localClaims: [], comparisonClaims: [] };
+    const fetcher = vi.fn().mockResolvedValueOnce(groqResponse(draft));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await POST(makeRequest({ action: "summarize", topic: "GPU", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt, language: "en" }], local: [] } }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ reason: "grounding-unavailable", grounding: { cause: limit === "limited" ? "request-limited" : "rate-limiter-unavailable" } });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["format", "correction"])("does not send a %s retry when its shared quota unit is denied", async (kind) => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValueOnce("allowed").mockResolvedValueOnce("limited");
+    const fetcher = vi.fn().mockResolvedValueOnce(kind === "format"
+      ? Response.json({ error: { code: "json_validate_failed" } }, { status: 400 })
+      : groqResponse({ baselineClaims: [{ text: "GPU demand is rising.", citations: ["invented"] }], localClaims: [], comparisonClaims: [] }));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await POST(makeRequest({ action: "summarize", topic: "GPU", country: "US", aiEnabled: true,
+      evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt: "GPU demand is slowing.", language: "en" }], local: [] } }));
+    expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "request-limited" });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it("charges translated-phrase JSON fallback separately and stops before a denied retry", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValueOnce("allowed").mockResolvedValueOnce("limited");
+    const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ error: { code: "json_validate_failed" } }, { status: 400 }));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await POST(makeRequest({ action: "prepare", topic: "GPU", country: "FR", aiEnabled: true }));
+    expect(await response.json()).toMatchObject({ mode: "english-fallback", query: "GPU", reason: "request-limited" });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(2);
   });
 
   it("shares a three-call cap across format retries, correction and mandatory review", async () => {
@@ -533,6 +577,25 @@ describe("free-tier market assist", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ mode: "unavailable", reason: "grounding-unavailable" });
     expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(3);
+  });
+
+  it("rechecks the action deadline after an additional quota check, before sending review", async () => {
+    vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
+    vi.stubEnv("GROQ_API_KEY", "test-key");
+    let current = Date.now();
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => current);
+    vi.mocked(allowPublicMarketAssistRequest).mockResolvedValueOnce("allowed").mockImplementationOnce(async () => { current += 24_000; return "allowed"; });
+    const excerpt = "GPU demand is slowing.";
+    const fetcher = vi.fn().mockResolvedValueOnce(groqResponse({ baselineClaims: [{ text: "One post says GPU demand is slowing.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: excerpt }] }], localClaims: [], comparisonClaims: [] }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const response = await POST(makeRequest({ action: "summarize", topic: "GPU", country: "US", aiEnabled: true,
+        evidence: { us: [{ citationId: "C1", source: "Bluesky", title: "Post", excerpt, language: "en" }], local: [] } }));
+      expect(await response.json()).toMatchObject({ reason: "grounding-unavailable", grounding: { cause: "timeout" } });
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(2);
+    } finally { clock.mockRestore(); }
   });
 
   it("withholds an otherwise valid draft when the shared review deadline has expired", async () => {
