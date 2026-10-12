@@ -13,6 +13,7 @@ export type MarketSummary = {
   localSummary: SummaryPassage;
   comparison: SummaryPassage;
   limitations: string[];
+  groundingCheck?: { state: "model-check-passed"; claimCount: number; independentValidation: false };
 };
 
 export type ModelEvidence = {

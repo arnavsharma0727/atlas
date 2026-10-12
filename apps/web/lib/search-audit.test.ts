@@ -26,6 +26,22 @@ function fixture() {
 }
 
 describe("local search audit", () => {
+  it("does not infer a grounding check from AI mode alone", async () => {
+    expect((await buildSearchAudit(fixture())).summary.groundingCheck).toBeNull();
+  });
+
+  it("exports only the grounding status allowlist, never extra model fields", async () => {
+    const input = fixture();
+    const groundingCheck = { state: "model-check-passed" as const, claimCount: 1, independentValidation: false as const, privateText: "PRIVATE_REVIEW" };
+    const summary = { ...input.summary, groundingCheck };
+    const audit = await buildSearchAudit({ ...input, summary });
+    expect(audit.summary.groundingCheck).toEqual({ state: "model-check-passed", claimCount: 1, independentValidation: false });
+    expect(JSON.stringify(audit)).not.toContain("PRIVATE_");
+    groundingCheck.claimCount = 8;
+    expect((await buildSearchAudit({ ...input, summary })).summary.groundingCheck).toBeNull();
+    groundingCheck.claimCount = 1;
+    expect((await buildSearchAudit({ ...input, summary, summaryMode: "evidence" })).summary.groundingCheck).toBeNull();
+  });
   it("exports only an explicit metadata allowlist, not content or attribution", async () => {
     const snapshot = await buildSearchAudit(fixture(), "2026-10-12T00:00:02Z");
     expect(JSON.stringify(snapshot)).not.toContain("PRIVATE_");

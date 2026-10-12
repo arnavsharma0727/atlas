@@ -81,6 +81,11 @@ export default function Privacy() {
               removed), their source/language labels and available public
               posting timestamps to Groq. Posting timestamps are unverified
               metadata and do not establish when the underlying event happened.
+              The same redacted excerpts and draft claims are sent to the same
+              provider/model for an additional grounding check. Summary generation,
+              format retries, correction, and this check share a maximum of three
+              provider calls and a 23-second action budget. Unchecked or rejected
+              drafts are withheld. Model agreement is not independent verification.
               This feature requires a server-side Groq API
               key and a server configuration explicitly marked free-tier; Atlas does not
               upgrade an account or add billing details. The free-tier status

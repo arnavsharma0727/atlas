@@ -46,6 +46,12 @@ export async function buildSearchAudit(input: {
     search: { topic: input.topic, localQuery: input.localQuery, countryCode: input.countryCode, language: input.language, queryMethod: input.queryMethod },
     summary: {
       mode: input.summaryMode,
+      groundingCheck: input.summaryMode === "ai" && input.summary.groundingCheck?.state === "model-check-passed"
+        && input.summary.groundingCheck.independentValidation === false
+        && Number.isInteger(input.summary.groundingCheck.claimCount)
+        && input.summary.groundingCheck.claimCount > 0 && input.summary.groundingCheck.claimCount <= 7
+        ? { state: "model-check-passed", claimCount: input.summary.groundingCheck.claimCount, independentValidation: false }
+        : null,
       passages: passages.map(([key, passage]) => ({ key, citationIds: passage.citations, supportingQuoteCount: passage.supportingQuotes?.length ?? 0 })),
       claims: claimMetadata,
     },
