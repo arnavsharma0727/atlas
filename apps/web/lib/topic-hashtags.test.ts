@@ -11,6 +11,9 @@ describe("topicHashtags", () => {
   it.each([
     ["solar panels demand", ["SolarPanels"]],
     ["solar modules prices", ["SolarModules"]],
+    ["voitures électriques", ["VoitureElectrique"]],
+    ["carros elétricos", ["CarroEletrico"]],
+    ["coches eléctricos", ["CocheElectrico"]],
     ["natural gas demand", ["NaturalGas"]],
     ["Shell natural gas supply", ["Shell", "NaturalGas"]],
     ["electric vehicle demand", ["ElectricVehicles"]],

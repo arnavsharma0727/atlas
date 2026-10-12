@@ -134,7 +134,7 @@ const MARKET_TOPIC_ALIASES: string[][] = [
   ["natural gas", "gas natural", "gás natural", "gaz naturel", "erdgas", "천연가스", "천연 가스", "天然ガス", "प्राकृतिक गैस", "lng", "henry hub"],
   ["bitcoin", "btc"],
   ["ethereum", "ether", "eth"],
-  ["electric vehicle", "electric vehicles", "ev", "evs"],
+  ["electric vehicle", "electric vehicles", "ev", "evs", "voiture électrique", "voitures électriques", "voiture electrique", "voitures electriques", "carro elétrico", "carros elétricos", "coche eléctrico", "coches eléctricos", "elektroauto", "elektroautos"],
 ];
 
 const NATURAL_GAS_QUERY_PATTERNS = [

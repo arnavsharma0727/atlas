@@ -295,6 +295,9 @@ describe("market summary evidence contracts", () => {
     expect(hasTopicSignalTerms("Der Photovoltaik-Markt steht unter Druck.", "Solarmodule")).toBe(true);
     expect(hasTopicSignalTerms("Photovoltaic costs are falling.", "solar panels")).toBe(true);
     expect(hasTopicSignalTerms("The wind-power market is under pressure.", "solar panels")).toBe(false);
+    expect(hasTopicSignalTerms("Le prix des voitures électriques baisse.", "voiture électrique")).toBe(true);
+    expect(hasTopicSignalTerms("Le prix d'une voiture électrique baisse.", "voitures électriques")).toBe(true);
+    expect(hasTopicSignalTerms("O preço do carro elétrico caiu.", "carros elétricos")).toBe(true);
     expect(hasMarketSignalTerms({ excerpt: "커피 수요와 원자재 가격이 상승했다.", language: "ko" })).toBe(true);
     expect(hasMarketSignalTerms({ excerpt: "The smell of coffee fills the room.", language: "Lemmy language ID 0" })).toBe(false);
     expect(hasMarketSignalTerms({ excerpt: "시장 수요가 증가했다.", language: "Lemmy language ID 0" })).toBe(true);

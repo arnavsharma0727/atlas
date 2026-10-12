@@ -2,6 +2,9 @@
 const COMPOUND_SUBJECTS: readonly [RegExp, string][] = [
   [/\bsolar\s+panels?\b/giu, "SolarPanels"],
   [/\bsolar\s+modules?\b/giu, "SolarModules"],
+  [/\bvoitures?\s+électriques?\b/giu, "VoitureElectrique"],
+  [/\bcarros?\s+elétricos?\b/giu, "CarroEletrico"],
+  [/\bcoches?\s+eléctricos?\b/giu, "CocheElectrico"],
   [/\bnatural\s+gas\b/giu, "NaturalGas"],
   [/\belectric\s+vehicles?\b/giu, "ElectricVehicles"],
   [/\bartificial\s+intelligence\b/giu, "ArtificialIntelligence"],
