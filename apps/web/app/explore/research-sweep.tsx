@@ -361,7 +361,7 @@ export default function ResearchSweep({
           </section>
 
           <details className="source-register" id="source-register">
-            <summary>View sources and citations <span>{displayResults.reduce((count, view) => count + view.evidence.length, 0)} linked records · source coverage</span></summary>
+            <summary>View sources and citations <span>{(summaryBreadth?.baseline.excerptCount ?? 0) + (summaryBreadth?.selected.excerptCount ?? 0)} overview inputs · {displayResults.reduce((count, view) => count + view.evidence.length, 0)} topic-matched links</span></summary>
           <section className="source-citations" aria-labelledby="source-citations-title">
             <header>
               <div>
