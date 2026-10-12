@@ -3,7 +3,8 @@ import type { ResearchSweepSourceResult } from "./research-sweep";
 import { publicationTimestampUTC } from "./publication-date";
 
 export type SummarySupportQuote = { citationId: string; quote: string };
-export type SummaryPassage = { text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] };
+export type SummaryClaim = { text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] };
+export type SummaryPassage = SummaryClaim & { claims?: SummaryClaim[] };
 const MIN_VERBATIM_COPY_REJECTION_CHARS = 160;
 export type MarketSummary = {
   usSummary: SummaryPassage;
@@ -624,7 +625,7 @@ export function normalizeMarketSummary(
   const passage = (key: Exclude<SummaryValidationFailure["group"], "response">, allowed: Set<string>, requireBothGroups = false): SummaryPassage | null => {
     const reject = (code: SummaryValidationFailure["code"]) => fail(code, key);
     const rawClaims = record[key];
-    if (!Array.isArray(rawClaims) || rawClaims.length !== 1) return reject("claim-count");
+    if (!Array.isArray(rawClaims) || rawClaims.length < 1 || rawClaims.length > (requireBothGroups ? 1 : 3)) return reject("claim-count");
     const claims: Array<{ text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] }> = [];
     for (const rawClaim of rawClaims) {
       if (!rawClaim || typeof rawClaim !== "object" || Array.isArray(rawClaim)) return reject("claim-shape");
@@ -690,17 +691,19 @@ export function normalizeMarketSummary(
           ? `One cited social post makes this unverified claim: ${text}`
           : `The cited social posts make this unverified claim: ${text}`;
       }
+      const attributed = /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(text) ||
+        /^\s*(?:one cited social post makes|the cited social posts make) this unverified claim:/iu.test(text);
+      text = ensureSentenceEnding(attributed ? text : `The cited, unverified material says: ${text}`);
+      if (claims.some((claim) => claim.text.normalize("NFKC").toLocaleLowerCase() === text.normalize("NFKC").toLocaleLowerCase())) return reject("claim-text");
       claims.push({ text, citations, ...(supportingQuotes ? { supportingQuotes } : {}) });
     }
-    const claimText = claims.map(({ text: value }) => ensureSentenceEnding(value)).join(" ").slice(0, 900);
-    const allClaimsAttributed = claims.every(({ text: value }) =>
-      /^\s*(?:(?:one|a|an|the|some|these|both|each)\s+)?(?:(?:cited|retrieved|submitted|public|unverified)\s+)*(?:public\s+)?(?:post|excerpt|record|source|report|headline|discussion|sample|material)\b/iu.test(value) ||
-      /^\s*(?:one cited social post makes|the cited social posts make) this unverified claim:/iu.test(value),
-    );
-    const text = allClaimsAttributed ? claimText : `The cited, unverified material says: ${claimText}`;
-    const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))].slice(0, 8);
+    const text = claims.map(({ text: value }) => value).join(" ");
+    // Never truncate away a qualification, counterpoint, or its source link.
+    if (text.length > 900) return reject("claim-length");
+    const citations = [...new Set(claims.flatMap(({ citations: ids }) => ids))];
+    if (citations.length > 8) return reject("citation-list");
     const supportingQuotes = claims.flatMap(({ supportingQuotes: quotes }) => quotes ?? []);
-    return { text, citations, ...(supportingQuotes.length ? { supportingQuotes } : {}) };
+    return { text, citations, ...(supportingQuotes.length ? { supportingQuotes } : {}), ...(claims.length > 1 ? { claims } : {}) };
   };
 
   const submittedIds = new Set([...available.us, ...available.local]);

@@ -6,6 +6,21 @@ import { includesExternalLink } from "../../lib/research-sweep";
 import { citationKey } from "../../lib/perspective-snapshot";
 
 describe("summary evidence links", () => {
+  it("renders distinct observations with separate source links and quote disclosures", () => {
+    const html = renderToStaticMarkup(createElement(SummaryPassageText, {
+      passage: { text: "Combined text must not replace the observations.", citations: ["C1", "C2"], claims: [
+        { text: "One post reports rising demand.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "demand is rising" }] },
+        { text: "Another post reports falling demand.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: "demand is falling" }] },
+      ] }, citedBreadth: { excerptCount: 2, platformLabels: ["Bluesky", "Lemmy"] },
+    }));
+    expect(html).not.toContain("Combined text must not replace");
+    expect(html).toContain('One post reports rising demand.<span class="summary-citations"');
+    expect(html).toContain('Another post reports falling demand.<span class="summary-citations"');
+    expect(html.match(/Check verbatim source excerpts/g)).toHaveLength(2);
+    expect(html.match(/Cited basis:/g)).toHaveLength(1);
+    expect(html).toContain('href="#citation-C1"');
+    expect(html).toContain('href="#citation-C2"');
+  });
   it.each(["2026", "2026-02", "2026-02-28"])("renders provider calendar precision without invented date/time: %s", (value) => {
     const html = renderToStaticMarkup(createElement(SourceResults, {
       result: { key: "crossref", label: "Crossref", query: "inflation", asOf: "2026-10-12T00:00:00Z", window: "Five-year earliest-date screen", evidence: [], error: null, status: "complete" },

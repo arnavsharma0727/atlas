@@ -276,7 +276,9 @@ describe("free-tier market assist", () => {
       expect(messages[0].content).toContain("linkSharing:true");
       expect(messages[0].content).toContain("Do not treat a linked headline or promotion as a community member's independent view");
       const prompt = messages.find(({ role }) => role === "user")?.content ?? "";
-      expect(prompt).toContain("Use exactly one claim for each non-empty evidence group");
+      expect(prompt).toContain("Use one to three distinct one-sentence claims");
+      expect(prompt).toContain("give those positions separate claims with their own source IDs and exact quotes");
+      expect(prompt).toContain("never pad the overview");
       expect(prompt).toContain("one exact verbatim supporting quote for every cited ID");
       expect(prompt).toContain("Include a number only when the exact figure appears in the cited excerpt");
       expect(prompt).toContain("semiconductors");
@@ -408,6 +410,7 @@ describe("free-tier market assist", () => {
     const retryPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "user").content;
     const retrySystemPrompt = JSON.parse(String(fetch.mock.calls[1][1]?.body)).messages.find((message: { role: string }) => message.role === "system").content;
     expect(retryPrompt).toContain("corrected, compact JSON summary");
+    expect(retryPrompt).toContain("Use one to three distinct one-sentence claims");
     expect(retrySystemPrompt).toContain("Keep each claim text a short paraphrase");
     expect(retrySystemPrompt).toContain("Posting time and event time are different");
     expect(retrySystemPrompt).toContain("leave it unknown instead of assigning a current date");

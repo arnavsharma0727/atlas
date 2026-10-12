@@ -30,6 +30,14 @@ export async function buildSearchAudit(input: {
   const passages = [
     ["baseline", input.summary.usSummary], ["selected", input.summary.localSummary], ["comparison", input.summary.comparison],
   ] as const;
+  const claimMetadata = passages.flatMap(([key, passage]) =>
+    input.summaryMode === "ai" && passage.supportingQuotes?.length
+      ? (passage.claims ?? [passage]).map((claim, index) => ({
+        id: `${key}-${index + 1}`, passage: key,
+        citationIds: claim.citations,
+        supportingQuoteCount: claim.supportingQuotes?.length ?? 0,
+      })) : [],
+  );
   return {
     schema: "atlas-search-audit/v1",
     runId: input.run.id,
@@ -39,6 +47,7 @@ export async function buildSearchAudit(input: {
     summary: {
       mode: input.summaryMode,
       passages: passages.map(([key, passage]) => ({ key, citationIds: passage.citations, supportingQuoteCount: passage.supportingQuotes?.length ?? 0 })),
+      claims: claimMetadata,
     },
     sources: await Promise.all(views.map(async (view) => ({
       key: view.result.key,
@@ -70,6 +79,7 @@ export async function buildSearchAudit(input: {
           displayed: view.evidence.some(({ id }) => id === item.id),
           overviewSelected: citationId !== null && selected.has(citationId),
           citedBy: passages.filter(([, passage]) => citationId !== null && passage.citations.includes(citationId)).map(([key]) => key),
+          citedByClaims: claimMetadata.filter((claim) => citationId !== null && claim.citationIds.includes(citationId)).map(({ id }) => id),
         };
       })),
     }))),

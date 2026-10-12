@@ -44,6 +44,25 @@ describe("local search audit", () => {
     expect(snapshot.limits.join(" ")).toContain("sensitive information you entered");
   });
 
+  it("links separately rendered claims to originals without retaining any claim wording", async () => {
+    const input = fixture();
+    const summary = { ...input.summary, usSummary: {
+      text: "PRIVATE_COMBINED", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "PRIVATE_QUOTE" }],
+      claims: [
+        { text: "PRIVATE_CLAIM_ONE", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "PRIVATE_QUOTE_ONE" }] },
+        { text: "PRIVATE_CLAIM_TWO", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "PRIVATE_QUOTE_TWO" }] },
+      ],
+    } };
+    const snapshot = await buildSearchAudit({ ...input, summary });
+    expect(snapshot.summary.claims).toEqual([
+      { id: "baseline-1", passage: "baseline", citationIds: ["C1"], supportingQuoteCount: 1 },
+      { id: "baseline-2", passage: "baseline", citationIds: ["C1"], supportingQuoteCount: 1 },
+    ]);
+    expect(snapshot.sources[0].records[0].citedByClaims).toEqual(["baseline-1", "baseline-2"]);
+    expect(JSON.stringify(snapshot)).not.toContain("PRIVATE_");
+    expect((await buildSearchAudit({ ...input, summary, summaryMode: "evidence" })).summary.claims).toEqual([]);
+  });
+
   it("links federation copies within a run, but not across independently salted runs", async () => {
     const input = fixture();
     const copy = { ...input.results[0], key: "local:lemmy:jlai.lu", evidence: [{ ...input.results[0].evidence[0], url: `${input.results[0].evidence[0].url}?source=federation&utm_source=copy` }] };

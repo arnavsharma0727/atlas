@@ -395,18 +395,18 @@ export function SummaryPassageText({ passage, citedBreadth }: { passage: MarketS
   // Keep the overview readable while letting a researcher jump directly to
   // each source record supporting this passage in the consolidated register.
   return <div className="summary-passage">
-    <p>{passage.text}{passage.citations.length > 0 && (
+    {passage.claims?.length ? <div className="space-y-4">{passage.claims.map((claim, index) => <SummaryPassageText key={index} passage={claim} />)}</div> : <p>{passage.text}{passage.citations.length > 0 && (
       <span className="summary-citations" aria-label="Evidence sources">
         {" "}Evidence: {passage.citations.map((citationId, index) => (
           <span key={citationId}>{index > 0 ? ", " : ""}<a href={`#citation-${citationId}`} aria-label={`Open source ${citationId}`}>{citationId}</a></span>
         ))}
       </span>
-    )}</p>
+    )}</p>}
     {citedBreadth && passage.citations.length > 0 && <>
       <p className="summary-sample-meta">Cited basis: {citedBreadth.excerptCount} unique {citedBreadth.excerptCount === 1 ? "record" : "records"} · {citedBreadth.platformLabels.length} {citedBreadth.platformLabels.length === 1 ? "platform" : "platforms"}{citedBreadth.platformLabels.length > 0 ? `: ${citedBreadth.platformLabels.join(", ")}` : ""}. Citation coverage does not establish agreement or independence.</p>
       {citedBreadth.platformLabels.length === 1 && <p className="summary-sample-caveat">This AI overview cites one platform only, even if other platforms appear in the selected inputs.</p>}
     </>}
-    {!!passage.supportingQuotes?.length && (
+    {!passage.claims?.length && !!passage.supportingQuotes?.length && (
       <details className="summary-supporting-quotes">
         <summary>Check verbatim source excerpts</summary>
         <ul>{passage.supportingQuotes.map(({ citationId, quote }, index) => (

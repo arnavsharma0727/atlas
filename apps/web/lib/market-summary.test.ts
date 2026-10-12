@@ -799,17 +799,43 @@ describe("market summary evidence contracts", () => {
     expect(normalizeMarketSummary(value, { us: new Set(["C1"]), local: new Set() })).toBeNull();
   });
 
-  it("rejects multiple claims instead of flattening them into one passage", () => {
+  it("rejects more than three side-specific claims", () => {
     const summary = normalizeMarketSummary({
       baselineClaims: [
         { text: "One sourced claim.", citations: ["C1"] },
         { text: "A second sourced claim.", citations: ["C1"] },
+        { text: "A third sourced claim.", citations: ["C1"] },
+        { text: "A fourth sourced claim.", citations: ["C1"] },
       ],
       localClaims: [{ text: "Local evidence.", citations: ["C2"] }],
       comparisonClaims: [{ text: "Comparison.", citations: ["C1", "C2"] }],
       limitations: [],
     }, { us: new Set(["C1"]), local: new Set(["C2"]) });
     expect(summary).toBeNull();
+  });
+
+  it("preserves distinct observations and their individual exact-quote lineage", () => {
+    const normalize = (secondQuote = "Copper demand is falling") => normalizeMarketSummary({
+      baselineClaims: [
+        { text: "One post reports rising copper demand.", citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: "Copper demand is rising" }] },
+        { text: "Another post reports falling copper demand.", citations: ["C2"], supportingQuotes: [{ citationId: "C2", quote: secondQuote }] },
+      ], localClaims: [], comparisonClaims: [],
+    }, { us: new Set(["C1", "C2"]), local: new Set(), evidenceText: { us: new Map([["C1", "Copper demand is rising in my business."], ["C2", "Copper demand is falling in my business."]]), local: new Map() } });
+    const summary = normalize();
+    expect(summary?.usSummary.claims).toHaveLength(2);
+    expect(summary?.usSummary.claims?.[0].citations).toEqual(["C1"]);
+    expect(summary?.usSummary.claims?.[1].citations).toEqual(["C2"]);
+    expect(summary?.usSummary.claims?.[1].supportingQuotes?.[0].quote).toBe("Copper demand is falling");
+    expect(summary?.usSummary.citations).toEqual(["C1", "C2"]);
+    expect(normalize("Copper demand is rising")).toBeNull();
+  });
+
+  it("rejects repeated claims and overlong aggregate prose rather than silently truncating it", () => {
+    const valid = { text: "One post reports rising demand.", citations: ["C1"] };
+    const run = (claims: unknown[]) => normalizeMarketSummary({ baselineClaims: claims, localClaims: [], comparisonClaims: [] }, { us: new Set(["C1"]), local: new Set() });
+    expect(run([valid, valid])).toBeNull();
+    expect(run([valid, { ...valid, text: "One post reports pricing uncertainty." }, { ...valid, text: "One post reports rising inventory." }])?.usSummary.claims).toHaveLength(3);
+    expect(run(["First", "Second", "Third"].map((prefix) => ({ text: `${prefix} ${"demand ".repeat(48)} remains uncertain.`, citations: ["C1"] })))).toBeNull();
   });
 
   it("limits claim count and rejects cross-group citations on side-specific views", () => {
