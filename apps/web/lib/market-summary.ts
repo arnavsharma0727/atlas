@@ -3,6 +3,7 @@ import type { ResearchSweepSourceResult } from "./research-sweep";
 
 export type SummarySupportQuote = { citationId: string; quote: string };
 export type SummaryPassage = { text: string; citations: string[]; supportingQuotes?: SummarySupportQuote[] };
+const MIN_VERBATIM_COPY_REJECTION_CHARS = 160;
 export type MarketSummary = {
   usSummary: SummaryPassage;
   localSummary: SummaryPassage;
@@ -543,7 +544,7 @@ export function normalizeMarketSummary(
         // overview must synthesize rather than simply paste a long excerpt.
         const normalizedText = (value: string) => value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/gu, " ").trim();
         const normalizedClaim = normalizedText(text);
-        if (supportingQuotes.some(({ quote }) => normalizedText(quote).length >= 32 && normalizedClaim.includes(normalizedText(quote)))) return null;
+        if (supportingQuotes.some(({ quote }) => normalizedText(quote).length >= MIN_VERBATIM_COPY_REJECTION_CHARS && normalizedClaim.includes(normalizedText(quote)))) return null;
       }
       // Models can ignore attribution instructions and restate a forum user's
       // precise statistic like an established market fact. Keep a deterministic

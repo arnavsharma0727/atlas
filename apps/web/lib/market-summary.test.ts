@@ -500,8 +500,18 @@ describe("market summary evidence contracts", () => {
     expect(wrongSource).toBeNull();
   });
 
-  it("rejects an overview sentence that merely pastes its long supporting quote", () => {
-    const excerpt = "Semiconductor demand is slowing as inventory builds this quarter.";
+  it("allows a short source sentence but rejects an overview that pastes a long supporting quote", () => {
+    const shortExcerpt = "Semiconductor demand is slowing as supply adjusts.";
+    const shortSummary = normalizeMarketSummary({
+      baselineClaims: [{ text: shortExcerpt, citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: shortExcerpt }] }],
+      localClaims: [], comparisonClaims: [],
+    }, {
+      us: new Set(["C1"]), local: new Set(),
+      evidenceText: { us: new Map([["C1", shortExcerpt]]), local: new Map() },
+    });
+    expect(shortSummary).not.toBeNull();
+
+    const excerpt = "Semiconductor demand is slowing as inventory builds this quarter, while manufacturers report longer lead times and uncertainty about pricing through the next planning cycle.";
     const summary = normalizeMarketSummary({
       baselineClaims: [{ text: `The cited post says: ${excerpt}`, citations: ["C1"], supportingQuotes: [{ citationId: "C1", quote: excerpt }] }],
       localClaims: [], comparisonClaims: [],
