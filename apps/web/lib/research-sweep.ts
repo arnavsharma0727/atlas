@@ -12,6 +12,7 @@ import type { CrossrefWork } from "./crossref-search";
 import type { ArxivRecord } from "./arxiv-search";
 import { scholarlyContextNote } from "./scholarly-context-relevance";
 import { SCHOLARLY_TITLE_MATCH_NOTE } from "./scholarly-title-match";
+import { PYTORCH_COVERAGE, PYTORCH_WINDOW, pytorchAppliesToQuery, type PytorchSample } from "./pytorch-forum";
 import { searchManifoldForecasts } from "./manifold-search";
 import type { OpenAlexWork } from "./openalex-search";
 import type { SecFilingSearch } from "./sec-edgar-research-search";
@@ -34,6 +35,8 @@ export type ResearchSweepSelection = {
   openAlex?: boolean;
   /** Visitor-triggered, title/ID-only arXiv metadata; never a country or discussion sample. */
   arxiv?: boolean;
+  /** Bounded licensed technical first-post sample; never treated as a national/AI view. */
+  pytorch?: boolean;
   /** Visitor-triggered play-money prediction markets; never fed into country/community summaries. */
   manifoldForecasts?: boolean;
   /** Visitor-triggered exact issuer lookup; official filings are source context, never conversation evidence. */
@@ -161,7 +164,7 @@ export async function runResearchSweep(
   }
   const mastodonQueries = selection.mastodonQueries ?? (selection.mastodon ? [selection.mastodon] : []);
   const mastodonLocalInstances = new Set<string>(selection.mastodonLocalInstances ?? []);
-  if (!selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !(selection.bisCountryCode && bisEerAppliesToQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
+  if (!(selection.pytorch && pytorchAppliesToQuery(query)) && !selection.globalVoices && !selection.theConversation && !selection.crossref && !selection.openAlex && !selection.arxiv && !selection.manifoldForecasts && !selection.secEdgar && !(selection.worldBankCountryCode && worldBankIndicatorForQuery(query)) && !(selection.eiaEnergyPrices && eiaSeriesForQuery(query).length) && !(selection.bisCountryCode && bisEerAppliesToQuery(query)) && !stackExchangeQueries.length && !selection.lemmy && !mastodonQueries.length && !blueskyQueries.length && !selection.wikimediaLanguage) {
     throw new Error("Select at least one source.");
   }
   if (selection.wikimediaLanguage && !WIKIMEDIA_TALK_WIKIS.some(({ language }) => language === selection.wikimediaLanguage)) {
@@ -544,6 +547,23 @@ export async function runResearchSweep(
           status: "unavailable" as const,
         }));
       }
+    })());
+  }
+  if (selection.pytorch && pytorchAppliesToQuery(query)) {
+    tasks.push((async () => {
+      let sample: PytorchSample | undefined;
+      const result = await capture("pytorch", "PyTorch Forums · technical first-post sample", query, asOf, PYTORCH_WINDOW, async () => {
+        const response = await boundedFetch("/api/research/pytorch", {
+          method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error("PyTorch latest-topic feed is unavailable or rate-limited.");
+        const body = await response.json() as { sample?: PytorchSample };
+        if (!body.sample || !Array.isArray(body.sample.evidence)) throw new Error("PyTorch returned an unexpected sample.");
+        sample = body.sample;
+        return sample.evidence;
+      }, () => sample ? `${sample.feedCount} latest feed topics inspected; ${sample.matchingTopics} recent title matches; ${Math.min(sample.matchingTopics, 3)} topic reads; ${sample.failedTopics} failed reads; ${sample.excludedTopics} safety/prose exclusions. General prose: CC BY 4.0 under forum-linked LF terms, with exceptions. Cached provider pages may be up to 15 minutes old.` : undefined,
+      () => Boolean(sample && (sample.failedTopics || sample.matchingTopics > 3)));
+      return { ...result, ...(sample ? { retrievedAt: sample.retrievedAt } : {}), coverageNote: PYTORCH_COVERAGE };
     })());
   }
   if (selection.crossref) {

@@ -30,6 +30,11 @@ try {
 try {
   const response = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
   const page = await response.text();
+  if (response.ok && page.includes("PyTorch Forums") && page.includes("latest 30 active public topics") && page.includes("excluded from AI overviews") && page.includes("LF general content license and exceptions")) {
+    pass("PyTorch bounded-source disclosure", "latest-topic sampling, reuse exceptions and AI exclusion are disclosed");
+  } else {
+    fail("PyTorch bounded-source disclosure", "bounded technical-source disclosure is absent");
+  }
   if (response.ok && page.includes("marked as automated") && page.includes("omitted from the AI discussion sample")) {
     pass("Mastodon automated-account boundary", "self-declared automated-account posts stay citable but are excluded from AI discussion text");
   } else {

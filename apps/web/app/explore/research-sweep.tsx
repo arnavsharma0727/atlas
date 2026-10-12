@@ -96,6 +96,7 @@ export default function ResearchSweep({
         crossref: true,
         openAlex: true,
         arxiv: true,
+        pytorch: true,
         manifoldForecasts: true,
         secEdgar: true,
         worldBankCountryCode: activeCountryCode,

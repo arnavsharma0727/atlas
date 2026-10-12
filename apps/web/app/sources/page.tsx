@@ -77,6 +77,14 @@ export default async function Sources() {
   const db = serverSupabase();
   const sources: SourceConfig[] = [
     {
+      name: "PyTorch Forums · bounded technical discussions",
+      key: "pytorch", enabled: true, onDemand: true,
+      referenceUrl: "https://discuss.pytorch.org/tos", referenceLabel: "Forum terms",
+      secondaryReferenceUrl: "https://lfprojects.org/policies/terms-of-use/", secondaryReferenceLabel: "LF general content license and exceptions",
+      additionalReferences: [{ url: "https://discuss.pytorch.org/robots.txt", label: "Crawler restrictions" }],
+      detail: "For explicit GPU, inference or framework queries, Atlas reads only the latest 30 active public topics, screens titles for exact normalized query words, and reads at most three matching original posts created within 30 days. This is not full forum search: robots-disallowed search endpoints and pagination are never used. Replies are not sampled and recently bumped old topics do not become current first posts. Original authors, dates and topic links accompany short prose excerpts; code, quotations, link previews, media and explicit rights notices are excluded. General prose reuse follows the forum-linked LF CC BY 4.0 terms, subject to project-specific and third-party exceptions, not a license to artifacts or code. Contributors and language are not verified; these technical self-reports can be promotional and are excluded from AI overviews. Zero matches in this small active-topic feed do not establish absence. No signup/key/payment. Provider pages are coalesced/cached in volatile memory for 15 minutes, with three queries per client/minute and ten new provider reads/minute per warm server instance; cross-instance coordination and upstream availability remain limits.",
+    },
+    {
       name: "arXiv · open research metadata",
       key: "arxiv",
       enabled: true,

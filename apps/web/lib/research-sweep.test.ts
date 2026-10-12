@@ -6,6 +6,24 @@ import { citationKey } from "./perspective-snapshot";
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 
 describe("runResearchSweep", () => {
+  it("shows the bounded PyTorch sample separately, with partial status and no AI candidates", async () => {
+    const fetcher = vi.fn(async () => Response.json({ sample: {
+      evidence: [{ id: "pytorch:1:1", title: "GPU deployment", url: "https://discuss.pytorch.org/t/1/1", source: "PyTorch Forums", evidenceClass: "community forum", language: "Not reported", timeLabel: "Original post created", timeValue: new Date(NOW).toISOString(), transientPreview: "GPU deployment memory constraints are limiting our model sizes.", summaryEligible: false }],
+      feedCount: 30, matchingTopics: 5, failedTopics: 1, excludedTopics: 0, retrievedAt: new Date(NOW - 1000).toISOString(),
+    } }));
+    const [result] = await runResearchSweep("GPU", { pytorch: true, lemmy: false }, fetcher, NOW);
+    expect(result.status).toBe("partial");
+    expect(result.sourceNote).toContain("5 recent title matches");
+    expect(result.coverageNote).toContain("not reported");
+    expect(selectBalancedEvidence([result], new Map([[citationKey(result.key, result.evidence[0].id), "C1"]]))).toEqual([]);
+    expect(result.retrievedAt).toBe(new Date(NOW - 1000).toISOString());
+  });
+  it("does not call PyTorch for unrelated queries", async () => {
+    const fetcher = vi.fn(async () => Response.json({ message: { items: [] } }));
+    const results = await runResearchSweep("oil", { pytorch: true, crossref: true, lemmy: false }, fetcher, NOW);
+    expect(results.some((result) => result.key === "pytorch")).toBe(false);
+    expect(fetcher.mock.calls).toHaveLength(1);
+  });
   it("keeps original Mastodon hashtag commentary eligible but still excludes article sharing", async () => {
     const tag = { name: "Solar", url: "https://mastodon.social/tags/solar" };
     const hashtag = '<a href="https://mastodon.social/tags/solar" class="mention hashtag" rel="tag">#<span>Solar</span></a>';
