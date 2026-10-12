@@ -104,6 +104,19 @@ try {
 try {
   const response = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
   const page = await response.text();
+  if (response.ok && page.includes("DEV Community · excluded from visitor search") &&
+    page.includes("Not queried or scraped") && page.includes("prohibit public display, copying, or mirroring")) {
+    pass("DEV Community permission boundary", "API visibility is not treated as permission for public excerpt display");
+  } else {
+    fail("DEV Community permission boundary", "the exclusion and public-display restriction are not documented");
+  }
+} catch (error) {
+  fail("DEV Community permission boundary", error instanceof Error ? error.message : "request failed");
+}
+
+try {
+  const response = await fetch(`${base}/sources`, { signal: AbortSignal.timeout(15000) });
+  const page = await response.text();
   if (
     response.ok &&
     page.includes("Reddit · excluded from Atlas research search") &&

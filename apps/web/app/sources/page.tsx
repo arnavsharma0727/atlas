@@ -291,6 +291,18 @@ export default async function Sources() {
         "Visitor-triggered search through the public AppView with no API key or account. Up to 25 indexed posts from the last 7 days per phrase. The baseline adds a `lang:en` query filter only when the phrase fits the provider query limit; otherwise it uses the phrase unchanged. The selected lens uses an automatic or researcher-entered local phrase when available, and Atlas displays which phrase was used. Repeated text and byline concentration are flagged without asserting identity or independence. Detectable link-sharing posts are flagged because linked headlines or copied reporting are not necessarily the poster's independent view. Excerpts are transient. Bluesky's terms say users retain their content and grant rights to Bluesky; public API availability is not a blanket content-reuse license to Atlas. Atlas limits itself to transient, attributed excerpts linked to the original, but broader or commercial reuse remains unverified and requires a separate rights review. Language metadata and query language do not establish author location or audience. This is an incomplete platform index, not a representative sample or firehose; access and rate limits may vary.",
     },
     {
+      name: "DEV Community · excluded from visitor search",
+      key: "dev-community",
+      enabled: false,
+      onDemand: false,
+      detail:
+        "Not queried or scraped. The public Forem API provides article and comment endpoints, but DEV's Terms allow only personal, non-commercial, transitory viewing and prohibit public display, copying, or mirroring. Atlas cannot treat API accessibility as permission to show excerpts in a shared research app. Reconsider only if the operator grants compatible written permission or a clear content license is provided.",
+      referenceUrl: "https://developers.forem.com/api/v0",
+      referenceLabel: "Forem public API documentation",
+      secondaryReferenceUrl: "https://dev.to/terms",
+      secondaryReferenceLabel: "DEV Community Terms of Use",
+    },
+    {
       name: "YouTube public comments (candidate)",
       key: "youtube-comments",
       enabled: false,
