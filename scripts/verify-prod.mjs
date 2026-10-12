@@ -154,6 +154,25 @@ try {
 }
 
 try {
+  const response = await fetch(`${base}/explore`, { signal: AbortSignal.timeout(15000) });
+  const page = await response.text();
+  const scripts = [...page.matchAll(/src="([^"]+\.js[^"]*)"/g)].map((match) => match[1]);
+  const bundles = await Promise.all(scripts.map(async (path) => {
+    try {
+      const asset = await fetch(new URL(path, base), { signal: AbortSignal.timeout(15000) });
+      return asset.ok ? asset.text() : "";
+    } catch { return ""; }
+  }));
+  if (response.ok && (page.includes("Check verbatim source excerpts") || bundles.some((bundle) => bundle.includes("Check verbatim source excerpts")))) {
+    pass("auditable summary excerpts in production UI", "the deployed Explore page includes the checked-excerpt disclosure");
+  } else {
+    fail("auditable summary excerpts in production UI", `HTTP ${response.status}; checked source excerpt disclosure was not found in the page or its scripts`);
+  }
+} catch (error) {
+  fail("auditable summary excerpts in production UI", error instanceof Error ? error.message : "request failed");
+}
+
+try {
   const response = await fetch(`${base}/api/research/market-assist`, {
     method: "POST",
     headers: { "content-type": "application/json" },
