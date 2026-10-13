@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { makeDocument } from "./connectors/normalize";
+import type { NormalizedDocument } from "./connectors/types";
 import {
   excludeTakedownBlockedDocuments,
   isAuthorizedTakedownRequest,
@@ -7,15 +7,19 @@ import {
   sourceUrlFingerprint,
 } from "./source-takedown";
 
-const document = makeDocument({
+const document: NormalizedDocument = {
   sourceType: "rss",
   sourceName: "Publisher",
   sourceUrl: "https://publisher.example/story?utm_source=feed",
-  title: "A research headline",
+  canonicalUrl: "https://publisher.example/story",
+  sourceDomain: "publisher.example",
+  titleOriginal: "A research headline",
   publishedAt: "2026-09-30T12:00:00.000Z",
-  tier: 2,
-  entityConfidence: 1,
-});
+  sourceQualityTier: 2,
+  entityMatchConfidence: 1,
+  contentHash: "fixture-content-hash",
+  rawMetadata: {},
+};
 
 describe("source takedown safeguards", () => {
   it("compares operator secrets without throwing on mismatched lengths", () => {

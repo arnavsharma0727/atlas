@@ -12,8 +12,8 @@ export default function Contact() {
         <div className="eyebrow mb-4">Contact</div>
         <h1 className="text-4xl font-extrabold">Report an issue</h1>
         <p className="mt-5 leading-7 text-muted">
-          For a technical bug or attribution concern about a publicly collected
-          item, the repository issue tracker is public. Include only the public
+          For a technical bug or concern about a source link returned by Atlas,
+          the repository issue tracker is public. Include only the public
           source URL and a short reason; do not include names, private
           correspondence, personal information, passwords, API keys, or other
           secrets.

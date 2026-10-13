@@ -1,3 +1,0 @@
-import { companyProfile, completeness, profileWarnings } from '../apps/web/lib/profile';
-export function validateProfile(input:unknown){const parsed=companyProfile.safeParse(input); if(!parsed.success)return {valid:false,score:0,errors:parsed.error.issues.map(i=>i.path.join('.')+': '+i.message),warnings:[]}; return {valid:profileWarnings(parsed.data).length===0,score:completeness(parsed.data),errors:[],warnings:profileWarnings(parsed.data)} }
-if(import.meta.url===`file://${process.argv[1]}`) console.log('Use validateProfile() from the protected import CLI. No files are imported by this validator directly.');

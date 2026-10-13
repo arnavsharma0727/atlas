@@ -2,6 +2,6 @@
   "name": "atlas",
   "private": true,
   "workspaces": ["apps/web"],
-  "scripts": {"dev": "npm --workspace apps/web run dev", "build": "npm --workspace apps/web run build", "test": "npm --workspace apps/web run test", "typecheck": "npm --workspace apps/web run typecheck", "verify:prod": "node scripts/verify-prod.mjs", "evaluate:acceptance": "tsx scripts/evaluate_research_acceptance.ts", "import-profiles": "tsx scripts/import_company_profiles.ts", "discover:leads": "tsx scripts/discover_public_leads.ts"},
+  "scripts": {"dev": "npm --workspace apps/web run dev", "build": "npm --workspace apps/web run build", "test": "npm --workspace apps/web run test", "typecheck": "npm --workspace apps/web run typecheck", "verify:prod": "node scripts/verify-prod.mjs"},
   "devDependencies": {"typescript": "^5.7.2"}
 }
