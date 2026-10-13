@@ -55,11 +55,26 @@ describe("one-call Groq comparison route", () => {
   it("withholds a comparison containing invented citation IDs", async () => {
     const invalid = { ...result, comparison: { ...result.comparison,
       us: [{ text: "An invented source says demand is strong.", sourceIds: ["S99"] }] } };
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ choices: [{ message: { content: JSON.stringify(invalid) } }] })));
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(invalid) } }] }))
+      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(invalid.comparison) } }] })));
     const response = await POST(request());
     const payload = await response.json();
     expect(payload.comparison).toBeNull();
     expect(payload.sources).toHaveLength(2);
+  });
+  it("repairs a malformed comparison using only discovered descriptions", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ ...result, comparison: null }) } }] }))
+      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(result.comparison) } }] }));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await POST(request());
+    expect((await response.json()).comparison).toMatchObject(result.comparison);
+    expect(allowPublicMarketAssistRequest).toHaveBeenCalledTimes(2);
+    const repairBody = JSON.parse(fetcher.mock.calls[1][1].body);
+    expect(repairBody.response_format).toEqual({ type: "json_object" });
+    expect(JSON.stringify(repairBody)).not.toContain("https://");
+    expect(repairBody.tools).toBeUndefined();
   });
   it("makes no model call when disabled, limited, or input is null", async () => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
