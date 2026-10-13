@@ -70,7 +70,15 @@ export default function AtlasSearch() {
         </div>
         {result.country !== "US" && <section className="atlas-takeaway"><span className="atlas-section-number">03 / COMPARISON</span><h3>Where the evidence differs</h3><ClaimList claims={result.comparison.differences} /></section>}
         {result.comparison.gaps.length > 0 && <p className="atlas-gaps">Not established: {result.comparison.gaps.join(" · ")}</p>}
-      </> : <p className="atlas-empty atlas-no-comparison">Atlas cannot form a supported comparison from this search.</p>}
+      </> : result.sources.length ? <>
+        <div className="atlas-report-grid">
+          <section><span className="atlas-section-number">01 / SOURCE DESCRIPTIONS</span><h3>United States</h3>
+            <ClaimList claims={result.sources.filter((source) => source.scope === "US").slice(0, 2).map((source) => ({ text: source.excerpt, sourceIds: [source.id] }))} /></section>
+          {result.country !== "US" && <section><span className="atlas-section-number">02 / SOURCE DESCRIPTIONS</span><h3>{selectedName}</h3>
+            <ClaimList claims={result.sources.filter((source) => source.scope === "selected").slice(0, 2).map((source) => ({ text: source.excerpt, sourceIds: [source.id] }))} /></section>}
+        </div>
+        <p className="atlas-gaps">Groq found these pages, but Atlas could not validate a cross-market comparison. These AI-written descriptions are not independently verified; check the original sources below.</p>
+      </> : <p className="atlas-empty atlas-no-comparison">Atlas could not find usable source links for this search.</p>}
       <details className="atlas-sources"><summary>Sources & research trail <span>{result.sources.length}</span></summary>
         <p>Groq found these pages through browser search. Atlas checked the link format and citation IDs, not the truth of page content. Open originals before relying on a claim.</p>
         <ol>{result.sources.map((source) => <li key={source.id}>

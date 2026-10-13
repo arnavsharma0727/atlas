@@ -90,22 +90,22 @@ export function parseAtlasSources(value: unknown): AtlasSource[] {
 }
 
 function validClaims(value: unknown, allowed: Set<string>, sources: AtlasSource[]): AtlasClaim[] | null {
-  if (!Array.isArray(value) || value.length > 3) return null;
+  if (!Array.isArray(value)) return null;
   const claims: AtlasClaim[] = [];
-  for (const row of value) {
-    if (!row || typeof row !== "object") return null;
+  for (const row of value.slice(0, 3)) {
+    if (!row || typeof row !== "object") continue;
     const item = row as Record<string, unknown>;
     if (typeof item.text !== "string" || item.text.trim().length < 12 || item.text.length > 320 ||
       /https?:\/\/|〖|\[S\d+\]/u.test(item.text) || !Array.isArray(item.sourceIds) ||
       item.sourceIds.length < 1 || item.sourceIds.length > 3 ||
-      item.sourceIds.some((id) => typeof id !== "string" || !allowed.has(id))) return null;
+      item.sourceIds.some((id) => typeof id !== "string" || !allowed.has(id))) continue;
     const ids = item.sourceIds as string[];
-    if (new Set(ids).size !== ids.length) return null;
+    if (new Set(ids).size !== ids.length) continue;
     // A number in the overview must at least occur in a cited snippet. This is
     // textual consistency, not verification that the number means the same thing.
     const citedText = sources.filter((source) => ids.includes(source.id)).map((source) => source.excerpt).join(" ");
     const figures = item.text.match(/\d+(?:[.,]\d+)*(?:%|bp)?/gu) ?? [];
-    if (figures.some((figure) => !citedText.includes(figure))) return null;
+    if (figures.some((figure) => !citedText.includes(figure))) continue;
     claims.push({ text: item.text.trim(), sourceIds: ids });
   }
   return claims;
@@ -122,10 +122,11 @@ export function parseAtlasComparison(value: unknown, sources: AtlasSource[], sel
   const differences = validClaims(row.differences, allIds, sources);
   if (!us || !selected || !differences || (usIds.size && !us.length) ||
     (selectedCountry !== "US" && selectedIds.size && !selected.length) ||
-    differences.some((claim) => selectedCountry !== "US" &&
-      (!claim.sourceIds.some((id) => usIds.has(id)) || !claim.sourceIds.some((id) => selectedIds.has(id))))) return null;
-  if (!Array.isArray(row.gaps) || row.gaps.length > 4 || row.gaps.some((gap) => typeof gap !== "string" || gap.length > 180)) return null;
+    !Array.isArray(row.gaps)) return null;
+  const supportedDifferences = differences.filter((claim) => selectedCountry === "US" ||
+    (claim.sourceIds.some((id) => usIds.has(id)) && claim.sourceIds.some((id) => selectedIds.has(id))));
+  if (row.gaps.length > 4 || row.gaps.some((gap) => typeof gap !== "string" || gap.length > 180)) return null;
   return { us, selected: selectedCountry === "US" ? [] : selected,
-    differences: selectedCountry === "US" ? [] : differences,
+    differences: selectedCountry === "US" ? [] : supportedDifferences,
     gaps: (row.gaps as string[]).map((gap) => gap.trim()).filter(Boolean) };
 }

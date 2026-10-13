@@ -16,10 +16,10 @@ describe("Groq-only research validation", () => {
       { title: "Repeat report", url: "https://example.org/us", scope: "US", excerpt: "Demand is slowing while inventories rise across the sector." },
     ] })).toHaveLength(1);
   });
-  it("rejects cross-country claims that cite only one side", () => {
+  it("drops cross-country claims that cite only one side while retaining valid side-specific claims", () => {
     expect(parseAtlasComparison({ us: [{ text: "U.S. demand appears weaker.", sourceIds: ["S1"] }],
       selected: [{ text: "German orders appear weaker.", sourceIds: ["S2"] }],
-      differences: [{ text: "The two markets differ.", sourceIds: ["S1"] }], gaps: [] }, sources, "DE")).toBeNull();
+      differences: [{ text: "The two markets differ.", sourceIds: ["S1"] }], gaps: [] }, sources, "DE")?.differences).toEqual([]);
   });
   it("accepts a bounded comparison with source IDs from both sides", () => {
     expect(parseAtlasComparison({ us: [{ text: "U.S. demand appears weaker.", sourceIds: ["S1"] }],
