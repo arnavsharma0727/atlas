@@ -21,7 +21,7 @@ async function groq(messages: Array<{ role: "system" | "user"; content: string }
     headers: { authorization: `Bearer ${process.env.GROQ_API_KEY}`, "content-type": "application/json" },
     body: JSON.stringify({ model: MODEL, messages, temperature: 0.2, reasoning_effort: "low",
       max_completion_tokens: browserSearch ? 2600 : 1100,
-      ...(browserSearch ? { tools: [{ type: "browser_search" }], tool_choice: "required", citation_options: "enabled" }
+      ...(browserSearch ? { tools: [{ type: "browser_search" }], tool_choice: "required" }
         : { response_format: { type: "json_object" } }) }),
     signal: AbortSignal.timeout(timeoutMs),
     cache: "no-store",
