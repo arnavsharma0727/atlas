@@ -33,8 +33,24 @@ describe("one-call Groq comparison route", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject(result);
     expect(fetcher).toHaveBeenCalledOnce();
-    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ tools: [{ type: "browser_search" }], tool_choice: "required" });
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ model: "openai/gpt-oss-120b", tools: [{ type: "browser_search" }], tool_choice: "required" });
     expect(JSON.parse(fetcher.mock.calls[0][1].body).response_format).toBeUndefined();
+  });
+  it("falls back once to the separate free model on a quota error", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(Response.json({ error: { message: "org_private provider message" } }, { status: 429 }))
+      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(result) } }] }));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetcher.mock.calls[1][1].body).model).toBe("openai/gpt-oss-20b");
+  });
+  it("does not expose provider diagnostics when both free models are limited", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: { message: "org_private provider message" } }, { status: 429 })));
+    const response = await POST(request());
+    expect(response.status).toBe(429);
+    expect(JSON.stringify(await response.json())).not.toContain("org_private");
   });
   it("withholds a comparison containing invented citation IDs", async () => {
     const invalid = { ...result, comparison: { ...result.comparison,
