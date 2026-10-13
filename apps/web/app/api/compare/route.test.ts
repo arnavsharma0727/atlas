@@ -28,19 +28,22 @@ describe("lean Groq comparison route", () => {
     vi.mocked(allowPublicMarketAssistRequest).mockReset().mockResolvedValue("allowed");
   });
   it("requires Groq browser search and validates a second Groq-only comparison", async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(sources) } }] }))
+    const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[0]] }) } }] }))
+      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[1]] }) } }] }))
       .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(comparison) } }] }));
     vi.stubGlobal("fetch", fetcher);
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ sources: [{ id: "S1" }, { id: "S2" }], comparison });
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenCalledTimes(3);
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ tools: [{ type: "browser_search" }], tool_choice: "required" });
-    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toMatchObject({ response_format: { type: "json_object" } });
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toMatchObject({ tools: [{ type: "browser_search" }], tool_choice: "required" });
+    expect(JSON.parse(fetcher.mock.calls[2][1].body)).toMatchObject({ response_format: { type: "json_object" } });
   });
   it("withholds a comparison containing invented citation IDs", async () => {
     const bad = { ...comparison, us: [{ text: "An invented source says demand is strong.", sourceIds: ["S99"] }] };
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(sources) } }] }))
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[0]] }) } }] }))
+      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[1]] }) } }] }))
       .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(bad) } }] })));
     const response = await POST(request());
     const payload = await response.json();

@@ -4,7 +4,7 @@ The Engine for Global Markets. Atlas is a focused, AI-assisted market-comparison
 
 ## Active research path
 
-Atlas uses Groq and its built-in browser-search tool to find public source pages. A second Groq call drafts short comparisons using only the returned source descriptions. The server accepts only HTTPS links, rejects unrecognized citation IDs, and withholds an unsupported comparison. This is **not** independent verification: source pages, dates, snippets, country relevance, and AI interpretations can be wrong. Open the original links. The prior direct Bluesky/forum/statistics integrations and scheduled ingestion are removed from the active product; retired server endpoints return HTTP 410.
+Atlas uses Groq and its built-in browser-search tool to find public source pages separately for the U.S. and selected market. A final Groq call drafts short comparisons using only the returned source descriptions. The server accepts only HTTPS links, rejects unrecognized citation IDs, and withholds an unsupported comparison. This is **not** independent verification: source pages, dates, snippets, country relevance, and AI interpretations can be wrong. Open the original links. The prior direct Bluesky/forum/statistics integrations and scheduled ingestion are removed from the active product; retired server endpoints return HTTP 410.
 
 The U.S. is the baseline. Country selection is a research focus, not a survey of residents or investors. No investment recommendation, price target, or representative national sentiment is inferred.
 
