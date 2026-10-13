@@ -6,65 +6,53 @@ import { allowPublicMarketAssistRequest } from "../../../lib/public-api-rate-lim
 vi.mock("../../../lib/server-supabase", () => ({ serverSupabase: () => null }));
 vi.mock("../../../lib/public-api-rate-limit", () => ({ allowPublicMarketAssistRequest: vi.fn() }));
 
-function request(topic = "semiconductors", country = "DE") {
+function request(body: unknown = { topic: "semiconductors", country: "DE" }) {
   return new NextRequest("https://atlas.example/api/compare", { method: "POST",
     headers: { "content-type": "application/json", host: "atlas.example", origin: "https://atlas.example" },
-    body: JSON.stringify({ topic, country }) });
+    body: JSON.stringify(body) });
 }
 
-const sources = { sources: [
-  { title: "U.S. chip demand report", url: "https://example.org/chips", scope: "US", excerpt: "U.S. chip demand is rising with larger data center orders.", publishedAt: "2026-10-10" },
-  { title: "German chip demand report", url: "https://example.de/chips", scope: "selected", excerpt: "German chip demand is weak as industrial orders slow.", publishedAt: "2026-10-10" },
-] };
-const comparison = { us: [{ text: "The U.S. report describes rising chip demand.", sourceIds: ["S1"] }],
+const result = { sources: [
+  { id: "S1", title: "U.S. chip demand report", url: "https://example.org/chips", scope: "US", excerpt: "U.S. chip demand is rising with larger data center orders.", publishedAt: "2026-10-10" },
+  { id: "S2", title: "German chip demand report", url: "https://example.de/chips", scope: "selected", excerpt: "German chip demand is weak as industrial orders slow.", publishedAt: "2026-10-10" },
+], comparison: { us: [{ text: "The U.S. report describes rising chip demand.", sourceIds: ["S1"] }],
   selected: [{ text: "The German report describes weak industrial demand.", sourceIds: ["S2"] }],
   differences: [{ text: "The reports point in different directions for chip demand.", sourceIds: ["S1", "S2"] }],
-  gaps: ["Neither report establishes company margins."] };
+  gaps: ["Neither report establishes company margins."] } };
 
-describe("lean Groq comparison route", () => {
+describe("one-call Groq comparison route", () => {
   beforeEach(() => {
     vi.unstubAllEnvs(); vi.unstubAllGlobals();
     vi.stubEnv("GROQ_API_KEY", "test-key"); vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.mocked(allowPublicMarketAssistRequest).mockReset().mockResolvedValue("allowed");
   });
-  it("requires Groq browser search and validates a second Groq-only comparison", async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[0]] }) } }] }))
-      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[1]] }) } }] }))
-      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(comparison) } }] }));
+  it("requires browser search and serves only a citation-valid comparison", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ choices: [{ message: { content: JSON.stringify(result) } }] }));
     vi.stubGlobal("fetch", fetcher);
     const response = await POST(request());
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ sources: [{ id: "S1" }, { id: "S2" }], comparison });
-    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(await response.json()).toMatchObject(result);
+    expect(fetcher).toHaveBeenCalledOnce();
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ tools: [{ type: "browser_search" }], tool_choice: "required" });
-    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toMatchObject({ tools: [{ type: "browser_search" }], tool_choice: "required" });
-    expect(JSON.parse(fetcher.mock.calls[2][1].body)).toMatchObject({ response_format: { type: "json_object" } });
+    expect(JSON.parse(fetcher.mock.calls[0][1].body).response_format).toBeUndefined();
   });
   it("withholds a comparison containing invented citation IDs", async () => {
-    const bad = { ...comparison, us: [{ text: "An invented source says demand is strong.", sourceIds: ["S99"] }] };
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[0]] }) } }] }))
-      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify({ sources: [sources.sources[1]] }) } }] }))
-      .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: JSON.stringify(bad) } }] })));
+    const invalid = { ...result, comparison: { ...result.comparison,
+      us: [{ text: "An invented source says demand is strong.", sourceIds: ["S99"] }] } };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ choices: [{ message: { content: JSON.stringify(invalid) } }] })));
     const response = await POST(request());
     const payload = await response.json();
     expect(payload.comparison).toBeNull();
     expect(payload.sources).toHaveLength(2);
   });
-  it("makes no external call when Groq is disabled or quota is exhausted", async () => {
+  it("makes no model call when disabled, limited, or input is null", async () => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "false");
     expect((await POST(request())).status).toBe(503);
     vi.stubEnv("GROQ_FREE_TIER_ENABLED", "true");
     vi.mocked(allowPublicMarketAssistRequest).mockResolvedValue("limited");
     expect((await POST(request())).status).toBe(429);
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-  it("rejects a null body without calling Groq", async () => {
-    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-    const response = await POST(new NextRequest("https://atlas.example/api/compare", {
-      method: "POST", headers: { "content-type": "application/json" }, body: "null",
-    }));
-    expect(response.status).toBe(400);
+    expect((await POST(request(null))).status).toBe(400);
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

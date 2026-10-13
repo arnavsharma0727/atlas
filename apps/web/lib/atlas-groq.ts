@@ -60,6 +60,7 @@ export function parseGroqJson(text: string): unknown {
 export function parseAtlasSources(value: unknown): AtlasSource[] {
   if (!value || typeof value !== "object" || !Array.isArray((value as { sources?: unknown }).sources)) return [];
   const seen = new Set<string>();
+  const seenIds = new Set<string>();
   const sources: AtlasSource[] = [];
   for (const row of (value as { sources: unknown[] }).sources.slice(0, 20)) {
     if (!row || typeof row !== "object") continue;
@@ -75,7 +76,10 @@ export function parseAtlasSources(value: unknown): AtlasSource[] {
     const excerpt = item.excerpt.trim().replace(/\s+/gu, " ").slice(0, 360);
     if (title.length < 5 || excerpt.length < 20 || !["US", "selected", "other"].includes(String(item.scope))) continue;
     seen.add(url.href);
-    sources.push({ id: `S${sources.length + 1}`, title, url: url.href,
+    const proposedId = typeof item.id === "string" && /^S[1-9]\d?$/u.test(item.id) ? item.id : `S${sources.length + 1}`;
+    if (seenIds.has(proposedId)) continue;
+    seenIds.add(proposedId);
+    sources.push({ id: proposedId, title, url: url.href,
       scope: item.scope as AtlasSource["scope"], excerpt,
       publishedAt: typeof item.publishedAt === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(item.publishedAt) &&
         !Number.isNaN(Date.parse(item.publishedAt)) && Date.parse(item.publishedAt) <= Date.now()
